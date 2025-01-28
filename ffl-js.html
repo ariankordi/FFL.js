@@ -1,0 +1,716 @@
+<head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body>
+  <h3>calling into ffl wasm from js (real)</h3>
+  <button onclick="callFFL()">do the thing with ffl</button>
+
+  <script type="module">
+    // emcc -DFFL_USE_TEXTURE_CALLBACK -DNO_MODELS_FOR_TEST -g3 -Wall -Wno-c23-extensions -include GLES2/gl2.h -I/home/arian/Downloads/build/raylib/src -I/home/arian/Downloads/ffl/include ~/Downloads/ffl-raylib-samples/ffl-raylib-shader-fflshader-nofflgl.c ~/Downloads/build/ffl-build-glad/ffl-em.a /home/arian/Downloads/build/raylib/src/libraylib-em.a -lm -DPLATFORM_WEB -DGRAPHICS_API_OPENGL_ES2 -DSUPPORT_TRACELOG -sASYNCIFY -sUSE_GLFW=3 -sUSE_ZLIB=1 -sALLOW_MEMORY_GROWTH --preload-file FFLResHigh.dat -s LINKABLE=1 -s EXPORT_ALL=1 -Wjs-compiler -s EXPORT_ES6=1 -s WASM=1 -o ffl-raylib-shader-fflshader-for-ffl.html -s EXPORTED_RUNTIME_METHODS=addFunction -s ALLOW_TABLE_GROWTH=1
+    const BASE_URL = 'https://debian.local:8445/assets/web%20builds/ffl-raylib-shader-fflshader-for-ffl';
+    //const BASE_URL = 'ffl-raylib-shader-fflshader-nofflgl';
+
+    async function init() {
+        const modulePromise = await import(`${BASE_URL}.js`).then(m => m.default);
+
+        window.Module = await modulePromise({
+            locateFile: (path) => `${BASE_URL}${path.substring(path.lastIndexOf('.'))}`
+        });
+
+        console.log("FFL Module initialized:", Module);
+    }
+
+    window.onload = init;
+  </script>
+  <!-- three.js 0.126.0 from mid-2021 -->
+  <script src="https://unpkg.com/three@0.126.0/build/three.min.js"></script>
+  <!--<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/spectorjs@0.9.30/dist/spector.bundle.js"></script>-->
+
+  <script src="struct-fu.js"></script>
+  <script>
+//import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
+//import _ from 'https://cdn.jsdelivr.net/npm/struct-fu@1.2.1/+esm';
+
+const FFLiShapeType = {
+    OPA_BEARD: 0,
+    OPA_FACELINE: 1,
+    OPA_HAIR_NORMAL: 2,
+    OPA_FOREHEAD_NORMAL: 3,
+    XLU_MASK: 4,
+    XLU_NOSELINE: 5,
+    OPA_NOSE: 6,
+    OPA_HAT_NORMAL: 7,
+    XLU_GLASS: 8,
+    OPA_HAIR_CAP: 9,
+    OPA_FOREHEAD_CAP: 10,
+    OPA_HAT_CAP: 11,
+    MAX: 12
+};
+
+const FFLAttributeBufferType = {
+    POSITION: 0,
+    TEXCOORD: 1,
+    NORMAL: 2,
+    TANGENT: 3,
+    COLOR: 4,
+    MAX: 5
+};
+
+const FFLCullMode = {
+    NONE: 0,
+    BACK: 1,
+    FRONT: 2,
+    MAX: 3
+};
+
+const FFLModulateMode = {
+    CONSTANT: 0,         // No Texture, Has Color (R)
+    TEXTURE_DIRECT: 1,   // Has Texture, No Color
+    RGB_LAYERED: 2,      // Has Texture, Has Color (R + G + B)
+    ALPHA: 3,            // Has Texture, Has Color (R)
+    LUMINANCE_ALPHA: 4,  // Has Texture, Has Color (R)
+    ALPHA_OPA: 5         // Has Texture, Has Color (R)
+};
+
+const FFLModulateType = {
+    SHAPE_FACELINE: 0,
+    SHAPE_BEARD: 1,
+    SHAPE_NOSE: 2,
+    SHAPE_FOREHEAD: 3,
+    SHAPE_HAIR: 4,
+    SHAPE_CAP: 5,
+    SHAPE_MASK: 6,
+    SHAPE_NOSELINE: 7,
+    SHAPE_GLASS: 8,
+    MUSTACHE: 9,
+    MOUTH: 10,
+    EYEBROW: 11,
+    EYE: 12,
+    MOLE: 13,
+    FACE_MAKE: 14,
+    FACE_LINE: 15,
+    FACE_BEARD: 16,
+    FILL: 17,
+    SHAPE_MAX: 9
+};
+
+const FFLExpression = {
+    NORMAL: 0,
+    MAX: 70,
+}
+
+const FFLAttributeBuffer = _.struct([
+    _.uint32le('size'),
+    _.uint32le('stride'),
+    _.uint32le('ptr')  // Pointer (wasm is 32 bit)
+]);
+
+const FFLAttributeBufferParam = _.struct([
+    _.struct('attributeBuffers', [FFLAttributeBuffer], 5),
+    _.byte('padding', 0x3C - (FFLAttributeBufferType.MAX * 12))  // Ensure correct size (0x3C)
+]);
+
+const FFLPrimitiveParam = _.struct([
+    _.uint32le('primitiveType'), // FFLRIOPrimitiveMode (u32)
+    _.uint32le('indexCount'),
+    _.uint32le('_8'),             // Padding or unknown field
+    _.uint32le('pIndexBuffer')     // Pointer to index buffer
+]);
+
+const FFLColor = _.struct([
+    _.float32le('r'),
+    _.float32le('g'),
+    _.float32le('b'),
+    _.float32le('a')
+]);
+
+const FFLModulateParam = _.struct([
+    _.uint32le('mode'),      // FFLModulateMode
+    _.uint32le('type'),      // FFLModulateType
+    _.uint32le('pColorR'),   // Pointer to FFLColor (dereference needed)
+    _.uint32le('pColorG'),   // Pointer to FFLColor (dereference needed)
+    _.uint32le('pColorB'),   // Pointer to FFLColor (dereference needed)
+    _.uint32le('pTexture2D') // Pointer to FFLTexture (stub, unused in this case)
+]);
+
+const FFLDrawParam = _.struct([
+    _.struct('attributeBufferParam', [FFLAttributeBufferParam]),
+    _.struct('modulateParam', [FFLModulateParam]),
+    _.uint32le('cullMode'),  // FFLCullMode (u32)
+    _.struct('primitiveParam', [FFLPrimitiveParam])
+]);
+
+var FFLiCharInfo = _.struct([
+    _.int32le('miiVersion'),
+
+    _.struct('faceline', [
+        _.int32le('type'),
+        _.int32le('color'),
+        _.int32le('texture'),
+        _.int32le('make')
+    ]),
+    _.struct('hair', [
+        _.int32le('type'),
+        _.int32le('color'),
+        _.int32le('flip')
+    ]),
+    _.struct('eye', [
+        _.int32le('type'),
+        _.int32le('color'),
+        _.int32le('scale'),
+        _.int32le('aspect'),
+        _.int32le('rotate'),
+        _.int32le('x'),
+        _.int32le('y')
+    ]),
+    _.struct('eyebrow', [
+        _.int32le('type'),
+        _.int32le('color'),
+        _.int32le('scale'),
+        _.int32le('aspect'),
+        _.int32le('rotate'),
+        _.int32le('x'),
+        _.int32le('y')
+    ]),
+    _.struct('nose', [
+        _.int32le('type'),
+        _.int32le('scale'),
+        _.int32le('y')
+    ]),
+    _.struct('mouth', [
+        _.int32le('type'),
+        _.int32le('color'),
+        _.int32le('scale'),
+        _.int32le('aspect'),
+        _.int32le('y')
+    ]),
+    _.struct('beard', [
+        _.int32le('mustache'),
+        _.int32le('type'),
+        _.int32le('color'),
+        _.int32le('scale'),
+        _.int32le('y')
+    ]),
+    _.struct('glass', [
+        _.int32le('type'),
+        _.int32le('color'),
+        _.int32le('scale'),
+        _.int32le('y')
+    ]),
+    _.struct('mole', [
+        _.int32le('type'),
+        _.int32le('scale'),
+        _.int32le('x'),
+        _.int32le('y')
+    ]),
+    _.struct('body', [
+        _.int32le('height'),
+        _.int32le('build')
+    ]),
+    _.struct('personal', [
+        _.char16le('name', 22),    // u16[11]
+        _.char16le('creator', 22), // u16[11]
+        _.int32le('gender'),
+        _.int32le('birthMonth'),
+        _.int32le('birthDay'),
+        _.int32le('favoriteColor'),
+        _.uint8('favorite'),
+        _.uint8('copyable'),
+        _.uint8('ngWord'),
+        _.uint8('localonly'),
+        _.int32le('regionMove'),
+        _.int32le('fontRegion'),
+        _.int32le('roomIndex'),
+        _.int32le('positionInRoom'),
+        _.int32le('birthPlatform')
+    ]),
+    
+    _.byte('createID', 10), // FFLCreateID stub
+    _.uint16le('padding_0'),
+    _.int32le('authorType'),
+    _.byte('authorID', 8)   // FFLiAuthorID stub
+]);
+
+const FFLiRenderTexture = _.struct([
+    // STUB: four pointers in one field
+    _.uint32le('pTexture2DRenderBufferColorTargetDepthTarget', 4)
+]);
+
+const FFLiFacelineTextureTempObject = _.struct([
+    _.uint32le('pTextureFaceLine'),
+    _.struct('drawParamFaceLine', [FFLDrawParam]),
+    _.uint32le('pTextureFaceMake'),
+    _.struct('drawParamFaceMake', [FFLDrawParam]),
+    _.uint32le('pTextureFaceBeard'),
+    _.struct('drawParamFaceBeard', [FFLDrawParam]),
+    _.uint32le('_144_148', 2)
+]);
+const FFLiMaskTexturesTempObject = _.struct([
+    _.byte('partsTextures', 0x154), // Stub for FFLiPartsTextures
+    _.uint32le('pRawMaskDrawParam', FFLExpression.MAX), // Pointers to FFLDrawParams
+    _.byte('_remaining', 0x388 - 620)
+]);
+const FFLiTextureTempObject = _.struct([
+    _.struct('maskTextures', [FFLiMaskTexturesTempObject]),
+    _.struct('facelineTexture', [FFLiFacelineTextureTempObject])
+]);
+
+const FFLiMaskTextures = _.struct([
+    _.uint32le('pRenderTextures', FFLExpression.MAX)
+]);
+
+const FFLiCharModel = _.struct([
+    _.struct('charInfo', [FFLiCharInfo]),
+    _.byte('charModelDesc', 0x18),   // FFLCharModelDesc stub
+    _.uint32le('expression'),          // FFLExpression (u32)
+    _.uint32le('pTextureTempObject'),  // FFLiTextureTempObject
+    _.struct('drawParam', [FFLDrawParam], FFLiShapeType.MAX), // FFLDrawParam[12]
+    _.uint32le('pShapeData', FFLiShapeType.MAX),
+    _.struct('facelineRenderTexture', [FFLiRenderTexture]),
+    _.uint32le('pCapGlassNoselineTextures', 3),
+    _.struct('maskTextures', [FFLiMaskTextures]),
+    // vvvv sizeof(FFLiCharModel) - size of this
+    _.byte('_remaining', 0x0848 - 172) // Stub for rest of the fields.
+]);
+
+
+const FFLDataSource = {
+    OFFICIAL: 0,
+    DEFAULT: 1,
+    MIDDLE_DB: 2,
+    STORE_DATA_OFFICIAL: 3,
+    STORE_DATA: 4,
+    BUFFER: 5,
+    DIRECT_POINTER: 6
+};
+
+const FFLCharModelSource = _.struct([
+    _.uint32le('dataSource'),
+    _.uint32le('pBuffer'),
+    _.uint16le('index')
+]);
+
+
+// ------ texture callback ---------
+
+// Define the FFLTextureFormat enum
+const FFLTextureFormat = {
+    R8_UNORM: 0,
+    R8_G8_UNORM: 1,
+    R8_G8_B8_A8_UNORM: 2,
+    MAX: 3
+};
+
+// Define the FFLTextureInfo struct
+const FFLTextureInfo = _.struct([
+    _.uint16le('width'),           // u16 width
+    _.uint16le('height'),          // u16 height
+    _.uint8('mipCount'),           // u8 mipCount
+    _.uint8('format'),             // u8 format (FFLTextureFormat)
+    _.uint8('isGX2Tiled'),          // bool isGX2Tiled
+    _.byte('_padding', 1),         // u8 padding (alignment)
+
+    _.uint32le('imageSize'),       // u32 imageSize
+    _.uint32le('imagePtr'),        // void* imagePtr (32-bit pointer in WASM)
+    _.uint32le('mipSize'),         // u32 mipSize
+    _.uint32le('mipPtr'),          // void* mipPtr (32-bit pointer in WASM)
+
+    _.uint32le('mipLevelOffset', 13) // u32 mipLevelOffset[13]
+]);
+
+// Define the FFLTextureCallback struct
+const FFLTextureCallback = _.struct([
+    _.uint32le('pObj'),            // void* pObj (pointer in WASM)
+
+    _.uint8('useOriginalTileMode'),  // bool useOriginalTileMode
+    _.byte('_padding', 3),          // u8 _padding[3] for alignment
+
+    _.uint32le('pCreateFunc'),      // void (*pCreateFunc)(void*, const FFLTextureInfo*, FFLTexture)
+    _.uint32le('pDeleteFunc')       // void (*pDeleteFunc)(void*, FFLTexture)
+]);
+
+    window.callFFL = function() {
+
+
+const textureRegistry = new Map();  // Store created textures
+
+// Dummy texture management in Three.js
+function textureCreateFunc(pObjPtr, textureInfoPtr, texturePtrPtr) {
+    console.log('Creating texture in WASM memory at:', textureInfoPtr);
+
+    const u8 = Module.HEAPU8.slice(textureInfoPtr, textureInfoPtr + FFLTextureInfo.size);
+    //const buffer = Buffer.from(u8);
+    // Read texture info from WASM memory
+    const pTextureInfo = FFLTextureInfo.unpack(u8);//buffer);
+
+    console.log(`Creating texture: width=${pTextureInfo.width}, height=${pTextureInfo.height}, format=${pTextureInfo.format}, imageSize=${pTextureInfo.imageSize}`);
+
+    let internalFormat;
+    let dataFormat;
+    let type = THREE.UnsignedByteType;
+
+    switch (pTextureInfo.format) {
+        case FFLTextureFormat.R8_UNORM:
+            internalFormat = THREE.LuminanceFormat;
+            dataFormat = THREE.LuminanceFormat;
+            break;
+
+        case FFLTextureFormat.R8_G8_UNORM:
+            internalFormat = THREE.LuminanceAlphaFormat;
+            dataFormat = THREE.LuminanceAlphaFormat;
+            break;
+
+        case FFLTextureFormat.R8_G8_B8_A8_UNORM:
+            internalFormat = THREE.RGBAFormat;
+            dataFormat = THREE.RGBAFormat;
+            break;
+
+        default:
+            console.error("Unsupported texture format:", pTextureInfo.format);
+            return null;
+    }
+
+    // Get the image data from WASM memory
+    const imageData = Module.HEAPU8.slice(pTextureInfo.imagePtr, pTextureInfo.imagePtr + pTextureInfo.imageSize);
+
+    // Create Three.js texture
+    const texture = new THREE.DataTexture(
+        imageData,
+        pTextureInfo.width,
+        pTextureInfo.height,
+        dataFormat,
+        type
+    );
+
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;  // Ensure Three.js updates it
+
+    // Store texture reference by pointer address
+    textureRegistry.set(texture.id, texture);
+
+    // Store the WebGL texture handle in WASM memory
+    Module.HEAP32[texturePtrPtr / 4] = texture.id;  // Storing WebGL texture ID
+
+    console.log("Created texture successfully.");
+    return texture;
+}
+
+function textureDeleteFunc(pObjPtr, texturePtr) {
+    const textureId = Module.HEAP32[texturePtr / 4];
+
+    if (textureRegistry.has(textureId)) {
+        const texture = textureRegistry.get(textureId);
+        texture.dispose();  // Free GPU memory
+        textureRegistry.delete(texturePtr);
+
+        console.log(`Deleted texture at ptr: ${textureId}`);
+    } else {
+        console.warn(`Attempted to delete non-existent texture at ptr: ${textureId}`);
+    }
+}
+
+function applyTexturesToMesh(drawParam, material) {
+//debugger
+    if (drawParam.modulateParam.pTexture2D) {
+        const texturePtr = drawParam.modulateParam.pTexture2D;
+        const texture = textureRegistry.get(texturePtr);
+
+        if (texture) {
+            console.log(`Binding texture to mesh, ptr: ${texturePtr}`);
+            material.map = texture;
+            material.needsUpdate = true;
+        } else {
+            console.warn(`Texture not found for ptr: ${texturePtr}`);
+        }
+    }
+}
+
+
+// ----- begin ffffffflllll --------
+
+    //window.callFFLFunction = function() {
+      if (!Module) {
+        console.error("FFL Module not initialized yet!");
+        return;
+      }
+
+      // prerequisites
+      Module._SetNullTextureCallback();
+      Module._FFLSetNormalIsSnorm8_8_8_8(1);
+
+
+      // texture calllbackkkkkkk
+      const textureCallback = {
+          pObj: 0,  // No object, can be set later if needed
+          useOriginalTileMode: false,
+          _padding: [0, 0, 0],//Buffer.alloc(3),
+          pCreateFunc: Module.addFunction(textureCreateFunc, 'viii'),
+          pDeleteFunc: Module.addFunction(textureDeleteFunc, 'vi')
+      };
+
+      // Pack the callback structure
+      const textureCallbackBuffer = FFLTextureCallback.pack(textureCallback);
+
+      // Allocate memory in the WASM heap and copy the packed struct
+      const textureCallbackPtr = Module._MemAlloc(FFLTextureCallback.size);
+      Module.HEAPU8.set(new Uint8Array(textureCallbackBuffer), textureCallbackPtr);
+
+      console.log('FFLTextureCallback struct allocated at:', textureCallbackPtr);
+
+      // Pass the struct pointer to FFLSetTextureCallback
+      Module._FFLSetTextureCallback(textureCallbackPtr);
+
+
+      // Example: Prepare inputs and call FFLInitCharModelCPUStep
+      const modelSourcePtr = Module._MemAlloc(FFLCharModelSource.size); // Mock FFLCharModelSource
+      const modelDescPtr = Module._MemAlloc(24);   // Mock FFLCharModelDesc
+
+      const charModelPtr = Module._MemAlloc(FFLiCharModel.size);
+
+      const charInfoPtr = Module._MemAlloc(FFLiCharInfo.size);      
+      const base64ToUint8Array = base64 => Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const charInfoU8 = base64ToUint8Array('AwAAAAkAAAAAAAAAAAAAAAEAAAB7AAAAAQAAAAAAAAAhAAAAAAAAAAcAAAADAAAAAwAAAAIAAAAOAAAADQAAAAAAAAAEAAAABgAAAAcAAAAGAAAADAAAAAAAAAAAAAAABAAAAB4AAAAAAAAAAQAAAAQAAAANAAAAAAAAAAAAAAAGAAAABAAAABAAAAADAAAAAwAAAAcAAAALAAAAAAAAAAEAAAAMAAAAGwAAABwAAAA3AAAASgBhAHMAbQBpAG4AZQAAAAAAAAAAAAAAbwBzAGkAZwBvAG4AYQBsAAAAAAABAAAADAAAAAoAAAALAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAA27iHMb5gKyoqQgAAAAAAAKBBOMSghAAA');
+      Module.HEAPU8.set(charInfoU8, charInfoPtr); // Example
+
+      const modelSource = {
+        dataSource: FFLDataSource.BUFFER,
+        //dataSource: FFLDataSource.DEFAULT,
+        pBuffer: charInfoPtr,
+        index: 0
+      };
+      const modelSourceBuffer = FFLCharModelSource.pack(modelSource);
+      
+      const FFLCharModelDesc = new Uint8Array([
+          0x00, 0x02, 0x00, 0x00,              // resolution = 512
+          0x21, 0x00, 0x00, 0x00,              // expressionFlag = 33
+          0x00, 0x00, 0x00, 0x00,              // Padding/zeroed data
+          0x00, 0x00, 0x00, 0x00,              // Padding/zeroed data
+          0x01, 0x00, 0x00, 0x00,              // modelFlag = 1
+          0x01, 0x00, 0x00, 0x00               // resourceType = high
+      ]);
+
+
+      // Mock data (replace with meaningful values if needed)
+      Module.HEAPU8.set(new Uint8Array(modelSourceBuffer), modelSourcePtr); // Example
+      Module.HEAPU8.set(FFLCharModelDesc, modelDescPtr);   // Example
+
+      try {
+        const result = Module._FFLInitCharModelCPUStep(
+          charModelPtr,
+          modelSourcePtr,
+          modelDescPtr
+        );
+        console.log("FFLInitCharModelCPUStep result:", result);
+      } catch (err) {
+        console.error("Error calling FFLInitCharModelCPUStep:", err);
+      }
+
+      Module._MemFree(modelSourcePtr);
+      Module._MemFree(modelDescPtr);
+      Module._MemFree(charInfoPtr);
+
+      // do stuffff...
+      const charModelU8 = Module.HEAPU8.slice(charModelPtr, charModelPtr+FFLiCharModel.size);
+      const charModel = FFLiCharModel.unpack(charModelU8)//Buffer.from(charModelU8));
+      
+      console.log(charModel)
+
+      const textureTempObjectU8 = Module.HEAPU8.slice(charModel.pTextureTempObject, charModel.pTextureTempObject+FFLiTextureTempObject.size)
+      const textureTempObject = FFLiTextureTempObject.unpack(textureTempObjectU8)
+      console.log(textureTempObject)
+
+      
+      //var spector = new SPECTOR.Spector();
+      //spector.displayUI();
+
+     // Initialize Three.js scene
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xE6E6FA); // Light lavender
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Position the camera
+camera.position.z = 100;
+camera.position.y = 40;
+
+// Add lights
+const ambientLight = new THREE.AmbientLight(new THREE.Color(0.73, 0.73, 0.73));
+scene.add(ambientLight);
+const directionalLight = new THREE.DirectionalLight(new THREE.Color(0.60, 0.60, 0.60), 1.0);
+directionalLight.position.set(-0.455, 0.348, 0.5).normalize();
+scene.add(directionalLight);
+const specularLight = new THREE.PointLight(new THREE.Color(0.70, 0.70, 0.70), 0.5);
+specularLight.position.set(10, 10, 10);
+scene.add(specularLight);
+
+// Loop through all drawParams
+const meshes = [];
+
+for (let shapeType = 0; shapeType < FFLiShapeType.MAX; shapeType++) {
+    if (shapeType === FFLiShapeType.XLU_MASK) continue;
+    // HACK: SKIP MASK FOR NOW
+
+    const drawParam = charModel.drawParam[shapeType];
+
+    // Skip shapes with no indices (not present)
+    if (drawParam.primitiveParam.indexCount === 0) continue;
+
+    const attributes = drawParam.attributeBufferParam.attributeBuffers;
+
+    // Mandatory position attribute
+    const positionBuffer = attributes[FFLAttributeBufferType.POSITION];
+    if (positionBuffer.size === 0) {
+        console.error(`Shape ${shapeType} is missing position data!`);
+        continue;
+    }
+
+    const posPtr = positionBuffer.ptr / 4;
+    const vertexCount = positionBuffer.size / positionBuffer.stride;
+    const positions = Module.HEAPF32.slice(posPtr, posPtr + (vertexCount * 4));  // stride = 16
+
+    // Create InterleavedBuffer and position attribute
+    const interleavedBuffer = new THREE.InterleavedBuffer(positions, 4);
+    const positionAttribute = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0); // XYZ
+
+    // Process indices
+    const indexBufferPtr = drawParam.primitiveParam.pIndexBuffer / 2;
+    const indexCount = drawParam.primitiveParam.indexCount;
+    const indices = Module.HEAPU16.slice(indexBufferPtr, indexBufferPtr + indexCount);
+
+    // Create Three.js geometry and set position attribute
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', positionAttribute);
+    geometry.setIndex(new THREE.Uint16BufferAttribute(new Uint16Array(indices), 1));
+
+    // Process additional attributes using switch statement
+    Object.entries(attributes).forEach(([typeStr, buffer]) => {
+        const type = parseInt(typeStr);
+        if (buffer.size === 0 && type != FFLAttributeBufferType.POSITION) return;
+
+        switch (type) {
+            case FFLAttributeBufferType.POSITION:
+                // Already handled above
+                break;
+
+            case FFLAttributeBufferType.NORMAL:
+            case FFLAttributeBufferType.TANGENT: {
+                // R8G8B8A8_SNORM: stride = 4, use first 3 components
+                const ptr = buffer.ptr;
+                const data = Module.HEAP8.slice(ptr, ptr + buffer.size);
+
+                const normalOrTangent = type === FFLAttributeBufferType.NORMAL ? 'normal' : 'tangent';
+
+                //const interleavedBuffer = new THREE.InterleavedBuffer(data, 4);
+                //const attribute = new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0, true); // XYZ
+                const attribute = new THREE.Int8BufferAttribute(data, 4, true);
+                geometry.setAttribute(normalOrTangent, attribute);
+                break;
+            }
+
+            case FFLAttributeBufferType.TEXCOORD: {
+                // Texcoord: vec2 float
+                const ptr = buffer.ptr / 4;
+                const texcoords = Module.HEAPF32.slice(ptr, ptr + vertexCount * 2);
+                geometry.setAttribute('uv', new THREE.Float32BufferAttribute(texcoords, 2));
+                break;
+            }
+
+            case FFLAttributeBufferType.COLOR: {
+                // R8G8B8A8_UNORM: stride = 4, sometimes stride = 0 (single value)
+                const ptr = buffer.ptr;
+                if (buffer.stride === 0) {
+                    // Single color for all vertices
+                    const color = new Uint8Array(Module.HEAPU8.slice(ptr, ptr + 4));
+                    const colorArray = new Uint8Array(vertexCount * 4).fill(color[0]);
+                    geometry.setAttribute('color', new THREE.Uint8BufferAttribute(colorArray, 4, true));
+                } else {
+                    const colors = new Uint8Array(Module.HEAPU8.slice(ptr, ptr + buffer.size));
+                    geometry.setAttribute('color', new THREE.Uint8BufferAttribute(colors, 4, true));
+                }
+                break;
+            }
+
+            default:
+                console.warn(`Unknown attribute type: ${type}`);
+                break;
+        }
+    });
+
+    const material = new THREE.MeshPhongMaterial({
+      specular: new THREE.Color(0.30, 0.30, 0.30), // Specular color
+      shininess: 12, // Specular power scaled (approximation)
+      reflectivity: 0.3 // Mimicking specular intensity
+    })
+
+    // Random color for each shape for better distinction
+    //let color = new THREE.Color(Math.random(), Math.random(), Math.random());
+
+    // Handle color modulation based on mode
+    const modulateParam = drawParam.modulateParam;
+
+    switch (modulateParam.mode) {
+        case FFLModulateMode.CONSTANT: {
+            // Dereference pColorR pointer to get color
+            const colorPtr = modulateParam.pColorR / 4;
+            const colorData = Module.HEAPF32.slice(colorPtr, colorPtr + 4);
+
+            //color.setRGB(colorData[0], colorData[1], colorData[2]);
+            material.color = new THREE.Color(colorData[0], colorData[1], colorData[2], colorData[3]);
+            break;
+        }
+
+        case FFLModulateMode.TEXTURE_DIRECT: { // no color
+            applyTexturesToMesh(drawParam, material);
+            break;
+        }
+
+        // TODO colors
+        case FFLModulateMode.RGB_LAYERED:
+        case FFLModulateMode.ALPHA:
+        case FFLModulateMode.LUMINANCE_ALPHA:
+        case FFLModulateMode.ALPHA_OPA: {
+            applyTexturesToMesh(drawParam, material);
+            break;
+        }
+
+        default:
+            console.warn(`Unknown modulate mode: ${modulateParam.mode}`);
+            break;
+    }
+
+    // Create material and mesh
+    //const material = new THREE.MeshBasicMaterial({ color: color, wireframe: true });
+
+
+    const mesh = new THREE.Mesh(geometry, material);
+console.log(mesh)
+    // Offset the models for visualization purposes
+    //mesh.position.x = (shapeType % 4) * 100 - 150;
+    //mesh.position.y = Math.floor(shapeType / 4) * 80 - 100;
+
+    scene.add(mesh);
+    meshes.push(mesh);
+}
+
+// Animation loop to rotate all objects
+function animate() {
+    requestAnimationFrame(animate);
+    meshes.forEach(mesh => {
+        mesh.rotation.y += 0.01;
+    });
+    renderer.render(scene, camera);
+}
+
+animate();
+
+
+
+      console.log('charModelPtr:', charModelPtr);
+      Module._FFLDeleteCharModel(charModelPtr);
+      Module._MemFree(charModelPtr);
+    }
+  </script>
+</body>
