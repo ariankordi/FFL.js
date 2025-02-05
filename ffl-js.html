@@ -25,6 +25,7 @@
   <!--<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/spectorjs@0.9.30/dist/spector.bundle.js"></script>-->
 
   <script src="struct-fu.js"></script>
+  <script src="FFLShaderMaterial.js"></script>
   <script>
 //import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm';
 //import _ from 'https://cdn.jsdelivr.net/npm/struct-fu@1.2.1/+esm';
@@ -372,14 +373,12 @@ const textureRegistry = new Map();  // Store created textures
 
 // Dummy texture management in Three.js
 function textureCreateFunc(pObjPtr, textureInfoPtr, texturePtrPtr) {
-    console.log('Creating texture in WASM memory at:', textureInfoPtr);
-
     const u8 = Module.HEAPU8.subarray(textureInfoPtr, textureInfoPtr + FFLTextureInfo.size);
     //const buffer = Buffer.from(u8);
     // Read texture info from WASM memory
     const pTextureInfo = FFLTextureInfo.unpack(u8);//buffer);
 
-    console.log(`Creating texture: width=${pTextureInfo.width}, height=${pTextureInfo.height}, format=${pTextureInfo.format}, imageSize=${pTextureInfo.imageSize}`);
+    console.log(`Creating texture: ptr=${textureInfoPtr}, width=${pTextureInfo.width}, height=${pTextureInfo.height}, format=${pTextureInfo.format}, imageSize=${pTextureInfo.imageSize}`);
 
     let internalFormat;
     let dataFormat;
@@ -430,7 +429,6 @@ function textureCreateFunc(pObjPtr, textureInfoPtr, texturePtrPtr) {
     // Store the WebGL texture handle in WASM memory
     Module.HEAP32[texturePtrPtr / 4] = texture.id;  // Storing WebGL texture ID
 
-    console.log("Created texture successfully.");
     return texture;
 }
 
@@ -448,7 +446,7 @@ function textureDeleteFunc(pObjPtr, texturePtr) {
     }
 }
 
-function applyTexturesToMesh(drawParam, material) {
+function getTextureForDrawParam(drawParam) {
 //debugger
     if (drawParam.modulateParam.pTexture2D) {
         const texturePtr = drawParam.modulateParam.pTexture2D;
@@ -456,14 +454,23 @@ function applyTexturesToMesh(drawParam, material) {
 
         if (texture) {
             console.log(`Binding texture to mesh, ptr: ${texturePtr}, texture:`, texture);
-            material.map = texture;
-            material.needsUpdate = true;
+            return texture;
         } else {
             console.warn(`Texture not found for ptr: ${texturePtr}`);
         }
+        return null;
     }
 }
 
+function getVector4FromFFLColorPtr(colorPtr) {
+    if (colorPtr === 0) {
+        console.error('aaarghhhhh you passed a null pointer into this');
+        return null;
+    }
+    const colorPtr_ = colorPtr / 4;
+    const colorData = Module.HEAPF32.subarray(colorPtr_, colorPtr + 4);
+    return new THREE.Vector4(colorData[0], colorData[1], colorData[2], colorData[3]);
+}
 
 // ----- begin ffffffflllll --------
 
@@ -473,8 +480,11 @@ function applyTexturesToMesh(drawParam, material) {
         return;
       }
 
+      // HACK: map _malloc and _free to raylib equivalents
+      Module._malloc = Module._MemAlloc;
+      Module._free = Module._MemFree;
       // prerequisites
-      Module._SetNullTextureCallback();
+      //Module._SetNullTextureCallback();
       Module._FFLSetNormalIsSnorm8_8_8_8(1);
 
 
@@ -491,7 +501,7 @@ function applyTexturesToMesh(drawParam, material) {
       const textureCallbackBuffer = FFLTextureCallback.pack(textureCallback);
 
       // Allocate memory in the WASM heap and copy the packed struct
-      const textureCallbackPtr = Module._MemAlloc(FFLTextureCallback.size);
+      const textureCallbackPtr = Module._malloc(FFLTextureCallback.size);
       Module.HEAPU8.set(new Uint8Array(textureCallbackBuffer), textureCallbackPtr);
 
       console.log('FFLTextureCallback struct allocated at:', textureCallbackPtr);
@@ -501,12 +511,12 @@ function applyTexturesToMesh(drawParam, material) {
 
 
       // Example: Prepare inputs and call FFLInitCharModelCPUStep
-      const modelSourcePtr = Module._MemAlloc(FFLCharModelSource.size); // Mock FFLCharModelSource
-      const modelDescPtr = Module._MemAlloc(24);   // Mock FFLCharModelDesc
+      const modelSourcePtr = Module._malloc(FFLCharModelSource.size); // Mock FFLCharModelSource
+      const modelDescPtr = Module._malloc(24);   // Mock FFLCharModelDesc
 
-      const charModelPtr = Module._MemAlloc(FFLiCharModel.size);
+      const charModelPtr = Module._malloc(FFLiCharModel.size);
 
-      const charInfoPtr = Module._MemAlloc(FFLiCharInfo.size);      
+      const charInfoPtr = Module._malloc(FFLiCharInfo.size);      
       const base64ToUint8Array = base64 => Uint8Array.from(atob(base64), c => c.charCodeAt(0));
       const charInfoU8 = base64ToUint8Array('AwAAAAkAAAAAAAAAAAAAAAEAAAB7AAAAAQAAAAAAAAAhAAAAAAAAAAcAAAADAAAAAwAAAAIAAAAOAAAADQAAAAAAAAAEAAAABgAAAAcAAAAGAAAADAAAAAAAAAAAAAAABAAAAB4AAAAAAAAAAQAAAAQAAAANAAAAAAAAAAAAAAAGAAAABAAAABAAAAADAAAAAwAAAAcAAAALAAAAAAAAAAEAAAAMAAAAGwAAABwAAAA3AAAASgBhAHMAbQBpAG4AZQAAAAAAAAAAAAAAbwBzAGkAZwBvAG4AYQBsAAAAAAABAAAADAAAAAoAAAALAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAA27iHMb5gKyoqQgAAAAAAAKBBOMSghAAA');
       Module.HEAPU8.set(charInfoU8, charInfoPtr); // Example
@@ -520,7 +530,7 @@ function applyTexturesToMesh(drawParam, material) {
       const modelSourceBuffer = FFLCharModelSource.pack(modelSource);
 
       const modelDesc = {
-        resolution: 128,
+        resolution: 192,
         allExpressionFlag: [1, 0, 0],
         modelFlag: 1 << 0,
         resourceType: 1
@@ -528,7 +538,7 @@ function applyTexturesToMesh(drawParam, material) {
       const modelDescBuffer = FFLCharModelDesc.pack(modelDesc);
 
 
-      // Mock data (replace with meaningful values if needed)
+      // write modelSource and modelDesc in heap
       Module.HEAPU8.set(new Uint8Array(modelSourceBuffer), modelSourcePtr); // Example
       Module.HEAPU8.set(new Uint8Array(modelDescBuffer), modelDescPtr);   // Example
 
@@ -543,9 +553,9 @@ function applyTexturesToMesh(drawParam, material) {
         console.error("Error calling FFLInitCharModelCPUStep:", err);
       }
 
-      Module._MemFree(modelSourcePtr);
-      Module._MemFree(modelDescPtr);
-      Module._MemFree(charInfoPtr);
+      Module._free(modelSourcePtr);
+      Module._free(modelDescPtr);
+      Module._free(charInfoPtr);
 
       // do stuffff...
       const charModelU8 = Module.HEAPU8.subarray(charModelPtr, charModelPtr+FFLiCharModel.size);
@@ -557,11 +567,11 @@ function applyTexturesToMesh(drawParam, material) {
       const textureTempObject = FFLiTextureTempObject.unpack(textureTempObjectU8)
       console.log('textureTempObject:', textureTempObject)
 
-      const additionalInfoPtr = Module._MemAlloc(FFLAdditionalInfo.size);
+      const additionalInfoPtr = Module._malloc(FFLAdditionalInfo.size);
       // FFLAdditionalInfo*, FFLDataSource, const void* pBuffer, u16 index, bool checkFontRegion
       Module._FFLGetAdditionalInfo(additionalInfoPtr, FFLDataSource.BUFFER, charModelPtr, 0, false);
       const additionalInfo = FFLAdditionalInfo.unpack(Module.HEAPU8.subarray(additionalInfoPtr, additionalInfoPtr+FFLAdditionalInfo.size));
-      Module._MemFree(additionalInfoPtr);
+      Module._free(additionalInfoPtr);
       console.log('additionalInfo:', additionalInfo)
       const facelineColor = additionalInfo.facelineColor;
 
@@ -572,7 +582,7 @@ function applyTexturesToMesh(drawParam, material) {
       //var spector = new SPECTOR.Spector();
       //spector.displayUI();
 
-     // Initialize Three.js scene
+      // begin three.js scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xE6E6FA); // Light lavender
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -580,11 +590,9 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Position the camera
 camera.position.z = 100;
 camera.position.y = 40;
 
-// Add lights
 const ambientLight = new THREE.AmbientLight(new THREE.Color(0.73, 0.73, 0.73));
 scene.add(ambientLight);
 const directionalLight = new THREE.DirectionalLight(new THREE.Color(0.60, 0.60, 0.60), 1.0);
@@ -634,18 +642,20 @@ function createMeshFromDrawParam(drawParam, disableLighting = false) {
                 const data = Module.HEAP8.subarray(buffer.ptr, buffer.ptr + buffer.size);
                 geometry.setAttribute(
                     type === FFLAttributeBufferType.NORMAL ? 'normal' : 'tangent',
-                    new THREE.Int8BufferAttribute(data, 4, true)
+                    new THREE.Int8BufferAttribute(data, buffer.stride, true)
                 );
                 break;
 
             case FFLAttributeBufferType.TEXCOORD:
                 const texcoords = Module.HEAPF32.subarray(buffer.ptr / 4, buffer.ptr / 4 + vertexCount * 2);
-                geometry.setAttribute('uv', new THREE.Float32BufferAttribute(texcoords, 2));
+                geometry.setAttribute('uv', new THREE.Float32BufferAttribute(texcoords, buffer.stride / 4));
                 break;
 
             case FFLAttributeBufferType.COLOR:
+                if (buffer.stride === 0)
+                    break;
                 const colorData = new Uint8Array(Module.HEAPU8.subarray(buffer.ptr, buffer.ptr + buffer.size));
-                geometry.setAttribute('color', new THREE.Uint8BufferAttribute(colorData, 4, true));
+                geometry.setAttribute('_color', new THREE.Uint8BufferAttribute(colorData, buffer.stride, true));
                 break;
         }
     });
@@ -672,8 +682,8 @@ function createMeshFromDrawParam(drawParam, disableLighting = false) {
             //console.warn(`Unknown cull mode: ${drawParam.cullMode}`);
     }
 
-    // Create material
     // Choose material based on lighting requirement
+    /*
     const material = disableLighting
         ? new THREE.MeshBasicMaterial({ transparent: true, side: side })
         : new THREE.MeshPhongMaterial({
@@ -682,23 +692,30 @@ function createMeshFromDrawParam(drawParam, disableLighting = false) {
             shininess: 12,
             reflectivity: 0.3,
         });
-
-    // Handle modulation
-    switch (drawParam.modulateParam.mode) {
-        case FFLModulateMode.CONSTANT:
-            const colorPtr = drawParam.modulateParam.pColorR / 4;
-            const colorData = Module.HEAPF32.subarray(colorPtr, colorPtr + 4);
-            material.color = new THREE.Color(colorData[0], colorData[1], colorData[2]);
-            break;
-
-        case FFLModulateMode.TEXTURE_DIRECT:
-        case FFLModulateMode.RGB_LAYERED:
-        case FFLModulateMode.ALPHA:
-        case FFLModulateMode.LUMINANCE_ALPHA:
-        case FFLModulateMode.ALPHA_OPA:
-            applyTexturesToMesh(drawParam, material);
-            break;
+    */
+    
+    let modulateColor = new THREE.Vector4(0, 0, 0, 0);
+    if (drawParam.modulateParam.pColorR !== 0) {
+        const colorPtr = drawParam.modulateParam.pColorR / 4;
+        const colorData = Module.HEAPF32.subarray(colorPtr, colorPtr + 4);
+        modulateColor = new THREE.Vector4(colorData[0], colorData[1], colorData[2], colorData[3]);
     }
+    if (drawParam.modulateParam.pColorG !== 0 && drawParam.modulateParam.pColorB !== 0) {
+        modulateColor = [
+          getVector4FromFFLColorPtr(drawParam.modulateParam.pColorR),
+          getVector4FromFFLColorPtr(drawParam.modulateParam.pColorG),
+          getVector4FromFFLColorPtr(drawParam.modulateParam.pColorB)
+        ];
+    }
+
+    const material = new FFLShaderMaterial({
+      modulateMode: drawParam.modulateParam.mode,
+      modulateType: drawParam.modulateParam.type,
+      modulateColor: modulateColor,
+      side: side,
+      lightEnable: !disableLighting,
+      map: getTextureForDrawParam(drawParam)
+    });
 
     const mesh = new THREE.Mesh(geometry, material);
 
@@ -782,21 +799,7 @@ function generateFacelineTexture(charModel, textureTempObject) {
     const bgColor = new THREE.Color(facelineColor.r, facelineColor.g, facelineColor.b, facelineColor.a);
     // Create an offscreen scene with the specified background color.
     const { scene: offscreenScene, meshes } = createOffscreenScene(drawParams, bgColor);
-    
-    // Here you can loop over meshes and tweak their materials as desired.
-    // For example, if you want to set a custom blending mode:
-    meshes.forEach(mesh => {
-        // Modify blending here if desired:
-        let mat = mesh.material;
-        mat.blending = THREE.CustomBlending;
-        mat.blendSrc = THREE.SrcAlphaFactor;
-        mat.blendDst = THREE.OneMinusSrcAlphaFactor;
-        mat.blendEquation = THREE.AddEquation;
-        mat.blendSrcAlpha = THREE.OneFactor;
-        mat.blendDstAlpha = THREE.OneFactor;
-        mat.blendEquationAlpha = THREE.MaxEquation;
-    });
-    
+ 
     // Render the offscreen scene to a texture.
     const width = (charModel.charModelDesc.resolution / 2);
     const height = charModel.charModelDesc.resolution;
@@ -819,14 +822,15 @@ generateFacelineTexture(charModel, textureTempObject);
 function generateMaskTexture(charModel, rawMaskParam) {
     // Gather the drawParams that make up the mask texture.
     const drawParams = [
-        rawMaskParam.drawParamRawMaskPartsEye[0],
-        rawMaskParam.drawParamRawMaskPartsEye[1],
+        rawMaskParam.drawParamRawMaskPartsMustache[0],
+        rawMaskParam.drawParamRawMaskPartsMustache[1],
+        rawMaskParam.drawParamRawMaskPartsMouth,
         rawMaskParam.drawParamRawMaskPartsEyebrow[0],
         rawMaskParam.drawParamRawMaskPartsEyebrow[1],
-        rawMaskParam.drawParamRawMaskPartsMole,
-        rawMaskParam.drawParamRawMaskPartsMouth,
-        rawMaskParam.drawParamRawMaskPartsMustache[0],
-        rawMaskParam.drawParamRawMaskPartsMustache[1]
+        rawMaskParam.drawParamRawMaskPartsEye[0],
+        rawMaskParam.drawParamRawMaskPartsEye[1],
+        rawMaskParam.drawParamRawMaskPartsMole
+        //rawMaskParam.drawParamRawMaskPartsFill, // will never be used
     ].filter(dp => dp && dp.primitiveParam.indexCount !== 0);
     
     if (drawParams.length === 0) {
@@ -836,21 +840,7 @@ function generateMaskTexture(charModel, rawMaskParam) {
     
     // Create an offscreen scene with no background color.
     const { scene: offscreenScene, meshes } = createOffscreenScene(drawParams);
-    
-    // Here you can loop over meshes and tweak their materials as desired.
-    // For example, if you want to set a custom blending mode:
-    meshes.forEach(mesh => {
-        // Modify blending here if desired:
-        let mat = mesh.material;
-        mat.blending = THREE.CustomBlending;
-        mat.blendSrc = THREE.SrcAlphaFactor;
-        mat.blendDst = THREE.OneMinusSrcAlphaFactor;
-        mat.blendEquation = THREE.AddEquation;
-        mat.blendSrcAlpha = THREE.OneFactor;
-        mat.blendDstAlpha = THREE.OneFactor;
-        mat.blendEquationAlpha = THREE.MaxEquation;
-    });
-    
+ 
     // Render the offscreen scene to a texture.
     const width = charModel.charModelDesc.resolution;
     const maskTexture = renderSceneToTexture(offscreenScene, width, width);
@@ -872,22 +862,23 @@ generateMaskTexture(charModel, rawMaskDrawParam0);
 // Loop through all drawParams
 const meshes = [];
 
-for (let shapeType = 0; shapeType < FFLiShapeType.MAX; shapeType++) {
-    if (shapeType === FFLiShapeType.XLU_GLASS) continue;
-    // HACK: SKIP MASK FOR NOW
-    
+for (let shapeType = 0; shapeType < FFLiShapeType.MAX; shapeType++) {    
     const drawParam = charModel.drawParam[shapeType];
     const mesh = createMeshFromDrawParam(drawParam);
     if (!mesh) continue;
 
+    mesh.renderOrder = drawParam.modulateParam.type;
+/*
     mesh.material.blending = THREE.CustomBlending;
     mesh.material.blendDstAlpha = THREE.OneFactor;
     mesh.material.blendSrcAlpha = THREE.SrcAlphaFactor;
     mesh.material.transparent = shapeType === FFLiShapeType.XLU_MASK
-
+*/
     scene.add(mesh);
     meshes.push(mesh);
 }
+
+console.log('meshes:', meshes)
 
 // Animation loop to rotate all objects
 function animate() {
@@ -906,7 +897,15 @@ animate();
 
       console.log('charModelPtr:', charModelPtr);
       Module._FFLDeleteCharModel(charModelPtr);
-      Module._MemFree(charModelPtr);
+      Module._free(charModelPtr);
     }
   </script>
+
+  
+  
+
 </body>
+
+
+
+
