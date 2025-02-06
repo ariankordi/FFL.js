@@ -2,7 +2,7 @@
 <body>
   <h3>calling into ffl wasm from js (real)</h3>
   <button onclick="callFFL()">do the thing with ffl</button>
-
+<!--
   <script type="module">
     // emcc -DFFL_USE_TEXTURE_CALLBACK -DNO_MODELS_FOR_TEST -g3 -Wall -Wno-c23-extensions -include GLES2/gl2.h -I/home/arian/Downloads/build/raylib/src -I/home/arian/Downloads/ffl/include ~/Downloads/ffl-raylib-samples/ffl-raylib-shader-fflshader-nofflgl.c ~/Downloads/build/ffl-build-glad/ffl-em.a /home/arian/Downloads/build/raylib/src/libraylib-em.a -lm -DPLATFORM_WEB -DGRAPHICS_API_OPENGL_ES2 -DSUPPORT_TRACELOG -sASYNCIFY -sUSE_GLFW=3 -sUSE_ZLIB=1 -sALLOW_MEMORY_GROWTH --preload-file FFLResHigh.dat -s LINKABLE=1 -s EXPORT_ALL=1 -Wjs-compiler -s EXPORT_ES6=1 -s WASM=1 -o ffl-raylib-shader-fflshader-for-ffl.html -s EXPORTED_RUNTIME_METHODS=addFunction -s ALLOW_TABLE_GROWTH=1
     const BASE_URL = 'https://debian.local:8445/assets/web%20builds/ffl-raylib-shader-fflshader-for-ffl';
@@ -20,9 +20,14 @@
 
     window.onload = init;
   </script>
+-->
+  <!--
+emcc -g3 -I/home/arian/Downloads/rio/include -I/home/arian/Downloads/ffl/include -I/home/arian/Downloads/ninTexUtils/include -DRIO_DEBUG -DFFL_USE_TEXTURE_CALLBACK -DFFL_NO_RENDER_TEXTURE -DRIO_NO_GL_LOADER -include GLES2/gl2.h -include GLES2/gl2ext.h -DRIO_GLES (find ~/Downloads/ffl/src/ -name '*.cpp') -std=c++17 -DRIO_NO_GLFW_CALLS -DRIO_NO_CONTROLLERS_WIN -DRIO_NO_CLIP_CONTROL -DFFL_NO_DATABASE_FILE -DFFL_NO_MIDDLE_DB -DFFL_NO_DATABASE_RANDOM -DFFL_NO_FS -DRIO_NO_TEXTURE2D_FILE_CTOR -DFFL_NO_DRAW_MASK_ALPHA_VALUES ~/Downloads/ninTexUtils/src/ninTexUtils/gx2/gx2Surface.cpp ~/Downloads/ninTexUtils/src/ninTexUtils/gx2/tcl/addrlib.cpp -sUSE_ZLIB=1 -sALLOW_MEMORY_GROWTH -s EXPORTED_RUNTIME_METHODS=addFunction -s ALLOW_TABLE_GROWTH=1 -s EXPORTED_FUNCTIONS=['_malloc','_free','_FFLInitRes','_FFLInitResGPUStep','_FFLInitCharModelCPUStep','_FFLDeleteCharModel','_FFLSetExpression','_FFLExit','_FFLSetNormalIsSnorm8_8_8_8','_FFLSetTextureCallback','_FFLGetAdditionalInfo','_FFLiInvalidatePartsTextures','_FFLiInvalidateTempObjectFacelineTexture','_FFLiDeleteTempObjectFacelineTexture','_FFLiInvalidateRawMask','_FFLiDeleteTempObjectMaskTextures','_FFLiDeleteTextureTempObject'] -s MALLOC=emmalloc -s ENVIRONMENT=web -s EXIT_RUNTIME=0 -s WASM=1 -o ffl-module-g3.js -s EXPORTED_RUNTIME_METHODS=addFunction -s ALLOW_TABLE_GROWTH=1
+-->
+  <script src="ffl-module-g3.js"></script>
+
   <!-- three.js 0.126.0 from mid-2021 -->
   <script src="https://unpkg.com/three@0.126.0/build/three.min.js"></script>
-  <!--<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/spectorjs@0.9.30/dist/spector.bundle.js"></script>-->
 
   <script src="struct-fu.js"></script>
   <script src="FFLShaderMaterial.js"></script>
@@ -327,6 +332,16 @@ const FFLCharModelSource = _.struct([
     _.uint16le('index')
 ]);
 
+const FFLResourceType = {
+    MIDDLE: 0,
+    HIGH: 1,
+    MAX: 2
+}
+
+const FFLResourceDesc = _.struct([
+    _.uint32le('pData', FFLResourceType.MAX),
+    _.uint32le('size', FFLResourceType.MAX)
+]);
 
 // ------ texture callback ---------
 
@@ -366,7 +381,39 @@ const FFLTextureCallback = _.struct([
     _.uint32le('pDeleteFunc')       // void (*pDeleteFunc)(void*, FFLTexture)
 ]);
 
-    window.callFFL = function() {
+
+async function fetchIntoWasmHeap(url, wasmModule) {
+    const response = await fetch(url);
+
+    // Try to get the Content-Length header
+    const contentLength = response.headers.get('Content-Length');
+
+    if (!contentLength) {
+        throw new Error('Content-Length header is missing. Cannot pre-allocate memory.');
+    }
+
+    const totalSize = parseInt(contentLength, 10);
+
+    // Allocate memory in the WebAssembly heap
+    const wasmHeapPtr = wasmModule._malloc(totalSize);
+    const heap = wasmModule.HEAPU8;
+
+    const reader = response.body.getReader();
+    let offset = wasmHeapPtr;
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Write directly into the WebAssembly heap
+        heap.set(value, offset);
+        offset += value.length;
+    }
+
+    return { pointer: wasmHeapPtr, size: offset - wasmHeapPtr };
+};
+
+    window.callFFL = async function() {
 
 
 const textureRegistry = new Map();  // Store created textures
@@ -481,20 +528,40 @@ function getVector4FromFFLColorPtr(colorPtr) {
       }
 
       // HACK: map _malloc and _free to raylib equivalents
-      Module._malloc = Module._MemAlloc;
-      Module._free = Module._MemFree;
+      //Module._malloc = Module._MemAlloc;
+      //Module._free = Module._MemFree;
       // prerequisites
       //Module._SetNullTextureCallback();
       Module._FFLSetNormalIsSnorm8_8_8_8(1);
 
 
-      // texture calllbackkkkkkk
+      const resourceDesc = {
+          pData: [0, 0],
+          size: [0, 0]
+      };
+      
+      //const heapy = await fetchIntoWasmHeap('https://debian.local:8445/assets/web%20builds/FFLResHigh.dat', Module);
+      const heapy = await fetchIntoWasmHeap('FFLResHigh.dat', Module);
+      resourceDesc.pData[FFLResourceType.HIGH] = heapy.pointer;
+      resourceDesc.size[FFLResourceType.HIGH] = heapy.size;
+      const resourceDescU8 = FFLResourceDesc.pack(resourceDesc);
+      const resourceDescPtr = Module._malloc(FFLResourceDesc.size);
+      Module.HEAPU8.set(resourceDescU8, resourceDescPtr);
+      const initResult = Module._FFLInitRes(0, resourceDescPtr);
+      if (initResult !== 0) throw new Error(`FFLInitRes result: ${initResult}`);
+
+      Module._FFLInitResGPUStep();
+      
+      
+      
+      
+            // texture calllbackkkkkkk
       const textureCallback = {
           pObj: 0,  // No object, can be set later if needed
           useOriginalTileMode: false,
           _padding: [0, 0, 0],
           pCreateFunc: Module.addFunction(textureCreateFunc, 'viii'),
-          pDeleteFunc: Module.addFunction(textureDeleteFunc, 'vi')
+          pDeleteFunc: Module.addFunction(textureDeleteFunc, 'vii')
       };
 
       // Pack the callback structure
@@ -508,11 +575,11 @@ function getVector4FromFFLColorPtr(colorPtr) {
 
       // Pass the struct pointer to FFLSetTextureCallback
       Module._FFLSetTextureCallback(textureCallbackPtr);
-
+      
 
       // Example: Prepare inputs and call FFLInitCharModelCPUStep
       const modelSourcePtr = Module._malloc(FFLCharModelSource.size); // Mock FFLCharModelSource
-      const modelDescPtr = Module._malloc(24);   // Mock FFLCharModelDesc
+      const modelDescPtr = Module._malloc(FFLCharModelDesc.size);   // Mock FFLCharModelDesc
 
       const charModelPtr = Module._malloc(FFLiCharModel.size);
 
@@ -542,16 +609,16 @@ function getVector4FromFFLColorPtr(colorPtr) {
       Module.HEAPU8.set(new Uint8Array(modelSourceBuffer), modelSourcePtr); // Example
       Module.HEAPU8.set(new Uint8Array(modelDescBuffer), modelDescPtr);   // Example
 
-      try {
+      //try {
         const result = Module._FFLInitCharModelCPUStep(
           charModelPtr,
           modelSourcePtr,
           modelDescPtr
         );
-        console.log("FFLInitCharModelCPUStep result:", result);
-      } catch (err) {
-        console.error("Error calling FFLInitCharModelCPUStep:", err);
-      }
+        if (result !== 0) throw new Error(`FFLInitCharModelCPUStep result: ${result}`);
+      //} catch (err) {
+      //  console.error("Error calling FFLInitCharModelCPUStep:", err);
+      //}
 
       Module._free(modelSourcePtr);
       Module._free(modelDescPtr);
@@ -575,8 +642,10 @@ function getVector4FromFFLColorPtr(colorPtr) {
       console.log('additionalInfo:', additionalInfo)
       const facelineColor = additionalInfo.facelineColor;
 
-      const rawMaskDrawParamPtr = textureTempObject.maskTextures.pRawMaskDrawParam[0];
-      const rawMaskDrawParam0 = FFLiRawMaskDrawParam.unpack(Module.HEAPU8.subarray(rawMaskDrawParamPtr, rawMaskDrawParamPtr+FFLiRawMaskDrawParam.size));
+      const partsTexturesPtr = charModel.pTextureTempObject + FFLiTextureTempObject.fields.maskTextures.offset + FFLiMaskTexturesTempObject.fields.partsTextures.offset;
+      Module._FFLiInvalidatePartsTextures(partsTexturesPtr); // Invalidate before looping
+      const rawMaskDrawParam0Ptr = textureTempObject.maskTextures.pRawMaskDrawParam[0];
+      const rawMaskDrawParam0 = FFLiRawMaskDrawParam.unpack(Module.HEAPU8.subarray(rawMaskDrawParam0Ptr, rawMaskDrawParam0Ptr+FFLiRawMaskDrawParam.size));
       console.log(rawMaskDrawParam0)
 
       //var spector = new SPECTOR.Spector();
@@ -817,7 +886,10 @@ function generateFacelineTexture(charModel, textureTempObject) {
     param.modulateParam.pTexture2D = facelineTexture.id;
 }
 
+const facelineTempObjectPtr = charModel.pTextureTempObject + FFLiTextureTempObject.fields.facelineTexture.offset;
+Module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr); // Invalidate before drawing
 generateFacelineTexture(charModel, textureTempObject);
+Module._FFLiDeleteTempObjectFacelineTexture(facelineTempObjectPtr, charModelPtr, charModel.charModelDesc.resourceType);
 
 function generateMaskTexture(charModel, rawMaskParam) {
     // Gather the drawParams that make up the mask texture.
@@ -840,7 +912,7 @@ function generateMaskTexture(charModel, rawMaskParam) {
     
     // Create an offscreen scene with no background color.
     const { scene: offscreenScene, meshes } = createOffscreenScene(drawParams);
- 
+  
     // Render the offscreen scene to a texture.
     const width = charModel.charModelDesc.resolution;
     const maskTexture = renderSceneToTexture(offscreenScene, width, width);
@@ -857,7 +929,13 @@ function generateMaskTexture(charModel, rawMaskParam) {
     param.modulateParam.pTexture2D = maskTexture.id;
 }
 
+Module._FFLiInvalidateRawMask(rawMaskDrawParam0Ptr); // Invalidate before drawing
 generateMaskTexture(charModel, rawMaskDrawParam0);
+const maskTempObjectPtr = charModel.pTextureTempObject + FFLiTextureTempObject.fields.maskTextures.offset;
+const expressionFlagPtr = charModelPtr + FFLiCharModel.fields.charModelDesc.offset + FFLCharModelDesc.fields.allExpressionFlag.offset;
+Module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr, expressionFlagPtr, charModel.charModelDesc.resourceType);
+
+Module._FFLiDeleteTextureTempObject(charModelPtr);
 
 // Loop through all drawParams
 const meshes = [];
@@ -880,6 +958,11 @@ for (let shapeType = 0; shapeType < FFLiShapeType.MAX; shapeType++) {
 
 console.log('meshes:', meshes)
 
+// we are done with charmodel object, delete it
+console.log('FFLDeleteCharModel ptr:', charModelPtr);
+Module._FFLDeleteCharModel(charModelPtr);
+Module._free(charModelPtr); // dispose and then free memory
+
 // Animation loop to rotate all objects
 function animate() {
     requestAnimationFrame(animate);
@@ -893,11 +976,6 @@ function animate() {
 
 animate();
 
-
-
-      console.log('charModelPtr:', charModelPtr);
-      Module._FFLDeleteCharModel(charModelPtr);
-      Module._free(charModelPtr);
     }
   </script>
 
