@@ -618,6 +618,12 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
       side: options.side || THREE.FrontSide,
       ...getBlendOptionsFromModulateType(modulateType) // Merge blend options
     });
-    this.map = texture; // so it can be read like other materials
+  }
+
+  get map() {
+    return this.uniforms.s_texture.value; // Expose as 'map'
+  }
+  set map(texture) {
+    this.uniforms.s_texture.value = texture;
   }
 }
