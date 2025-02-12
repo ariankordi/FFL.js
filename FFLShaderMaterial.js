@@ -1,5 +1,8 @@
-<!-- Vertex Shader derived from MiiDefaultShader.vsh found in Miitomo. -->
-const FFLShaderVert = `
+// ─────────────────────────────────────────────────────────
+// Vertex Shader for FFLShaderMaterial
+// Derived from MiiDefaultShader.vsh found in Miitomo.
+// ─────────────────────────────────────────────────────────
+const _FFLShaderVert = `
 // 頂点シェーダーに入力される attribute 変数
 //attribute vec4 position;       //!< 入力: 位置情報
 //attribute vec2 uv;             //!< 入力: テクスチャー座標
@@ -98,18 +101,25 @@ void main()
 
      // その他の情報も書き出す
     v_texCoord = uv;
-    v_tangent = normalMatrix * objectTangent;
-    // ^^ Normalizing tangent (like normal) causes
-    // anisotropic elements (e.g. mask, beard...)
-    // where tangent is usually black, to become white, and
-    // create a half-black bug only that manifests on Safari
+    // safe normalize
+    if (tangent != vec3(0.0, 0.0, 0.0))
+    {
+        v_tangent = normalize(normalMatrix * objectTangent);
+    }
+    else
+    {
+        v_tangent = vec3(0.0, 0.0, 0.0);
+    }
 
     v_color = _color;
 }
-`
+`;
 
-// Fragment Shader derived from MiiDefaultShader.fsh found in Miitomo. Unmodified.
-const FFLShaderFrag = `
+// ─────────────────────────────────────────────────────────
+// Fragment Shader for FFLShaderMaterial
+// Mostly unmodified from MiiDefaultShader.fsh found in Miitomo.
+// ─────────────────────────────────────────────────────────
+const _FFLShaderFrag = `
 //
 //  sample.flg
 //  Fragment shader
@@ -340,7 +350,7 @@ void main()
 //#endif
 
     // avoids little outline around mask elements
-    if(u_mode != FFL_MODULATE_MODE_CONSTANT && color.a == 0.0f)
+    if(u_mode != FFL_MODULATE_MODE_CONSTANT && color.a == 0.0)
     {
         discard;
     }
@@ -394,48 +404,7 @@ void main()
 
     gl_FragColor = color;
 }
-`
-
-
-// define shader classes ------------------------------
-
-function getBlendOptionsFromModulateType(modulateType) {
-  if (modulateType >= 0 && modulateType <= 5) {
-    // Opaque (DrawOpa)
-    return {
-      blending: THREE.CustomBlending,
-      blendSrcAlpha: THREE.SrcAlphaFactor,
-      blendDstAlpha: THREE.OneFactor,
-    };
-  } else if (modulateType >= 6 && modulateType <= 8) {
-    // Translucent (DrawXlu)
-    return {
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.SrcAlphaFactor,
-      blendDst: THREE.OneMinusSrcAlphaFactor,
-      blendDstAlpha: THREE.OneFactor,
-    };
-  } else if (modulateType >= 9 && modulateType <= 13) {
-    // Mask Textures
-    return {
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.OneMinusDstAlphaFactor,
-      blendDst: THREE.DstAlphaFactor,
-    };
-  } else if (modulateType >= 14 && modulateType <= 17) {
-    // Faceline Texture
-    return {
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.SrcAlphaFactor,
-      blendDst: THREE.OneMinusSrcAlphaFactor,
-      blendSrcAlpha: THREE.OneFactor,
-      blendDstAlpha: THREE.OneFactor,
-    };
-  } else {
-    console.error(`Unknown modulate type: ${modulateType}.`);
-    return {};
-  }
-}
+`;
 
 
 // ─────────────────────────────────────────────────────────────
@@ -527,7 +496,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
       specularPower: 40.0,
       specularMode: 1,
     },
-    
+
     {
       // body
       ambient: new THREE.Vector4(0.95622, 0.95622, 0.95622, 1.0),
@@ -545,6 +514,45 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
       specularMode: 0,
     },
   ];
+
+  static getBlendOptionsFromModulateType(modulateType) {
+    if (modulateType >= 0 && modulateType <= 5) {
+      // Opaque (DrawOpa)
+      return {
+        blending: THREE.CustomBlending,
+        blendSrcAlpha: THREE.SrcAlphaFactor,
+        blendDstAlpha: THREE.OneFactor,
+      };
+    } else if (modulateType >= 6 && modulateType <= 8) {
+      // Translucent (DrawXlu)
+      return {
+        blending: THREE.CustomBlending,
+        blendSrc: THREE.SrcAlphaFactor,
+        blendDst: THREE.OneMinusSrcAlphaFactor,
+        blendDstAlpha: THREE.OneFactor,
+      };
+    } else if (modulateType >= 9 && modulateType <= 13) {
+      // Mask Textures
+      return {
+        blending: THREE.CustomBlending,
+        blendSrc: THREE.OneMinusDstAlphaFactor,
+        blendSrcAlpha: THREE.SrcAlphaFactor,
+        blendDst: THREE.DstAlphaFactor,
+      };
+    } else if (modulateType >= 14 && modulateType <= 17) {
+      // Faceline Texture
+      return {
+        blending: THREE.CustomBlending,
+        blendSrc: THREE.SrcAlphaFactor,
+        blendDst: THREE.OneMinusSrcAlphaFactor,
+        blendSrcAlpha: THREE.OneFactor,
+        blendDstAlpha: THREE.OneFactor,
+      };
+    } else {
+      console.error(`Unknown modulate type: ${modulateType}.`);
+      return {};
+    }
+  }
 
 
   /**
@@ -579,7 +587,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
         u_const1: { value: options.modulateColor || new THREE.Vector4(1, 1, 1, 1) }
       };
     }
-    
+
     const matParam =
       FFLShaderMaterial.materialParams[modulateType] ||
       FFLShaderMaterial.materialParams[0];
@@ -610,13 +618,15 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
     super({
       vertexShader:
         options.vertexShader ||
-        FFLShaderVert,
+        _FFLShaderVert,
       fragmentShader:
         options.fragmentShader ||
-        FFLShaderFrag,
+        _FFLShaderFrag,
       uniforms: uniforms,
       side: options.side || THREE.FrontSide,
-      ...getBlendOptionsFromModulateType(modulateType) // Merge blend options
+      skinning: options.skinning || false,
+      // Add blend options:
+      ...modulateMode != 0 ? FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType) : {}
     });
   }
 
@@ -627,3 +637,5 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
     this.uniforms.s_texture.value = texture;
   }
 }
+
+window.FFLShaderMaterial = FFLShaderMaterial; // Export.

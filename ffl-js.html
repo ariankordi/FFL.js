@@ -1,7 +1,19 @@
 <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body>
-  <h3>calling into ffl wasm from js (real)</h3>
-  <button onclick="callFFL()">do the thing with ffl</button>
+  <!-- layout -->
+  <div id="top-content">
+    <h3>calling into ffl wasm from js (real)</h3>
+    <form id="charform">
+      <label for="charinfo">CharInfo Base64 Data:</label>
+      <input type="text" id="charinfo" value-jasmine="AwAAQKBBOMSghAAA27iHMb5gKyoqQgAAWS1KAGEAcwBtAGkAbgBlAAAAAAAAABw3EhB7ASFuQxwNZMcYAAgegg0AMEGzW4JtAABvAHMAaQBnAG8AbgBhAGwAAAAAAJA6" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA">
+
+      <button type="submit">Load CharModel</button>
+    </form>
+
+    <div id="texture-display" style="overflow-y: scroll; height: 250px"></div>
+
+  </div>
+  <!-- end layout -->
 
   <!-- emscripten module (not modularized) -->
   <script src="ffl-module-g3.js"></script>
@@ -16,10 +28,4 @@
   <script src="FFLShaderMaterial.js"></script>
   <!-- Include ffl.js after three.js and FFLShaderMaterial.js. -->
   <script src="ffl.js"></script>
-
-  </script>
-
-  
-  
-
 </body>
