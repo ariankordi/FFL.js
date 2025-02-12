@@ -625,8 +625,8 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
       uniforms: uniforms,
       side: options.side || THREE.FrontSide,
       skinning: options.skinning || false,
-      // Add blend options:
-      ...modulateMode != 0 ? FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType) : {}
+      // Merge blend options:
+      ...FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType)
     });
   }
 
