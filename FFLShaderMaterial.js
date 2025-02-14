@@ -624,7 +624,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
         _FFLShaderFrag,
       uniforms: uniforms,
       side: options.side || THREE.FrontSide,
-      skinning: options.skinning || false,
+      // skinning: options.skinning || false, // Not needed with newer Three.js.
       // Merge blend options:
       ...FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType)
     });
