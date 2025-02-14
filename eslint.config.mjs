@@ -25,7 +25,10 @@ export default [
 			ecmaVersion: 'latest',
 			sourceType: 'module',
 			globals: {
-				...globals.browser
+				...globals.browser,
+                                THREE: 'readonly',  // TODO three.js
+                                Module: 'readonly', // TODO emscripten
+                                _: 'readonly'       // TODO struct-fu
 			}
 		},
 		rules: {

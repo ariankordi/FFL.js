@@ -1818,10 +1818,16 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 			// Initialize textures for the CharModel.
 			initCharModelTextures(currentCharModel, renderer, window.FFLTextures);
+			console.log('bodyScale:', currentCharModel.getBodyScale());
 
 			if (!isAnimating) {
 				startAnimationLoop();
 			}
+
+			// Optionally, create an icon of the CharModel and display it.
+			// const iconDataURL = createCharModelIcon(currentCharModel);
+			// console.log("Generated CharModel icon:", iconDataURL);
+			// You could, for example, set this as the src of an <img> element.
 		} catch (err) {
 			alert(`Error creating/updating CharModel: ${err}`);
 			console.error('Error creating/updating CharModel:', err);
