@@ -28,10 +28,10 @@
 		<div style="font-size: 12px;">minimal code HERE that is... not the library is minimal at all..................</div>
 
 		<!-- Input form. -->
-		<form id="charform">
-			<label for="charinfo">Enter FFLStoreData or Studio Data:</label>
+		<form id="charForm">
+			<label for="charData">Enter FFLStoreData or Studio Data:</label>
 			<!-- Value: soyun -->
-			<input type="text" id="charinfo" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" placeholder="Base64 or Hex">
+			<input type="text" id="charData" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" placeholder="Base64 or Hex">
 			<br>
 			<button type="submit">Create CharModel</button>
 		</form>
@@ -57,7 +57,10 @@ let currentCharModel;
 let isInitialized = false;
 let isAnimating = false;
 
-// -------------- initializeScene() --------------
+// ─────────────────────────────────────────────────────────────
+//  Scene Setup
+// ─────────────────────────────────────────────────────────────
+
 /**
  * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
  * Called only the first time the button is clicked.
@@ -67,21 +70,20 @@ function initializeScene() {
 	scene = new THREE.Scene();
 	scene.background = new THREE.Color(0xE6E6FA);
 
-	renderer.setSize(window.innerWidth, window.innerHeight - 250);
+	renderer.setSize(window.innerWidth, window.innerHeight - 256);
 	document.body.appendChild(renderer.domElement);
 
 	// Create camera.
-	camera = new THREE.PerspectiveCamera(15, window.innerWidth / (window.innerHeight - 250), 1, 5000);
+	camera = new THREE.PerspectiveCamera(15, window.innerWidth / (window.innerHeight - 256), 1, 5000);
 	// Note that faceline and mask are close, and
 	// often you may run into Z-fighting if you
 	// don't set near/far plane with care.
 	camera.position.set(0, 50, 500);
 
 	isInitialized = true;
-	console.debug('initializeScene: Scene, renderer, camera created.');
+	console.log('initializeScene: Scene, renderer, camera created.');
 }
 
-// -------------- startAnimationLoop() --------------
 /**
  * Starts the animation loop only once.
  */
@@ -106,7 +108,6 @@ function startAnimationLoop() {
 	animate();
 }
 
-// ------------ updateCharModelInScene(data, modelDesc) --------------
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string} data
@@ -146,9 +147,9 @@ function updateCharModelInScene(data, modelDesc = null) {
 }
 
 // Assume a form with id "charform" exists in the HTML.
-const charForm = document.getElementById('charform');
+const charFormElement = document.getElementById('charForm');
 /** @type {HTMLInputElement | null} */
-const charInfoInput = document.getElementById('charinfo');
+const charDataInputElement = document.getElementById('charData');
 
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
@@ -158,11 +159,11 @@ document.addEventListener('DOMContentLoaded', async function () {
 	// Create renderer now.
 	renderer = new THREE.WebGLRenderer({ alpha: true });
 
-	charForm.addEventListener('submit', function (e) {
-		e.preventDefault();
+	charForm.addEventListener('submit', function (event) {
+		event.preventDefault();
 
 		// Read CharInfo data from the form (Base64-encoded).
-		if (!charInfoInput || !charInfoInput.value) {
+		if (!charDataInputElement || !charDataInputElement.value) {
 			throw new Error('need you to enter something in that there form...');
 		}
 
@@ -175,7 +176,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 				initializeScene();
 			}
 
-			updateCharModelInScene(charInfoInput.value, modelDesc);
+			updateCharModelInScene(charDataInputElement.value, modelDesc);
 
 			// Start the animation loop if not already started.
 			if (!isAnimating) {

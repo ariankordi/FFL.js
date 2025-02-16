@@ -150,10 +150,10 @@
 		<h3>ffl.js sample: sandbox</h3>
 
 		<!-- Input form. -->
-		<form id="charform">
-			<label for="charinfo">Enter FFLStoreData or Studio Data:</label>
+		<form id="charForm">
+			<label for="charData">Enter FFLStoreData or Studio Data:</label>
 			<!-- Value: soyun -->
-			<input type="text" id="charinfo" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" placeholder="Base64 or Hex">
+			<input type="text" id="charData" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" placeholder="Base64 or Hex">
 			<br>
 			<button type="submit">Create CharModel</button>
 		</form>
@@ -198,13 +198,13 @@
 					<details class="light-direction">
 						<summary>Light Direction</summary>
 						<div class="light-direction-controls">
-							<label for="lightDirX">X:</label>
+							<label for="lightDirX">X</label>
 							<input type="range" id="lightDirX" min="-1" max="1" step="0.01" value="-0.453">
 							<br>
-							<label for="lightDirY">Y:</label>
+							<label for="lightDirY">Y</label>
 							<input type="range" id="lightDirY" min="-1" max="1" step="0.01" value="0.423">
 							<br>
-							<label for="lightDirZ">Z:</label>
+							<label for="lightDirZ">Z</label>
 							<input type="range" id="lightDirZ" min="-1" max="1" step="0.01" value="0.785">
 							<br>
 							<button id="resetLightButton">Reset</button>
@@ -214,7 +214,7 @@
 				<!-- Second controls row. -->
 				<div class="controls-row">
 					<label>Expression:
-						<!-- TODO: Add all expressions here. -->
+						<!-- Not all AFL expressions are here. -->
 						<select id="expressionSelect">
 							<option value="-1" selected>Normal + Blink + Wink</option>
 							<option disabled>- FFL Expressions -</option>
@@ -251,7 +251,7 @@
 
 					<label>
 						Shader:
-						<select id="shaderSelect"></select>
+						<select id="shaderMaterialSelect"></select>
 					</label>
 				</div>
 			</div>
@@ -277,7 +277,6 @@
 	<!-- End main content. -->
 	<!-- Begin page script. -->
 	<script>
-
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
 // Global variables for the main scene, renderer, camera, controls, etc.
@@ -307,7 +306,10 @@ let activeMaterialClassName = availableMaterialClasses[0];
 let currentExpressionFlag = expressionFlagBlinking; // Expression.
 let canBlink = false; // Controls if the animation sets blinking. updateCanBlink()
 
-// -------------- initializeScene() --------------
+// ─────────────────────────────────────────────────────────────
+//  Scene Setup
+// ─────────────────────────────────────────────────────────────
+
 /**
  * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
  * Called only the first time the button is clicked.
@@ -353,7 +355,6 @@ function initializeScene() {
 	console.debug('initializeScene: Scene, renderer, camera created.');
 }
 
-// -------------- startAnimationLoop() --------------
 /**
  * Starts the animation loop (only once). The loop updates the
  * CharModel and updates OrbitControls.
@@ -422,7 +423,6 @@ function startAnimationLoop() {
 	animate();
 }
 
-// ------------ updateCharModelInScene(data, descOrExpFlag) --------------
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string|null} data - Will be decoded if string.
@@ -472,10 +472,13 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	resetLightDirection();
 }
 
-// TODO: TOUCH UP THESE HEADERS
 // ─────────────────────────────────────────────────────────────
-//  LIGHT DIRECTION HANDLING
+//  Light Direction
 // ─────────────────────────────────────────────────────────────
+
+const lightDirXElement = document.getElementById('lightDirX');
+const lightDirYElement = document.getElementById('lightDirY');
+const lightDirZElement = document.getElementById('lightDirZ');
 
 /**
  * Updates the light direction for all ShaderMaterials in the current CharModel.
@@ -483,9 +486,9 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
  */
 function updateLightDirection() {
 	// Get values from the three sliders.
-	const x = parseFloat(document.getElementById('lightDirX').value);
-	const y = parseFloat(document.getElementById('lightDirY').value);
-	const z = parseFloat(document.getElementById('lightDirZ').value);
+	const x = parseFloat(lightDirXElement.value);
+	const y = parseFloat(lightDirYElement.value);
+	const z = parseFloat(lightDirZElement.value);
 	// Normalize the user-provided light direction.
 	const newDir = new THREE.Vector3(x, y, z).normalize();
 
@@ -502,6 +505,8 @@ function updateLightDirection() {
 	});
 }
 
+const resetLightButtonElement = document.getElementById('resetLightButton');
+
 /**
  * Resets the light direction of all ShaderMaterials in the current CharModel to the default.
  * The default is taken from the shader class's static property "defaultLightDirection".
@@ -515,23 +520,24 @@ function resetLightDirection() {
 	document.getElementById('lightDirY').value = defDir.y;
 	document.getElementById('lightDirZ').value = defDir.z;
 	updateLightDirection();
-	console.info('Light direction reset to default:', defDir);
+	console.log('Light direction reset to default:', defDir);
 }
 
 // ─────────────────────────────────────────────────────────────
-//  SHADER MATERIAL SELECTION
+//  Shader Material Selection
 // ─────────────────────────────────────────────────────────────
 
+const shaderMaterialSelectElement = document.getElementById('shaderMaterialSelect');
+
 /**
- * Populates the shader selector (a <select> element with id "shaderSelect")
+ * Populates the shader selector (a <select> element)
  * with available shader material names from availableMaterialClasses.
  */
 function populateShaderSelector() {
-	const shaderSelect = document.getElementById('shaderSelect');
-	if (!shaderSelect || !availableMaterialClasses) {
+	if (!shaderMaterialSelectElement || !availableMaterialClasses) {
 		return;
 	}
-	shaderSelect.innerHTML = ''; // clear any existing options
+	shaderMaterialSelectElement.innerHTML = ''; // clear any existing options
 	availableMaterialClasses.forEach((name) => {
 		// Make sure that this really exists in window.
 		if (window[activeMaterialClassName] === undefined) {
@@ -540,18 +546,17 @@ function populateShaderSelector() {
 		const opt = document.createElement('option');
 		opt.value = name;
 		opt.textContent = name;
-		shaderSelect.appendChild(opt);
+		shaderMaterialSelectElement.appendChild(opt);
 	});
 }
 
 /**
- * Called when the shader selector changes. Re-initializes the CharModel materials using
- * the new shader class, and resets the light direction.
+ * Called when the shader selector changes. Re-initializes the CharModel
+ * materials using the new shader class, and resets the light direction.
  */
-function onShaderChange() {
-	const shaderSelect = document.getElementById('shaderSelect');
-	activeMaterialClassName = shaderSelect.value;
-	console.info(`Shader changed to: ${activeMaterialClassName}`);
+function onShaderMaterialChange() {
+	activeMaterialClassName = shaderMaterialSelectElement.value;
+	console.log(`Material class changed to: ${activeMaterialClassName}`);
 	// For each mesh in the current CharModel, update its material:
 	if (currentCharModel && currentCharModel.meshes) {
 		// Update _materialClass property that updating CharModels will use.
@@ -584,10 +589,12 @@ function onShaderChange() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  ROTATION SPEED AND PAUSE CONTROLS
+//  Rotation, Expressions
 // ─────────────────────────────────────────────────────────────
 
 let rotationEnabled = false;
+
+const rotationSpeedElement = document.getElementById('rotationSpeed');
 
 /**
  * Updates the global rotation speed from the range input with id "rotationSpeed".
@@ -596,37 +603,16 @@ function updateRotationSpeed() {
 	controls.autoRotateSpeed = parseFloat(document.getElementById('rotationSpeed').value);
 }
 
+const toggleRotationElement = document.getElementById('toggleRotation');
+
 /**
  * Toggles rotation on/off.
  */
 function toggleRotation() {
 	rotationEnabled = !rotationEnabled;
 	controls.autoRotate = rotationEnabled;
-	console.info(`Rotation ${rotationEnabled ? 'enabled' : 'paused'}`);
+	console.log(`Rotation ${rotationEnabled ? 'enabled' : 'paused'}`);
 }
-
-// ─────────────────────────────────────────────────────────────
-//  ICON DISPLAY CONTROL
-// ─────────────────────────────────────────────────────────────
-
-/**
- * Updates the designated icon display element (id "icon-display")
- * with an icon generated from the current CharModel.
- */
-function updateIconDisplay() {
-	const iconDisplay = document.getElementById('icon-display');
-	if (!iconDisplay || !currentCharModel) {
-		return;
-	}
-	const dataURL = createCharModelIcon(currentCharModel, renderer);
-	// Assume iconDisplay is an <img> element.
-	iconDisplay.setAttribute('src', dataURL);
-	console.info('Icon display updated.');
-}
-
-// ─────────────────────────────────────────────────────────────
-//  EXPRESSION SELECT CONTROL
-// ─────────────────────────────────────────────────────────────
 
 /**
  * Updates the canBlink variable to control if blinking cycle if enabled.
@@ -638,6 +624,8 @@ function updateCanBlink() {
 	// Compare expressionFlagBlinking to flag to see if they match.
 	canBlink = expressionFlagBlinking.every((val, i) => val === flag[i]);
 }
+
+const expressionSelectElement = document.getElementById('expressionSelect');
 
 /**
  * Updates the current expression on the CharModel based on the select element value.
@@ -661,7 +649,7 @@ function updateExpression() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  CHARMODEL RENDER TEXTURES CONTROL
+//  CharModel Render Textures Control
 // ─────────────────────────────────────────────────────────────
 
 const renderTexturesDisplayElement = document.getElementById('renderTexturesDisplay');
@@ -691,32 +679,9 @@ function toggleReinitTextures() {
 	console.log(`Reinitialize textures every frame: ${reinitTexturesElement.checked}`);
 }
 
-// -------------- addUIControls() --------------
-/**
- * Adds event listeners to UI controls (rotation speed, pause rotation, light direction, shader, expression).
- */
-function addUIControls() {
-	// Rotation speed slider.
-	document.getElementById('rotationSpeed').addEventListener('input', updateRotationSpeed);
-	// Toggle rotation checkbox.
-	document.getElementById('toggleRotation').addEventListener('change', toggleRotation);
-	// Light direction sliders.
-	['lightDirX', 'lightDirY', 'lightDirZ'].forEach((id) => {
-		document.getElementById(id).addEventListener('input', updateLightDirection);
-	});
-	// Reset light direction button.
-	document.getElementById('resetLightButton').addEventListener('click', resetLightDirection);
-
-	// Shader material selector.
-	document.getElementById('shaderSelect').addEventListener('change', onShaderChange);
-	// Expression select list.
-	document.getElementById('expressionSelect').addEventListener('change', updateExpression);
-
-	// Set global render textures element to null after FFL initialization
-	_displayRenderTexturesElement = null;
-	renderTexturesDisplayElement.addEventListener('toggle', toggleRenderTexturesDisplay);
-	reinitTexturesElement.addEventListener('change', toggleReinitTextures);
-}
+// ─────────────────────────────────────────────────────────────
+//  CharModel Icon and Info Updates
+// ─────────────────────────────────────────────────────────────
 
 /**
  * Updates the icon beside the options for the current CharModel.
@@ -760,10 +725,44 @@ function updateCharModelInfo() {
 	document.getElementById('favorite-color').style.backgroundColor = favColorColor.getStyle();
 }
 
+// ─────────────────────────────────────────────────────────────
+//  Bind UI Control Handlers
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Adds event listeners to UI controls (rotation speed, pause rotation, light direction, shader, expression).
+ */
+function addUIControls() {
+	// Rotation speed slider.
+	rotationSpeedElement.addEventListener('input', updateRotationSpeed);
+	// Toggle rotation checkbox.
+	toggleRotationElement.addEventListener('change', toggleRotation);
+	// Light direction sliders.
+	[lightDirXElement, lightDirYElement, lightDirZElement].forEach((element) => {
+		element.addEventListener('input', updateLightDirection);
+	});
+	// Reset light direction button.
+	resetLightButtonElement.addEventListener('click', resetLightDirection);
+
+	// Shader material selector.
+	shaderMaterialSelectElement.addEventListener('change', onShaderMaterialChange);
+	// Expression select list.
+	expressionSelectElement.addEventListener('change', updateExpression);
+
+	// Set global render textures element to null after FFL initialization
+	_displayRenderTexturesElement = null;
+	renderTexturesDisplayElement.addEventListener('toggle', toggleRenderTexturesDisplay);
+	reinitTexturesElement.addEventListener('change', toggleReinitTextures);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Form Submission Handling
+// ─────────────────────────────────────────────────────────────
+
 // Assume a form with id "charform" exists in the HTML.
-const charForm = document.getElementById('charform');
+const charFormElement = document.getElementById('charForm');
 /** @type {HTMLInputElement | null} */
-const charInfoInput = document.getElementById('charinfo');
+const charDataInputElement = document.getElementById('charData');
 
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
@@ -776,18 +775,17 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 	loadCharacterButtons(); // Load character buttons.
 
-	// Set up UI controls.
-	addUIControls();
+	addUIControls(); // Set up UI controls.
 	// Populate shader selector (assumes window.availableMaterialClasses is defined).
 	populateShaderSelector();
 
 	const defaultTextureResolution = 512; // Typical default.
 
-	charForm.addEventListener('submit', function (e) {
-		e.preventDefault();
+	charFormElement.addEventListener('submit', function (event) {
+		event.preventDefault();
 
 		// Read CharInfo data from the form (Base64-encoded).
-		if (!charInfoInput || !charInfoInput.value) {
+		if (!charDataInputElement || !charDataInputElement.value) {
 			throw new Error('need you to enter something in that there form...');
 		}
 
@@ -802,7 +800,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 				initializeScene();
 			}
 
-			updateCharModelInScene(charInfoInput.value, modelDesc);
+			// Create or update single CharModel in the scene.
+			updateCharModelInScene(charDataInputElement.value, modelDesc);
 
 			// Start the animation loop if not already started.
 			if (!isAnimating) {
@@ -815,6 +814,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 		}
 	});
 });
+
+// ─────────────────────────────────────────────────────────────
+//  Preset Character Button Handling
+// ─────────────────────────────────────────────────────────────
 
 function loadCharacterButtons(useLocalIcon = true) {
 	async function setIcon(img, data, viewType = ViewType.IconFovy45) {
@@ -858,13 +861,13 @@ function loadCharacterButtons(useLocalIcon = true) {
 	});
 }
 
-function onPresetCharacterClick(e) {
-	e.preventDefault();
-	const data = e.currentTarget.getAttribute('data-data');
-	console.log('icon clicked: ', data);
+function onPresetCharacterClick(event) {
+	event.preventDefault();
+	const data = event.currentTarget.getAttribute('data-data');
+	console.log('Preset character data clicked: ', data);
 	// if (!isInitialized) {
-	charInfoInput.value = data;
-	charform.dispatchEvent(new Event('submit'));
+	charDataInputElement.value = data;
+	charFormElement.dispatchEvent(new Event('submit'));
 	// } else {
 	//  updateCharModelInScene(data);
 	// }
