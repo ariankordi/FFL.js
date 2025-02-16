@@ -628,6 +628,11 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
       // Merge blend options:
       ...FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType)
     });
+    // Expose these properties.
+    this.modulateMode = modulateMode;
+    this.modulateType = modulateType;
+    this.modulateColor = options.modulateColor;
+    this.lightEnable = lightEnable;
   }
 
   get map() {
@@ -635,6 +640,12 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
   }
   set map(texture) {
     this.uniforms.s_texture.value = texture;
+  }
+  get lightDirection() {
+    return this.uniforms.u_light_dir.value;
+  }
+  set lightDirection(lightDir) {
+    this.uniforms.u_light_dir.value = lightDir;
   }
 }
 

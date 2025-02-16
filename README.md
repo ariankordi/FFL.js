@@ -30,7 +30,7 @@ Note that the argument to `-DCMAKE_TOOLCHAIN_FILE=` has to be within your emsdk 
 
 ```
 cmake -S . -B build-em -DCMAKE_TOOLCHAIN_FILE=/path/to/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DFFL_WITH_RIO=../rio/ -DCMAKE_BUILD_TYPE=Release
-
+ # Remember to find and fill in emsdk path:   ^^^^^^^^^
 cmake --build build
 ```
 
@@ -39,7 +39,7 @@ cmake --build build
 4. If that worked, find and copy the library.
 * It should be sitting in `build-em` (or whatever you chose) as:
   - `ffl-emscripten.js`, `ffl-emscripten.wasm`
-  - _(Note that you may be able to build without WASM for ASM.js, which is not tested, but in that case the .wasm is not needed at the expense of the .js being twice as big as the wasm and probably slower?)_
+  - (Note that if you build with `-DFFL_BUILD_WASM=OFF`, you can build to JS only, which may be more convenient/compatible at 2x the size of the wasm binary.)
 
 5. Finally, in order to use the library, you'll need an FFL resource such as `FFLResHigh.dat`, `AFLResHigh_2_3.dat`, etc.
   - See the ffl or FFL-Testing repo to know how to acquire this.
@@ -63,3 +63,9 @@ The only reason this has package.json at the time of writing is for eslint, npm 
 #### Future
 * _Port shaders to TSL and use NodeMaterial for WebGPURenderer support(???)_
 * **Refactor** to split out the codebase, or TypeScript.
+
+# Acknowledgements
+* [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).
+* [Nathan Vander Wilt](https://github.com/natevw) for [struct-fu](https://github.com/natevw/struct-fu) (this is using a [fork](https://github.com/ariankordi/struct-fu)).
+* [Mister F*cking Doob](https://github.com/mrdoob) himself for [Three.js](https://github.com/mrdoob/three.js).
+* Nintendo for making FFL.

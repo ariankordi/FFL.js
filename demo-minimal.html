@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<!-- path to FFL resource file (FFLResHigh.dat, AFLResHigh_2_3.dat, etc.) -->
+	<meta itemprop="ffl-js-resource-fetch-path" content="https://debian.local:8445/assets/web%20builds/FFLResMiddle.dat">
+	<!-- emscripten module (not modularized)/ffl-emscripten.js -->
+	<script src="ffl-emscripten.js"></script>
+
+	<!-- three.js 0.137.5 from 2022 -->
+	<script src="https://unpkg.com/three@0.137.5/build/three.min.js"></script>
+
+	<!-- helper -->
+	<script src="struct-fu-mini.js"></script>
+	<!-- shader materials -->
+	<script src="FFLShaderMaterial.js"></script>
+
+	<!-- Include ffl.js after three.js and FFLShaderMaterial.js. -->
+	<script src="ffl.js"></script>
+
+</head>
+<body>
+
+	<div id="top-content">
+		<h3>ffl.js sample: minimal</h3>
+		<div style="font-size: 12px;">minimal code HERE that is... not the library is minimal at all..................</div>
+
+		<!-- Input form. -->
+		<form id="charform">
+			<label for="charinfo">Enter FFLStoreData or Studio Data:</label>
+			<!-- Value: soyun -->
+			<input type="text" id="charinfo" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" placeholder="Base64 or Hex">
+			<br>
+			<button type="submit">Create CharModel</button>
+		</form>
+
+	</div> <!-- top-content -->
+
+	<!-- End main content. -->
+	<!-- Begin page script. -->
+	<script>
+
+// --------------- Main Entrypoint (Scene & Animation) -----------------
+
+// Global variables for the main scene, renderer, camera, controls, etc.
+/** @type {THREE.Scene} */
+let scene = null;
+/** @type {THREE.WebGLRenderer} */
+let renderer = null;
+/** @type {THREE.Camera} */
+let camera = null;
+/** @type {CharModel} */
+let currentCharModel;
+
+let isInitialized = false;
+let isAnimating = false;
+
+// -------------- initializeScene() --------------
+/**
+ * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
+ * Called only the first time the button is clicked.
+ */
+function initializeScene() {
+	// Create scene.
+	scene = new THREE.Scene();
+	scene.background = new THREE.Color(0xE6E6FA);
+
+	renderer.setSize(window.innerWidth, window.innerHeight - 250);
+	document.body.appendChild(renderer.domElement);
+
+	// Create camera.
+	camera = new THREE.PerspectiveCamera(15, window.innerWidth / (window.innerHeight - 250), 1, 5000);
+	// Note that faceline and mask are close, and
+	// often you may run into Z-fighting if you
+	// don't set near/far plane with care.
+	camera.position.set(0, 50, 500);
+
+	isInitialized = true;
+	console.debug('initializeScene: Scene, renderer, camera created.');
+}
+
+// -------------- startAnimationLoop() --------------
+/**
+ * Starts the animation loop only once.
+ */
+function startAnimationLoop() {
+	if (isAnimating) {
+		return;
+	} // Prevent multiple loops.
+	isAnimating = true;
+
+	function animate() {
+		requestAnimationFrame(animate);
+
+		// Rotate CharModel.
+		currentCharModel.meshes.forEach((mesh) => {
+			if (mesh) {
+				mesh.rotation.y += 0.01;
+			}
+		});
+
+		renderer.render(scene, camera);
+	}
+	animate();
+}
+
+// ------------ updateCharModelInScene(data, modelDesc) --------------
+/**
+ * Either creates or updates CharModel and adds it to the scene.
+ * @param {Uint8Array|string} data
+ * @param {Object|null} [modelDesc=null]
+ */
+function updateCharModelInScene(data, modelDesc = null) {
+	// Decode data.
+	if (typeof data === 'string') {
+		data = parseHexOrB64ToUint8Array(data);
+	}
+	// Continue assuming it is Uint8Array.
+	// If an existing CharModel exists, update it.
+	if (currentCharModel) {
+		// Remove current CharModel meshes from the scene.
+		currentCharModel.meshes.forEach((mesh) => {
+			if (mesh) {
+				scene.remove(mesh);
+			}
+		});
+		// Update existing model via updateCharModel method.
+		currentCharModel = updateCharModel(currentCharModel, data, renderer);
+	} else {
+		if (!modelDesc) {
+			throw new Error('cannot exclude modelDesc if no model was initialized yet');
+		}
+		// Create a new CharModel.
+		currentCharModel = createCharModel(data, modelDesc, window.FFLShaderMaterial, window.Module);
+		// Initialize textures for the new CharModel.
+		initCharModelTextures(currentCharModel, renderer);
+	}
+	// Add CharModel meshes to scene.
+	currentCharModel.meshes.forEach((mesh) => {
+		if (mesh) {
+			scene.add(mesh);
+		}
+	});
+}
+
+// Assume a form with id "charform" exists in the HTML.
+const charForm = document.getElementById('charform');
+/** @type {HTMLInputElement | null} */
+const charInfoInput = document.getElementById('charinfo');
+
+// -------------- Form Submission Handler ------------------
+document.addEventListener('DOMContentLoaded', async function () {
+	// Initialize FFL and TextureManager.
+	await initializeFFLWithResource();
+
+	// Create renderer now.
+	renderer = new THREE.WebGLRenderer({ alpha: true });
+
+	charForm.addEventListener('submit', function (e) {
+		e.preventDefault();
+
+		// Read CharInfo data from the form (Base64-encoded).
+		if (!charInfoInput || !charInfoInput.value) {
+			throw new Error('need you to enter something in that there form...');
+		}
+
+		// Define the FFLModelDesc.
+		const modelDesc = FFLCharModelDesc.default; // Default expression.
+
+		try {
+			// First-time scene initialization.
+			if (!isInitialized) {
+				initializeScene();
+			}
+
+			updateCharModelInScene(charInfoInput.value, modelDesc);
+
+			// Start the animation loop if not already started.
+			if (!isAnimating) {
+				startAnimationLoop();
+			}
+		} catch (err) {
+			alert(`Error creating/updating CharModel: ${err}`);
+			console.error('Error creating/updating CharModel:', err);
+			throw err;
+		}
+	});
+});
+	</script>
+</body>
+</html>
