@@ -306,9 +306,10 @@ let activeMaterialClassName = availableMaterialClasses[0];
 let currentExpressionFlag = expressionFlagBlinking; // Expression.
 let canBlink = false; // Controls if the animation sets blinking. updateCanBlink()
 
-// ─────────────────────────────────────────────────────────────
-//  Scene Setup
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Scene Setup
+// // ---------------------------------------------------------------------
+
 
 /**
  * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
@@ -352,7 +353,7 @@ function initializeScene() {
 	}
 
 	isInitialized = true;
-	console.debug('initializeScene: Scene, renderer, camera created.');
+	console.log('initializeScene: Scene, renderer, camera created.');
 }
 
 /**
@@ -443,6 +444,7 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 			}
 		});
 		// Update existing model via updateCharModel.
+		// (will also dispose it for us)
 		currentCharModel = updateCharModel(currentCharModel, data, renderer, descOrExpFlag);
 	} else {
 		// Create a new CharModel.
@@ -472,9 +474,10 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	resetLightDirection();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Light Direction
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Light Direction
+// // ---------------------------------------------------------------------
+
 
 const lightDirXElement = document.getElementById('lightDirX');
 const lightDirYElement = document.getElementById('lightDirY');
@@ -523,9 +526,10 @@ function resetLightDirection() {
 	console.log('Light direction reset to default:', defDir);
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Shader Material Selection
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Shader Material Selection
+// // ---------------------------------------------------------------------
+
 
 const shaderMaterialSelectElement = document.getElementById('shaderMaterialSelect');
 
@@ -588,9 +592,10 @@ function onShaderMaterialChange() {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Rotation, Expressions
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Rotation, Expressions
+// // ---------------------------------------------------------------------
+
 
 let rotationEnabled = false;
 
@@ -648,9 +653,10 @@ function updateExpression() {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────
-//  CharModel Render Textures Control
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  CharModel Render Textures Control
+// // ---------------------------------------------------------------------
+
 
 const renderTexturesDisplayElement = document.getElementById('renderTexturesDisplay');
 const renderTexturesContainerElement = document.getElementById('ffl-js-display-render-textures');
@@ -675,13 +681,18 @@ function toggleRenderTexturesDisplay() {
 function toggleReinitTextures() {
 	reinitTexturesEveryFrame = reinitTexturesElement.checked;
 	_noCharModelCleanupDebug = reinitTexturesEveryFrame;
-	updateCharModelInScene(); // Remake the same CharModel.
+	// Remake the same CharModel if it exists.
+	if (currentCharModel) {
+		updateCharModelInScene(null, currentExpressionFlag);
+	}
+	updateCharModelInScene();
 	console.log(`Reinitialize textures every frame: ${reinitTexturesElement.checked}`);
 }
 
-// ─────────────────────────────────────────────────────────────
-//  CharModel Icon and Info Updates
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  CharModel Icon and Info Updates
+// // ---------------------------------------------------------------------
+
 
 /**
  * Updates the icon beside the options for the current CharModel.
@@ -725,9 +736,10 @@ function updateCharModelInfo() {
 	document.getElementById('favorite-color').style.backgroundColor = favColorColor.getStyle();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Bind UI Control Handlers
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Bind UI Control Handlers
+// // ---------------------------------------------------------------------
+
 
 /**
  * Adds event listeners to UI controls (rotation speed, pause rotation, light direction, shader, expression).
@@ -755,9 +767,10 @@ function addUIControls() {
 	reinitTexturesElement.addEventListener('change', toggleReinitTextures);
 }
 
-// ─────────────────────────────────────────────────────────────
-//  Form Submission Handling
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Form Submission Handling
+// // ---------------------------------------------------------------------
+
 
 // Assume a form with id "charform" exists in the HTML.
 const charFormElement = document.getElementById('charForm');
@@ -784,12 +797,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 	charFormElement.addEventListener('submit', function (event) {
 		event.preventDefault();
 
-		// Read CharInfo data from the form (Base64-encoded).
+		// Read input from the form.
 		if (!charDataInputElement || !charDataInputElement.value) {
 			throw new Error('need you to enter something in that there form...');
 		}
 
-		// Define the FFLModelDesc.
+		// Define the FFLCharModelDesc.
 		const modelDesc = FFLCharModelDesc.default;
 		modelDesc.resolution = defaultTextureResolution;
 		modelDesc.allExpressionFlag = currentExpressionFlag;
@@ -815,9 +828,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 	});
 });
 
-// ─────────────────────────────────────────────────────────────
-//  Preset Character Button Handling
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Preset Character Button Handling
+// // ---------------------------------------------------------------------
+
 
 function loadCharacterButtons(useLocalIcon = true) {
 	async function setIcon(img, data, viewType = ViewType.IconFovy45) {

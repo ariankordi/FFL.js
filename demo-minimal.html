@@ -5,7 +5,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 	<!-- path to FFL resource file (FFLResHigh.dat, AFLResHigh_2_3.dat, etc.) -->
-	<meta itemprop="ffl-js-resource-fetch-path" content="https://debian.local:8445/assets/web%20builds/FFLResMiddle.dat">
+	<meta itemprop="ffl-js-resource-fetch-path" content="AFLResHigh_2_3.dat">
 	<!-- emscripten module (not modularized)/ffl-emscripten.js -->
 	<script src="ffl-emscripten.js"></script>
 
@@ -159,15 +159,15 @@ document.addEventListener('DOMContentLoaded', async function () {
 	// Create renderer now.
 	renderer = new THREE.WebGLRenderer({ alpha: true });
 
-	charForm.addEventListener('submit', function (event) {
+	charFormElement.addEventListener('submit', function (event) {
 		event.preventDefault();
 
-		// Read CharInfo data from the form (Base64-encoded).
+		// Read input from the form.
 		if (!charDataInputElement || !charDataInputElement.value) {
 			throw new Error('need you to enter something in that there form...');
 		}
 
-		// Define the FFLModelDesc.
+		// Define the FFLCharModelDesc.
 		const modelDesc = FFLCharModelDesc.default; // Default expression.
 
 		try {
@@ -176,6 +176,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 				initializeScene();
 			}
 
+			// Create or update single CharModel in the scene.
 			updateCharModelInScene(charDataInputElement.value, modelDesc);
 
 			// Start the animation loop if not already started.

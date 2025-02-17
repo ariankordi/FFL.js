@@ -694,6 +694,9 @@ class HermitianCurve {
     const h11 = t * t * t - t * t;
     return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
   }
+  clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
   generateLUT(lutSize = 512) {
     const lut = new Uint8Array(lutSize);
     let keyIdx = 0;
@@ -713,7 +716,7 @@ class HermitianCurve {
         p0.dx * (p1.x - p0.x),
         p1.dx * (p1.x - p0.x)
       );
-      lut[i] = Math.round(THREE.MathUtils.clamp(y, 0, 1) * 255);
+      lut[i] = Math.round(this.clamp(y, 0, 1) * 255);
     }
     return lut;
   }
@@ -853,6 +856,9 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
   static getLUTTextures(lutSize = 512) {
     if (!LUTShaderMaterial._lutTextures) {
       const textures = { specular: {}, fresnel: {} };
+      const r8 = Number(THREE.REVISION) < 137
+        ? THREE.LuminanceFormat
+        : THREE.RedFormat;
       // Create specular LUT textures:
       for (const [key, curve] of Object.entries(
         LUTShaderMaterial.lutDefinitions.specular
@@ -862,7 +868,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
           lutData,
           lutSize,
           1,
-          THREE.RedFormat,
+          r8,
           THREE.UnsignedByteType
         );
         texture.needsUpdate = true;
@@ -881,7 +887,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
           lutData,
           lutSize,
           1,
-          THREE.RedFormat,
+          r8,
           THREE.UnsignedByteType
         );
         texture.needsUpdate = true;
@@ -1064,16 +1070,17 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
   get map() {
     return this.uniforms.uAlbedoTexture.value; // Expose as 'map'
   }
-  set map(texture) {
-    this.uniforms.uAlbedoTexture.value = texture;
+  set map(value) {
+    this.uniforms.uAlbedoTexture.value = value;
   }
   get lightDirection() {
     return this.uniforms.uDirLightDirAndType0.value;
   }
-  set lightDirection(lightDir) {
-    this.uniforms.uDirLightDirAndType0.value = lightDir;
+  set lightDirection(value) {
+    this.uniforms.uDirLightDirAndType0.value = value;
     this.uniforms.uDirLightDirAndType0.value.w = -1; // Override w
   }
+  // TODO: normalMap, etc...? see: https://github.com/pixiv/three-vrm/blob/776c2823dcf3453d689a2d56aa82b289fdf963cf/packages/three-vrm-materials-mtoon/src/MToonMaterial.ts#L75
 }
 
 window.LUTShaderMaterial = LUTShaderMaterial; // Export.

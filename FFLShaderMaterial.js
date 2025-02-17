@@ -638,14 +638,14 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
   get map() {
     return this.uniforms.s_texture.value; // Expose as 'map'
   }
-  set map(texture) {
-    this.uniforms.s_texture.value = texture;
+  set map(value) {
+    this.uniforms.s_texture.value = value;
   }
   get lightDirection() {
     return this.uniforms.u_light_dir.value;
   }
-  set lightDirection(lightDir) {
-    this.uniforms.u_light_dir.value = lightDir;
+  set lightDirection(value) {
+    this.uniforms.u_light_dir.value = value;
   }
 }
 
