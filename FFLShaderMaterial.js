@@ -2,7 +2,7 @@
 // Vertex Shader for FFLShaderMaterial
 // Derived from MiiDefaultShader.vsh found in Miitomo.
 // ─────────────────────────────────────────────────────────
-const _FFLShaderVert = `
+const _FFLShader_vert = /* glsl */`
 // 頂点シェーダーに入力される attribute 変数
 //attribute vec4 position;       //!< 入力: 位置情報
 //attribute vec2 uv;             //!< 入力: テクスチャー座標
@@ -119,7 +119,7 @@ void main()
 // Fragment Shader for FFLShaderMaterial
 // Mostly unmodified from MiiDefaultShader.fsh found in Miitomo.
 // ─────────────────────────────────────────────────────────
-const _FFLShaderFrag = `
+const _FFLShader_frag = /* glsl */`
 //
 //  sample.flg
 //  Fragment shader
@@ -403,6 +403,10 @@ void main()
 //#endif
 
     gl_FragColor = color;
+
+    //#include <tonemapping_fragment>
+    //#include <colorspace_fragment> // below vv
+    gl_FragColor = linearToOutputTexel( gl_FragColor );
 }
 `;
 
@@ -618,10 +622,10 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
     super({
       vertexShader:
         options.vertexShader ||
-        _FFLShaderVert,
+        _FFLShader_vert,
       fragmentShader:
         options.fragmentShader ||
-        _FFLShaderFrag,
+        _FFLShader_frag,
       uniforms: uniforms,
       side: options.side || THREE.FrontSide,
       // skinning: options.skinning || false, // Not needed with newer Three.js.

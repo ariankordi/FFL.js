@@ -54,12 +54,15 @@ let camera = null;
 /** @type {CharModel} */
 let currentCharModel;
 
+/** @type {THREE.Box3Helper} */
+let boxHelper;
+
 let isInitialized = false;
 let isAnimating = false;
 
-// ─────────────────────────────────────────────────────────────
-//  Scene Setup
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Scene Setup
+// // ---------------------------------------------------------------------
 
 /**
  * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
@@ -68,7 +71,8 @@ let isAnimating = false;
 function initializeScene() {
 	// Create scene.
 	scene = new THREE.Scene();
-	scene.background = new THREE.Color(0xE6E6FA);
+	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : null;
+	scene.background = new THREE.Color().setHex(0xE6E6FA, space);
 
 	renderer.setSize(window.innerWidth, window.innerHeight - 256);
 	document.body.appendChild(renderer.domElement);
@@ -78,7 +82,7 @@ function initializeScene() {
 	// Note that faceline and mask are close, and
 	// often you may run into Z-fighting if you
 	// don't set near/far plane with care.
-	camera.position.set(0, 50, 500);
+	camera.position.set(0, 30, 500);
 
 	isInitialized = true;
 	console.log('initializeScene: Scene, renderer, camera created.');
@@ -97,15 +101,31 @@ function startAnimationLoop() {
 		requestAnimationFrame(animate);
 
 		// Rotate CharModel.
-		currentCharModel.meshes.forEach((mesh) => {
-			if (mesh) {
-				mesh.rotation.y += 0.01;
+		scene.traverse((node) => {
+			if (node.isObject3D && !node.isMesh) {
+				node.rotation.y += 0.01;
 			}
 		});
 
 		renderer.render(scene, camera);
 	}
 	animate();
+}
+
+/**
+ * Adds or updates the BoxHelper in the scene to the CharModel bounding box.
+ * @param {CharModel} charModel
+ */
+function updateBoxHelper(charModel) {
+	if (boxHelper) {
+		scene.remove(boxHelper);
+		boxHelper.geometry.dispose();
+		boxHelper.material.dispose();
+		boxHelper = null;
+	}
+	// boxHelper = new THREE.BoxHelper(charModel.meshes);
+	boxHelper = new THREE.Box3Helper(charModel.boundingBox);
+	scene.add(boxHelper);
 }
 
 /**
@@ -121,12 +141,8 @@ function updateCharModelInScene(data, modelDesc = null) {
 	// Continue assuming it is Uint8Array.
 	// If an existing CharModel exists, update it.
 	if (currentCharModel) {
-		// Remove current CharModel meshes from the scene.
-		currentCharModel.meshes.forEach((mesh) => {
-			if (mesh) {
-				scene.remove(mesh);
-			}
-		});
+		// Remove current CharModel from the scene.
+		scene.remove(currentCharModel.meshes);
 		// Update existing model via updateCharModel method.
 		currentCharModel = updateCharModel(currentCharModel, data, renderer);
 	} else {
@@ -139,12 +155,13 @@ function updateCharModelInScene(data, modelDesc = null) {
 		initCharModelTextures(currentCharModel, renderer);
 	}
 	// Add CharModel meshes to scene.
-	currentCharModel.meshes.forEach((mesh) => {
-		if (mesh) {
-			scene.add(mesh);
-		}
-	});
+	scene.add(currentCharModel.meshes);
+	updateBoxHelper(currentCharModel); // Update boxHelper.
 }
+
+// // ---------------------------------------------------------------------
+// //  Form Submission Handling
+// // ---------------------------------------------------------------------
 
 // Assume a form with id "charform" exists in the HTML.
 const charFormElement = document.getElementById('charForm');

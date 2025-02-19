@@ -310,7 +310,6 @@ let canBlink = false; // Controls if the animation sets blinking. updateCanBlink
 // //  Scene Setup
 // // ---------------------------------------------------------------------
 
-
 /**
  * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
  * Called only the first time the button is clicked.
@@ -318,7 +317,8 @@ let canBlink = false; // Controls if the animation sets blinking. updateCanBlink
 function initializeScene() {
 	// Create scene.
 	scene = new THREE.Scene();
-	scene.background = new THREE.Color(0xE6E6FA);
+	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : null;
+	scene.background = new THREE.Color().setHex(0xE6E6FA, space);
 
 	renderer.setPixelRatio(window.devicePixelRatio);
 	// 256 = height of #ffl-js-display-render-textures.
@@ -381,7 +381,7 @@ function startAnimationLoop() {
 		requestAnimationFrame(animate);
 
 		// Update OrbitControls.
-		if (controls) {
+		if (controls.update) {
 			controls.update();
 		}
 
@@ -438,11 +438,12 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	// If an existing CharModel exists, update it.
 	if (currentCharModel) {
 		// Remove current CharModel meshes from the scene.
-		currentCharModel.meshes.forEach((mesh) => {
-			if (mesh) {
-				scene.remove(mesh);
-			}
-		});
+		// currentCharModel.meshes.forEach((mesh) => {
+		// 	if (mesh) {
+		// 		scene.remove(mesh);
+		// 	}
+		// });
+		scene.remove(currentCharModel.meshes);
 		// Update existing model via updateCharModel.
 		// (will also dispose it for us)
 		currentCharModel = updateCharModel(currentCharModel, data, renderer, descOrExpFlag);
@@ -456,11 +457,12 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 		initCharModelTextures(currentCharModel, renderer);
 	}
 	// Add CharModel meshes to scene.
-	currentCharModel.meshes.forEach((mesh) => {
-		if (mesh) {
-			scene.add(mesh);
-		}
-	});
+	// currentCharModel.meshes.forEach((mesh) => {
+	// 	if (mesh) {
+	// 		scene.add(mesh);
+	// 	}
+	// });
+	scene.add(currentCharModel.meshes);
 
 	// Update states set by options.
 	updateCharModelIcon();
@@ -499,9 +501,10 @@ function updateLightDirection() {
 	if (!currentCharModel || !currentCharModel.meshes) {
 		return;
 	}
-	currentCharModel.meshes.forEach((mesh) => {
+	// currentCharModel.meshes.forEach((mesh) => {
+	currentCharModel.meshes.traverse((mesh) => {
 		// Make sure this mesh is non-null and has a compatible ShaderMaterial.
-		if (mesh && mesh.material && mesh.material.uniforms) {
+		if (mesh && mesh.material && mesh.material.lightDirection) {
 			// Set the lightDirection on the material.
 			mesh.material.lightDirection = newDir.clone();
 		}
@@ -565,8 +568,8 @@ function onShaderMaterialChange() {
 	if (currentCharModel && currentCharModel.meshes) {
 		// Update _materialClass property that updating CharModels will use.
 		currentCharModel._materialClass = window[activeMaterialClassName];
-		currentCharModel.meshes.forEach((mesh) => {
-			if (!mesh) {
+		currentCharModel.meshes.traverse((mesh) => {
+			if (!mesh.isMesh) {
 				return;
 			}
 			// Recreate material with same parameters but using the new shader class.
@@ -595,7 +598,6 @@ function onShaderMaterialChange() {
 // // ---------------------------------------------------------------------
 // //  Rotation, Expressions
 // // ---------------------------------------------------------------------
-
 
 let rotationEnabled = false;
 
@@ -657,7 +659,6 @@ function updateExpression() {
 // //  CharModel Render Textures Control
 // // ---------------------------------------------------------------------
 
-
 const renderTexturesDisplayElement = document.getElementById('renderTexturesDisplay');
 const renderTexturesContainerElement = document.getElementById('ffl-js-display-render-textures');
 const reinitTexturesElement = document.getElementById('reinitTextures');
@@ -692,7 +693,6 @@ function toggleReinitTextures() {
 // // ---------------------------------------------------------------------
 // //  CharModel Icon and Info Updates
 // // ---------------------------------------------------------------------
-
 
 /**
  * Updates the icon beside the options for the current CharModel.
@@ -732,14 +732,12 @@ function updateCharModelInfo() {
 
 	// Update favorite color block
 	const favColor = currentCharModel.favoriteColor;
-	const favColorColor = new THREE.Color(favColor.x, favColor.y, favColor.z);
-	document.getElementById('favorite-color').style.backgroundColor = favColorColor.getStyle();
+	document.getElementById('favorite-color').style.backgroundColor = favColor.getStyle();
 }
 
 // // ---------------------------------------------------------------------
 // //  Bind UI Control Handlers
 // // ---------------------------------------------------------------------
-
 
 /**
  * Adds event listeners to UI controls (rotation speed, pause rotation, light direction, shader, expression).
@@ -770,7 +768,6 @@ function addUIControls() {
 // // ---------------------------------------------------------------------
 // //  Form Submission Handling
 // // ---------------------------------------------------------------------
-
 
 // Assume a form with id "charform" exists in the HTML.
 const charFormElement = document.getElementById('charForm');
@@ -832,21 +829,23 @@ document.addEventListener('DOMContentLoaded', async function () {
 // //  Preset Character Button Handling
 // // ---------------------------------------------------------------------
 
-
 function loadCharacterButtons(useLocalIcon = true) {
 	async function setIcon(img, data, viewType = ViewType.IconFovy45) {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
 		if (useLocalIcon) {
 			// Render the icon using createCharModelIcon.
+			let model;
 			try {
 				const dataU8 = parseHexOrB64ToUint8Array(data);
-				const model = createCharModel(dataU8, null, window[activeMaterialClassName]);
+				model = createCharModel(dataU8, null, window[activeMaterialClassName]);
 				initCharModelTextures(model, renderer);
 				const dataURL = createCharModelIcon(model, renderer, viewType);
 				img.setAttribute('src', dataURL);
 			} catch (e) {
 				console.error(`loadCharacterButtons: Could not make icon for ${data}: ${e}`);
+			} finally {
+				model.dispose();
 			}
 		} else {
 			img.setAttribute('src', img.getAttribute('data-src') + encodeURIComponent(data));

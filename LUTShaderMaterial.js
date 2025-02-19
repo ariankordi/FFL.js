@@ -2,7 +2,7 @@
 // Vertex Shader for LUTShaderMaterial
 // Derived from LUT.vsh found in Miitomo.
 // ─────────────────────────────────────────────────────────
-const _LUTShaderVert = `
+const _LUTShader_vert = /* glsl */`
 #define AGX_FEATURE_ALBEDO_TEXTURE
 /**
  * @file    LUT.vsh
@@ -377,7 +377,7 @@ void main()
 // Fragment Shader for LUTShaderMaterial
 // Unmodified from LUT.fsh found in Miitomo.
 // ─────────────────────────────────────────────────────────
-const _LUTShaderFrag = `
+const _LUTShader_frag = /* glsl */`
 #define AGX_FEATURE_ALBEDO_TEXTURE
 #define AGX_FEATURE_MII
 /**
@@ -676,6 +676,9 @@ else
 
     // 色を反映させる
     gl_FragColor = colorOut;
+
+    //#include <tonemapping_fragment>
+    //#include <colorspace_fragment>
 }
 `;
 
@@ -910,6 +913,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
   static defaultDirLightCount = 2;
   static defaultDirLightDirAndType0 = new THREE.Vector4(-0.2, 0.5, 0.8, -1.0);
   static defaultDirLightDirAndType1 = new THREE.Vector4(0.0, -0.19612, 0.98058, -1.0);
+  static defaultLightColor = new THREE.Color(0.35137, 0.32392, 0.32392);
 
   static defaultLightDirection = this.defaultDirLightDirAndType0;
 
@@ -1030,7 +1034,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
       },
       uLightEnable: { value: lightEnable },
       uLightColor: {
-        value: options.lightColor || new THREE.Vector3(0.35137, 0.32392, 0.32392),
+        value: options.lightColor || LUTShaderMaterial.defaultLightColor,
       },
       uMode: { value: modulateMode },
       // NOTE about uAlphaTest:
@@ -1047,10 +1051,10 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
     super({
       vertexShader:
         options.vertexShader ||
-        _LUTShaderVert,
+        _LUTShader_vert,
       fragmentShader:
         options.fragmentShader ||
-        _LUTShaderFrag,
+        _LUTShader_frag,
       uniforms: uniforms,
       side: side,
       // skinning: options.skinning || false, // Not needed with newer Three.js.
