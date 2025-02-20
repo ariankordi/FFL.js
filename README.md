@@ -1,10 +1,22 @@
 # FFL.js
 JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.js.
 
-## TODO
-* Screenshots
-* Mention testing with: Three.js versions, browser versions, WebGL versions...
-* Explanation of demos
+## Features
+
+* Full rendering of Mii heads using the Wii U (`FFLShaderMaterial`) and Miitomo (`LUTShaderMaterial`) shaders.
+* Implemented in JSDoc annotated JavaScript directly calling into the FFL library.
+* Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and exporting FFLStoreData.
+* Supported FFL features: Expressions, mipmaps, bounding box, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, (head only) icon creation
+* Tested with Three.js r109 up to r160
+
+There are currently two demos: `demo-basic.html` and `demo-minimal.html`, both of which are pretty underwhelming. Read TODOs further down for more plaannnnnsssss
+
+<img width="350" src="https://github.com/user-attachments/assets/853b4159-4cb0-47ac-b929-220299a3017a">
+
+<img width="400" src="https://github.com/user-attachments/assets/7059cc73-463e-4091-baec-642b67ae4993">
+
+<img width="200" src="https://github.com/user-attachments/assets/2376e69b-ef53-49a9-a98f-29d4df0eb1c6">
+
 
 ## Building
 
@@ -44,26 +56,43 @@ cmake --build build
 5. Finally, in order to use the library, you'll need an FFL resource such as `FFLResHigh.dat`, `AFLResHigh_2_3.dat`, etc.
   - See the ffl or FFL-Testing repo to know how to acquire this.
   - (_If you have somehow made your own custom one with mipmaps:_ if it is AFLResHigh_2_3.dat you MUST build with `-DCMAKE_CXX_FLAGS="-DFFL_ALLOW_MIPMAPS_FOR_AFL_2_3"`)
+  - **Currently the demos hardcode the location of the resource in `meta#ffl-js-resource-fetch-path` so you will need to change that. For now.**
 
 If you run into issues with dependencies here, see the FFL-Testing repo.
 
-## ESLint
+### ESLint
 The only reason this has package.json at the time of writing is for eslint, npm install and run: `eslint`
 
-## Wishlist
-* Pass these around rather than using a global:
+## TODO
+
+I apologize in advance for the enormous library in one file, I was under pressure by myself to get this out unpolished.
+
+#### Severe
+
+* End use of globals, pass instances around:
   - window.Module (Emscripten module)
+    - _Support async/promise Emscripten module_ (`-s MODULARIZE=1`)
+    - Adding above should fix a bug where it keeps waiting for module to be ready
   - window.FFLTextures (TextureManager)
-* Support async Emscripten module (`-s MODULARIZE=1`)
+  - `_resourceDesc` (FFLResourceDesc, currently allocated resource pointers)
+  - Potential settings:
+    - Debug options `_noCharModelCleanupDebug`, `_displayRenderTexturesElement`
+    - Color space (`FFLSetLinearGammaMode`), scale (`FFLSetScale`), coordinate mode (`FFLSetCoordinateMode`)
+* Export public functions, use UMD for now (Depends on above)
+
+#### Improvements
+
 * Throw errors with more specificity ([See FFLSharp's approach for details](https://github.com/ariankordi/FFLSharp/blob/master/FFLSharp.FFLManager/FFLExceptions.cs))
   - Include reverse enum to string tables for `FFLResult`, `FFLiVerifyReason`
-* (Eliminate all memory leaks? Most should be gone now tho)
-  - **NOTE**: All console.debug statements should be stripped out when not debugging because they will forever hold whatever is printed.
-* (Resolve JSDoc formatting inconsistencies?)
+* Validate code with TypeScript (`--checkJs`) and complete adding types.
+  - (Can someone harshly criticize my code, naming conventions and whatnot 🥺)
+* (Eliminate all memory leaks? Most should be gone now tho. Strip console.debug?)
 
-#### Future
-* _Port shaders to TSL and use NodeMaterial for WebGPURenderer support(???)_
+### Wishlist
+* Need more demos: body model, CharInfo editing, mass icons
 * **Refactor**: Split code into files, export as ESM module, refactor to TypeScript(???)
+* Resolve JSDoc formatting inconsistencies? (param order, add space after description?, line breaking, etc.)
+* _Port shaders to TSL and use NodeMaterial for WebGPURenderer support?????_
 
 # Acknowledgements
 * [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).
