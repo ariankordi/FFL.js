@@ -6,6 +6,14 @@
 
 	<!-- path to FFL resource file (FFLResHigh.dat, AFLResHigh_2_3.dat, etc.) -->
 	<meta itemprop="ffl-js-resource-fetch-path" content="AFLResHigh_2_3.dat">
+
+	<script async>
+		// Begin fetching resource early.
+		const path = document.querySelector('meta[itemprop=ffl-js-resource-fetch-path]').getAttribute('content');
+		// Define fetch promise to be resolved when ffl.js loads.
+		/** @global */
+		window.ffljsResourceFetchResponse = fetch(path);
+	</script>
 	<!-- emscripten module (not modularized)/ffl-emscripten.js -->
 	<script src="ffl-emscripten.js"></script>
 
@@ -181,8 +189,8 @@
 			<div class="options-content">
 				<!-- CharModel information row. -->
 				<div class="info-row">
-					<span class="info-item-name">Name: <span id="charmodel-name">(Not Loaded)</span></span>
-					<span class="info-item">Favorite Color: <span class="color-block" id="favorite-color"></span></span>
+					<span class="info-item-name">Name: <span id="charModelName">(Not Loaded)</span></span>
+					<span class="info-item">Favorite Color: <span class="color-block" id="charModelFavoriteColor"></span></span>
 					<span class="info-item">View in Console: <code>> currentCharModel</code></span>
 				</div>
 
@@ -261,7 +269,7 @@
 
 		<!-- Hidden Debug Option (inside details) -->
 		<details id="renderTexturesDisplay">
-			<summary>View Faceline and Mask Textures - Only Shows After Opened</summary>
+			<summary>View Faceline and Mask Textures - Only Updates After Opened</summary>
 			<!-- Intentionally not a label to make hitbox small. -->
 			<span>
 				<input type="checkbox" id="reinitTextures">
@@ -392,7 +400,7 @@ function startAnimationLoop() {
 		}
 
 		// Update blink state.
-		if (canBlink) {
+		if (currentCharModel && canBlink) {
 			// Disable blinking if an exception happens.
 			// try {
 			const now = Date.now();
@@ -436,32 +444,29 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	}
 	// Continue assuming it is Uint8Array.
 	// If an existing CharModel exists, update it.
-	if (currentCharModel) {
-		// Remove current CharModel meshes from the scene.
-		// currentCharModel.meshes.forEach((mesh) => {
-		// 	if (mesh) {
-		// 		scene.remove(mesh);
-		// 	}
-		// });
-		scene.remove(currentCharModel.meshes);
-		// Update existing model via updateCharModel.
-		// (will also dispose it for us)
-		currentCharModel = updateCharModel(currentCharModel, data, renderer, descOrExpFlag);
-	} else {
-		// Create a new CharModel.
-		if (!descOrExpFlag) {
-			throw new Error('cannot exclude modelDesc if no model was initialized yet');
+	try {
+		if (currentCharModel) {
+			// Remove current CharModel from the scene.
+			scene.remove(currentCharModel.meshes);
+			// Update existing model via updateCharModel.
+			// (will also dispose it for us)
+			currentCharModel = updateCharModel(currentCharModel, data, renderer, descOrExpFlag);
+		} else {
+			// Create a new CharModel.
+			if (!descOrExpFlag) {
+				throw new Error('cannot exclude modelDesc if no model was initialized yet');
+			}
+			currentCharModel = createCharModel(data, descOrExpFlag, window[activeMaterialClassName], window.Module);
+			// Initialize textures for the new CharModel.
+			initCharModelTextures(currentCharModel, renderer);
 		}
-		currentCharModel = createCharModel(data, descOrExpFlag, window[activeMaterialClassName], window.Module);
-		// Initialize textures for the new CharModel.
-		initCharModelTextures(currentCharModel, renderer);
+	} catch (err) {
+		currentCharModel = null;
+		alert(`Error creating/updating CharModel: ${err}`);
+		console.error('Error creating/updating CharModel:', err);
+		throw err;
 	}
 	// Add CharModel meshes to scene.
-	// currentCharModel.meshes.forEach((mesh) => {
-	// 	if (mesh) {
-	// 		scene.add(mesh);
-	// 	}
-	// });
 	scene.add(currentCharModel.meshes);
 
 	// Update states set by options.
@@ -479,7 +484,6 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 // // ---------------------------------------------------------------------
 // //  Light Direction
 // // ---------------------------------------------------------------------
-
 
 const lightDirXElement = document.getElementById('lightDirX');
 const lightDirYElement = document.getElementById('lightDirY');
@@ -532,7 +536,6 @@ function resetLightDirection() {
 // // ---------------------------------------------------------------------
 // //  Shader Material Selection
 // // ---------------------------------------------------------------------
-
 
 const shaderMaterialSelectElement = document.getElementById('shaderMaterialSelect');
 
@@ -694,6 +697,8 @@ function toggleReinitTextures() {
 // //  CharModel Icon and Info Updates
 // // ---------------------------------------------------------------------
 
+const modelIconElement = document.getElementById('modelIcon');
+
 /**
  * Updates the icon beside the options for the current CharModel.
  */
@@ -710,9 +715,11 @@ function updateCharModelIcon() {
 		img.setAttribute('src', dataURL);
 	}
 
-	const charModelIcon = document.getElementById('modelIcon');
-	makeIcon(charModelIcon);
+	makeIcon(modelIconElement);
 }
+
+const charModelNameElement = document.getElementById('charModelName');
+const charModelFavoriteColorElement = document.getElementById('charModelFavoriteColor');
 
 /**
  * Updates the info section above the options for the current CharModel.
@@ -725,14 +732,18 @@ function updateCharModelInfo() {
 
 	// Update name from CharInfo.
 	let name = currentCharModel._model.charInfo.personal.name;
-	if (name === '!') {
-		name += ' (<< No Name)';
+	if (name.length === 0) {
+		// Make font bold when name is empty.
+		charModelNameElement.style.fontWeight = 'bold';
+		name = '(No Name)';
+	} else {
+		charModelNameElement.style = '';
 	}
-	document.getElementById('charmodel-name').textContent = name;
+	charModelNameElement.textContent = name;
 
 	// Update favorite color block
 	const favColor = currentCharModel.favoriteColor;
-	document.getElementById('favorite-color').style.backgroundColor = favColor.getStyle();
+	charModelFavoriteColorElement.style.backgroundColor = favColor.getStyle();
 }
 
 // // ---------------------------------------------------------------------
@@ -776,12 +787,17 @@ const charDataInputElement = document.getElementById('charData');
 
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
+	await initializeFFL(window.ffljsResourceFetchResponse, window.Module);
+	window.FFLTextures = new TextureManager(window.Module);
+
 	// Initialize FFL and TextureManager.
-	await initializeFFLWithResource();
-	// window.Module._FFLSetScale(0.1);
+	// await initializeFFLWithResource();
+	// window.Module._FFLSetLinearGammaMode(1);
 
 	// Create renderer now.
-	renderer = new THREE.WebGLRenderer({ alpha: true });
+	renderer = new THREE.WebGLRenderer({
+		alpha: true // Needed for mask textures.
+	});
 
 	loadCharacterButtons(); // Load character buttons.
 
@@ -804,23 +820,17 @@ document.addEventListener('DOMContentLoaded', async function () {
 		modelDesc.resolution = defaultTextureResolution;
 		modelDesc.allExpressionFlag = currentExpressionFlag;
 
-		try {
-			// First-time scene initialization.
-			if (!isInitialized) {
-				initializeScene();
-			}
+		// First-time scene initialization.
+		if (!isInitialized) {
+			initializeScene();
+		}
 
-			// Create or update single CharModel in the scene.
-			updateCharModelInScene(charDataInputElement.value, modelDesc);
+		// Create or update single CharModel in the scene.
+		updateCharModelInScene(charDataInputElement.value, modelDesc);
 
-			// Start the animation loop if not already started.
-			if (!isAnimating) {
-				startAnimationLoop();
-			}
-		} catch (err) {
-			alert(`Error creating/updating CharModel: ${err}`);
-			console.error('Error creating/updating CharModel:', err);
-			throw err;
+		// Start the animation loop if not already started.
+		if (!isAnimating) {
+			startAnimationLoop();
 		}
 	});
 });

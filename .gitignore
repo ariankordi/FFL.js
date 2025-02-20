@@ -1,1 +1,14 @@
-node_modules
+node_modules/
+
+# Personal
+backup/
+three revisions/
+three-*.js
+# TODO: temporary
+docs/
+
+# FFL resources
+*Res*.dat
+
+.*kate-swp
+# TODO include some standard gitignore

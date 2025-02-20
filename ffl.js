@@ -782,20 +782,17 @@ class TextureManager {
 	/**
 	 * @private
 	 * @param {number} format - Enum value for FFLTextureFormat.
-	 * @returns {number|null} - Three.js texture format constant.
+	 * @returns {number|null} Three.js texture format constant.
 	 * @throws {Error} Unexpected FFLTextureFormat value
 	 *
-	 * @todo R8_UNORM and R8_G8_UNORM should map to different types depending on WebGL version.
-	 *     - Only LuminanceFormat/LuminanceAlphaFormat are supported on WebGL 1.0 (before it was removed in Three.js r162)
-	 *     - Need to somehow know whether or not WebGL 1.0 is being used and set isWebGL1Renderer.
+	 * Note that this function won't work on WebGL1Renderer in Three.js r137-r161 since R and RG textures need to use Luminance(Alpha)Format
+     *     - (you'd somehow need to detect which renderer is used)
 	 */
 	_getTextureFormat(format) {
 		// Map FFLTextureFormat to Three.js texture formats.
 
-		const isWebGL1Renderer = false;
-		// THREE.RGFormat did not work correctly for me
-		// on Three.js r136 and older.
-		const useGLES2Formats = isWebGL1Renderer || Number(THREE.REVISION) < 137;
+		// THREE.RGFormat did not work for me on Three.js r136/older.
+		const useGLES2Formats = Number(THREE.REVISION) < 137;
 		const r8 = useGLES2Formats
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
@@ -985,7 +982,9 @@ class TextureManager {
  *
  * @param {string} name - The name of the function whose result to check.
  * @param {number} result - The returned FFLResult enum value.
- * @throws {Error} If the result is not 0 (FFL_RESULT_OK), throw.
+ * @throws {Error} Throws if the result is not 0 (FFL_RESULT_OK).
+ * @returns {void} Returns nothing if the result is 0.
+ * @todo TODO: Should preferably return a custom error class.
  */
 function handleFFLResult(name, result) {
 	let error; // Error string to alert() and construct new Error from.
@@ -1018,7 +1017,7 @@ function handleFFLResult(name, result) {
 async function _loadDataIntoHeap(resource, module) {
 	// These need to be accessible by the catch statement:
 	let heapSize;
-	let heapPointer;
+	let heapPtr;
 	try {
 		// Copy resource into heap.
 		if (resource instanceof ArrayBuffer) {
@@ -1029,10 +1028,10 @@ async function _loadDataIntoHeap(resource, module) {
 			console.warn('initializeFFL -> _loadDataIntoHeap: resource was passed as Uint8Array/ArrayBuffer. Please pass in a fetch Response instance for improved efficiency.');
 
 			heapSize = resource.length;
-			heapPointer = module._malloc(heapSize);
-			console.debug(`loadDataIntoHeap: Loading from Uint8Array. Size: ${heapSize}, pointer: ${heapPointer}`);
+			heapPtr = module._malloc(heapSize);
+			console.debug(`loadDataIntoHeap: Loading from Uint8Array. Size: ${heapSize}, pointer: ${heapPtr}`);
 			// Allocate and set this area in the heap as the passed array.
-			module.HEAPU8.set(resource, heapPointer);
+			module.HEAPU8.set(resource, heapPtr);
 		} else if (resource instanceof Response) {
 			// Handle as fetch response.
 			// Throw an error if it is not a streamable response.
@@ -1046,16 +1045,15 @@ async function _loadDataIntoHeap(resource, module) {
 				throw new Error('Fetch response missing Content-Length.');
 			}
 
+			// Allocate into heap using the Content-Length.
 			heapSize = parseInt(contentLength, 10);
-			heapPointer = module._malloc(heapSize); // Allocate to heap
+			heapPtr = module._malloc(heapSize);
 
-			console.debug(`loadDataIntoHeap: Streaming ${heapSize} bytes from fetch response. URL: ${resource.url}, pointer: ${heapPointer}`);
+			console.debug(`loadDataIntoHeap: Streaming ${heapSize} bytes from fetch response. URL: ${resource.url}, pointer: ${heapPtr}`);
 
-			// Begin reading.
+			// Begin reading and streaming chunks into the heap.
 			const reader = resource.body.getReader();
-			let offset = heapPointer;
-
-			// Stream chunks into the heap.
+			let offset = heapPtr;
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) {
@@ -1069,15 +1067,22 @@ async function _loadDataIntoHeap(resource, module) {
 			throw new Error('loadDataIntoHeap: type is not Uint8Array or Response');
 		}
 
-		return { pointer: heapPointer, size: heapSize };
+		return { pointer: heapPtr, size: heapSize };
 	} catch (error) {
 		// Free memory upon exception, if allocated.
-		if (heapPointer) {
-			module._free(heapPointer);
+		if (heapPtr) {
+			module._free(heapPtr);
 		}
 		throw error;
 	}
 }
+
+/**
+ * @global
+ * Global storing the FFLResourceDesc instance that points to
+ * where the FFL resource is allocated in the heap.
+ */
+let _resourceDesc;
 
 // --------------------- initializeFFL(resource, module) ---------------------
 /**
@@ -1089,12 +1094,12 @@ async function _loadDataIntoHeap(resource, module) {
  *    the FFL resource file.
  * @param {Module} [module=window.Module] - The Emscripten module instance.
  * @returns {Promise<void>} Resolves when FFL is fully initialized.
- * @todo TODO: Store pointers to all allocated resources to free later (exitFFL).
  * @todo TODO TODO: DOES NOT WORK PROPERLY when CACHE IS ENABLED ????
  */
 async function initializeFFL(resource, module = window.Module) {
 	console.debug('initializeFFL: Entrypoint, waiting for module to be ready.');
 
+	let resourceDescPtr; // Store pointer to free later.
 	// Continue when Emscripten module is initialized.
 	return new Promise((resolve) => {
 		// try {
@@ -1104,7 +1109,7 @@ async function initializeFFL(resource, module = window.Module) {
 				console.debug('initializeFFL: Emscripten runtime initialized, resolving.');
 				resolve();
 			};
-			console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, module.onRuntimeInitialized: ${module.calledRunr} / << assigned and waiting.`);
+			console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, module.onRuntimeInitialized: ${module.onRuntimeInitialized} / << assigned and waiting.`);
 		} else {
 			console.debug('initializeFFL: Assuming module is ready.');
 			resolve();
@@ -1124,31 +1129,44 @@ async function initializeFFL(resource, module = window.Module) {
 		.then(() => {
 			return _loadDataIntoHeap(resource, module);
 		})
-		.then(({ pointer: heapPointer, size: heapSize }) => {
-			console.debug(`initializeFFL: Resource loaded into heap. Pointer: ${heapPointer}, Size: ${heapSize}`);
+		.then(({ pointer: heapPtr, size: heapSize }) => {
+			console.debug(`initializeFFL: Resource loaded into heap. Pointer: ${heapPtr}, Size: ${heapSize}`);
 
-			// Pack the resource description into a struct.
+			// Initialize and pack FFLResourceDesc.
 			const resourceDesc = { pData: [0, 0], size: [0, 0] };
-			// We use resource slot 1.
-			resourceDesc.pData[1] = heapPointer;
-			resourceDesc.size[1] = heapSize;
-			const packed = FFLResourceDesc.pack(resourceDesc);
-			const resourceDescPtr = module._malloc(FFLResourceDesc.size);
-			module.HEAPU8.set(packed, resourceDescPtr);
+			// Using high resource type as the default.
+			resourceDesc.pData[FFLResourceType.HIGH] = heapPtr;
+			resourceDesc.size[FFLResourceType.HIGH] = heapSize;
 
-			// Call FFL initialization.
-			const result = module._FFLInitRes(0, resourceDescPtr); // FFL_FONT_REGION_JP_US_EU = 0
-			handleFFLResult('FFLInitRes', result); // Check result.
+			_resourceDesc = resourceDesc; // Set as global to free later.
+			const resourceDescData = FFLResourceDesc.pack(resourceDesc);
+			resourceDescPtr = module._malloc(FFLResourceDesc.size);
+			module.HEAPU8.set(resourceDescData, resourceDescPtr);
 
+			// Call FFL initialization. FFL_FONT_REGION_JP_US_EU = 0
+			const result = module._FFLInitRes(0, resourceDescPtr);
+			handleFFLResult('FFLInitRes', result); // Potentially throw.
+
+			// Set required globals in FFL.
 			module._FFLInitResGPUStep(); // CanInitCharModel will fail if not called.
+			module._FFLSetNormalIsSnorm8_8_8_8(true); // Set normal format to FFLiSnorm8_8_8_8.
+			module._FFLSetTextureFlipY(true); // Set textures to be flipped for WebGL.
 
-			module._FFLSetNormalIsSnorm8_8_8_8(1); // Set normal format to FFLiSnorm8_8_8_8.
-			module._FFLSetTextureFlipY(1); // Set textures to be flipped for WebGL.
-			module._free(resourceDescPtr); // Free FFLResourceDesc, unused after init
+			// Requires refactoring:
+			// module._FFLSetScale(0.1); // Sets model scale back to 1.0.
+			// module._FFLSetLinearGammaMode(1); // Use linear gamma.
+			// I don't think ^^ will work because the shaders need sRGB
 		})
 		.catch((error) => {
+			module._free();
 			console.error('initializeFFL failed:', error);
 			throw error;
+		})
+		.finally(() => {
+			if (resourceDescPtr) {
+				// Free FFLResourceDesc, unused after init.
+				module._free(resourceDescPtr);
+			}
 		});
 }
 
@@ -1197,10 +1215,27 @@ async function initializeFFLWithResource(resourcePath = null, module = window.Mo
 
 // -------------------------------- exitFFL() --------------------------------
 /**
- * @todo TODO: Free resource, call FFLExit() here.
+ * @public
+ * @param {Module} module
+ * @todo TODO: Untested, need to destroy Emscripten instance.
  */
-function exitFFL() {
-	throw new Error('not implemented');
+function exitFFL(module) {
+	if (!_resourceDesc) {
+		console.warn('exitFFL was called when FFL is not initialized.');
+		return;
+	}
+
+	console.debug('exitFFL called, _resourceDesc:', _resourceDesc);
+
+	// All CharModels must be deleted before this point.
+	module._FFLExit();
+
+	// Free resources in heap after FFLExit().
+	_resourceDesc.pData.forEach((ptr) => {
+		if (ptr) {
+			module._free(_fflResourcePtr);
+		}
+	});
 }
 
 // // ---------------------------------------------------------------------
@@ -1229,8 +1264,13 @@ class CharModel {
 		this._module = module;
 		/** @public */
 		this._materialClass = materialClass; // Store the material class.
+		/**
+		 * @private
+		 * Pointer to the FFLiCharModel in memory, set to null when deleted.
+		 */
+		this._ptr = ptr;
 		/** @private */
-		this.ptr = ptr;
+		this.__ptr = ptr; // Permanent reference.
 		// Unpack the FFLiCharModel structure from heap.
 		const charModelData = this._module.HEAPU8.subarray(ptr, ptr + FFLiCharModel.size);
 		/**
@@ -1320,7 +1360,7 @@ class CharModel {
 
 	/** @private */
 	_getTextureTempObjectPtr() {
-		// console.debug(`_getTextureTempObjectPtr: pTextureTempObject = ${this._model.pTextureTempObject}, pCharModel = ${this.ptr}`);
+		// console.debug(`_getTextureTempObjectPtr: pTextureTempObject = ${this._model.pTextureTempObject}, pCharModel = ${this._ptr}`);
 		return this._model.pTextureTempObject;
 	}
 
@@ -1337,7 +1377,7 @@ class CharModel {
 	_getAdditionalInfo() {
 		const mod = this._module;
 		const addInfoPtr = mod._malloc(FFLAdditionalInfo.size);
-		const result = mod._FFLGetAdditionalInfo(addInfoPtr, FFLDataSource.BUFFER, this.ptr, 0, false);
+		const result = mod._FFLGetAdditionalInfo(addInfoPtr, FFLDataSource.BUFFER, this._ptr, 0, false);
 		handleFFLResult('FFLGetAdditionalInfo', result);
 		const info = FFLAdditionalInfo.unpack(mod.HEAPU8.subarray(addInfoPtr, addInfoPtr + FFLAdditionalInfo.size));
 		mod._free(addInfoPtr);
@@ -1354,7 +1394,7 @@ class CharModel {
 		const obj = this._model.partsTransform;
 		for (const key in obj) {
 			// sanity check make sure there is "x"
-			if (obj[key].x !== undefined) {
+			if (obj[key].x === undefined) {
 				throw new Error();
 			}
 			// convert to THREE.Vector3
@@ -1435,12 +1475,12 @@ class CharModel {
 	 * This is **not** the same as `dispose()` which cleans up the scene.
 	 */
 	_finalizeCharModel() {
-		if (!this.ptr) {
+		if (!this._ptr) {
 			return;
 		}
-		this._module._FFLDeleteCharModel(this.ptr);
-		this._module._free(this.ptr);
-		this.ptr = null;
+		this._module._FFLDeleteCharModel(this._ptr);
+		this._module._free(this._ptr);
+		this._ptr = null;
 	}
 
 	/**
@@ -1477,7 +1517,8 @@ class CharModel {
 	 * - Removes all meshes from the scene.
 	 */
 	dispose() {
-		console.debug('CharModel.dispose:', this);
+		// Print the permanent __ptr rather than _ptr.
+		console.debug('CharModel.dispose: ptr =', this.__ptr);
 		this._finalizeCharModel(); // Should've been called already
 		// Dispose meshes: materials, geometries, textures.
 		disposeMeshes(this.meshes);
@@ -1491,7 +1532,7 @@ class CharModel {
 	/**
 	 * @public
 	 * Serializes the CharModel data to FFLStoreData.
-	 * @returns {Uint8Array} - The exported FFLStoreData.
+	 * @returns {Uint8Array} The exported FFLStoreData.
 	 * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo returns false, usually when CharInfo verification fails.
 	 */
 	getStoreData() {
@@ -1696,7 +1737,7 @@ const pantsColors = {
  *
  * @param {Uint8Array|FFLiCharInfo} data - Input: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
  * @param {Module} module - Module to allocate and access the buffer through.
- * @returns {FFLCharModelSource} - The CharModelSource with the data specified.
+ * @returns {FFLCharModelSource} The CharModelSource with the data specified.
  * @throws {Error} data must be Uint8Array or FFLiCharInfo object. Data must be a known type.
  */
 function _allocateModelSource(data, module) {
@@ -1704,7 +1745,9 @@ function _allocateModelSource(data, module) {
 
 	// Create modelSource.
 	const modelSource = {
-		dataSource: FFLDataSource.BUFFER, // Assumes CharInfo by default.
+		// FFLDataSource.BUFFER = copies and verifies
+		// FFLDataSource.DIRECT_POINTER = use without verification.
+		dataSource: FFLDataSource.DIRECT_POINTER, // Assumes CharInfo by default.
 		pBuffer: bufferPtr,
 		index: 0 // Only for default, official, MiddleDB; unneeded for raw data
 	};
@@ -1768,9 +1811,43 @@ function _allocateModelSource(data, module) {
 	return modelSource; // NOTE: pBuffer must be freed.
 }
 
+// ----------------- verifyCharInfo(data, module, verifyName) -----------------
+/**
+ * @public
+ * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
+ *
+ * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
+ * @param {Module} module - Module to access the data and call FFL through.
+ * @param {Boolean} verifyName - Whether the name and creator name should be verified.
+ * @returns {void} Returns nothing if verification passes.
+ * @throws {Error} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
+ * @todo TODO: Should preferably return a custom error class.
+ */
+function verifyCharInfo(data, module, verifyName = false) {
+	// Resolve charInfoPtr as pointer to CharInfo.
+	let charInfoPtr = 0;
+	let charInfoAllocated = false;
+	// Assume that number means pointer.
+	if (typeof data === 'number') {
+		charInfoPtr = data;
+		charInfoAllocated = false;
+	} else {
+		// Assume everything else means Uint8Array. TODO: untested
+		charInfoAllocated = true;
+		// Allocate and copy CharInfo.
+		charInfoPtr = module._malloc(FFLiCharInfo.size);
+		module.HEAPU8.set(data, charInfoPtr);
+	}
+	const result = module._FFLiVerifyCharInfoWithReason(charInfoPtr, verifyName);
+	// Free CharInfo as soon as the function returns.
+	if (charInfoAllocated) {
+		module._free(charInfoPtr);
+	}
 
-function verifyCharInfo() {
-	// TODO
+	if (result !== 0) {
+		// Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/detail/FFLiCharInfo.h#L90
+		throw new Error(`FFLiVerifyCharInfoWithReason failed with result: ${result}`);
+	}
 }
 
 // --------------- getRandomCharInfo(module, gender, age, race) ---------------
@@ -1782,7 +1859,7 @@ function verifyCharInfo() {
  * @param {FFLAge} [age=FFLAge.ALL] - Age of the character.
  * @param {FFLRace} [race=FFLRace.ALL] - Race of the character.
  * @todo TODO: Should this return FFLiCharInfo object?
- * @returns {Uint8Array} - The random FFLiCharInfo.
+ * @returns {Uint8Array} The random FFLiCharInfo.
  */
 function getRandomCharInfo(module, gender, age, race) {
 	const ptr = module._malloc(FFLiCharInfo.size);
@@ -1836,14 +1913,16 @@ function makeExpressionFlag(expressions) {
 /**
  * Creates a CharModel from data and FFLCharModelDesc.
  * You must call initCharModelTextures afterwards to finish the process.
+ * Don't forget to call dispose() on the CharModel when you are done.
  *
- * @param {Uint8Array|FFLiCharInfo} data - Character data (length must be ≤ FFLiCharInfo.size).
+ * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
  * @param {Object} [modelDesc=FFLCharModelDesc.default] - The model description.
  * @param {Function} materialClass - Constructor for the material (e.g. FFLShaderMaterial).
  * @param {Module} [module=window.Module] - The Emscripten module.
+ * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
  */
-function createCharModel(data, modelDesc, materialClass, module = window.Module) {
+function createCharModel(data, modelDesc, materialClass, module = window.Module, verify = true) {
 	modelDesc = modelDesc || FFLCharModelDesc.default;
 	// Allocate memory for model source, description, char model, and char info.
 	const modelSourcePtr = module._malloc(FFLCharModelSource.size);
@@ -1858,21 +1937,6 @@ function createCharModel(data, modelDesc, materialClass, module = window.Module)
 	const modelSourceBuffer = FFLCharModelSource.pack(modelSource);
 	module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
 
-	// HACK: Patch CharInfo fields to pass verification.
-	if (modelSource.dataSource === FFLDataSource.BUFFER) {
-		module.HEAPU8[charInfoPtr + FFLiCharInfo.fields.createID.offset + 0] = 0x70;
-		// Fill in first byte of CreateID, 0x70 = 0b01110000 / Wii U Temporary ^^^^
-		const nameOffset = charInfoPtr + FFLiCharInfo.fields.personal.offset +
-			FFLiCharInfo.fields.personal.fields.name.offset + 0;
-		if (module.HEAPU16[nameOffset / 2] === 0) {
-			module.HEAPU16[nameOffset / 2] = '!'.charCodeAt(0);
-			// Fill in first char in nickname ^
-		}
-
-		// Unpack and print CharInfo.
-		const charInfo = FFLiCharInfo.unpack(module.HEAPU8.subarray(charInfoPtr, charInfoPtr + FFLiCharInfo.size));
-		console.debug('createCharModel: Passed in CharInfo:', charInfo);
-	}
 	// Set field to enable new expressions. This field
 	// exists because some callers would leave the other
 	// bits undefined but this does not so no reason to not enable
@@ -1881,6 +1945,11 @@ function createCharModel(data, modelDesc, materialClass, module = window.Module)
 	const modelDescBuffer = FFLCharModelDesc.pack(modelDesc);
 	module.HEAPU8.set(modelDescBuffer, modelDescPtr);
 	try {
+		// Verify CharInfo before creating.
+		if (verify) {
+			verifyCharInfo(charInfoPtr, module, false); // Don't verify name.
+		}
+
 		// Call FFLInitCharModelCPUStep and check the result.
 		const result = module._FFLInitCharModelCPUStep(charModelPtr, modelSourcePtr, modelDescPtr);
 		handleFFLResult('FFLInitCharModelCPUStep', result);
@@ -1901,9 +1970,7 @@ function createCharModel(data, modelDesc, materialClass, module = window.Module)
 	/** @private */
 	charModel._data = data; // Store original data passed to function.
 
-	// NOTE: This guarantees _model will stay in memory forever
-	// so long as DevTools is open (I think? https://blog.rexskz.info/getting-to-bottom-will-console-log-cause-memory-leak-when-devtools-is-off.html)
-	// console.debug(`createCharModel: Initialized with ptr ${charModel.ptr} for "${charModel._model.charInfo.personal.name}"`, charModel._model); // TODO
+	console.debug(`createCharModel: Initialized for "${charModel._model.charInfo.personal.name}", ptr =`, charModelPtr);
 	return charModel;
 }
 
@@ -2003,7 +2070,7 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null) {
  * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
  * @param {Function} materialClass - Material constructor.
  * @param {Module} module - The Emscripten module.
- * @returns {THREE.Mesh|null} - The THREE.Mesh instance, or null if the index count is 0 indicating no shape data.
+ * @returns {THREE.Mesh|null} The THREE.Mesh instance, or null if the index count is 0 indicating no shape data.
  * @throws {Error} drawParam may be null, Unexpected value for FFLCullMode
  */
 function drawParamToMesh(drawParam, materialClass, module) {
@@ -2251,6 +2318,7 @@ if (_displayRenderTexturesElement) {
  *
  * @param {CharModel} charModel - The CharModel instance.
  * @param {THREE.Renderer} renderer - The Three.js renderer.
+ * @todo Should this just be called in createCharModel() or something? But it's the only function requiring renderer. Maybe if you pass in renderer to that?
  */
 function initCharModelTextures(charModel, renderer) {
 	const module = charModel._module;
@@ -2271,7 +2339,7 @@ function initCharModelTextures(charModel, renderer) {
  * @private
  * @param {THREE.RenderTarget} renderTarget
  * @param {THREE.WebGLRenderer} renderer
- * @param {bool} [flipY=false]
+ * @param {Boolean} [flipY=false]
  */
 function _displayTextureDebug(target, renderer) {
 	if (_displayRenderTexturesElement) {
@@ -2334,7 +2402,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
 	_setFaceline(charModel, target);
 	// Delete temp faceline object to free resources.
 	if (!_noCharModelCleanupDebug) {
-		module._FFLiDeleteTempObjectFacelineTexture(facelineTempObjectPtr, charModel.ptr, charModel._model.charModelDesc.resourceType);
+		module._FFLiDeleteTempObjectFacelineTexture(facelineTempObjectPtr, charModel._ptr, charModel._model.charModelDesc.resourceType);
 	}
 	disposeMeshes(offscreenScene); // Dispose meshes in scene.
 }
@@ -2350,7 +2418,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
  */
 function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
 	const maskTempObjectPtr = charModel._getMaskTempObjectPtr();
-	const expressionFlagPtr = charModel.ptr + FFLiCharModel.fields.charModelDesc.offset +
+	const expressionFlagPtr = charModel._ptr + FFLiCharModel.fields.charModelDesc.offset +
 		FFLCharModelDesc.fields.allExpressionFlag.offset;
 
 	// Collect all scenes and only dispose them at the end.
@@ -2383,7 +2451,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
 
 	if (!_noCharModelCleanupDebug) {
 		module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr, expressionFlagPtr, charModel._model.charModelDesc.resourceType);
-		module._FFLiDeleteTextureTempObject(charModel.ptr);
+		module._FFLiDeleteTextureTempObject(charModel._ptr);
 	}
 }
 
@@ -2491,7 +2559,7 @@ function createSceneFromDrawParams(drawParams, bgColor = null, materialClass, mo
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
  *
- * @param {bool} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
+ * @param {Boolean} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {THREE.OrthographicCamera} The orthographic camera.
  */
 function getIdentCamera(flipY = false) {
@@ -2590,7 +2658,7 @@ function disposeMeshes(group, scene) {
  *
  * @param {THREE.RenderTarget} renderTarget - The render target.
  * @param {THREE.WebGLRenderer} renderer - The renderer (MUST be the same renderer used for the target).
- * @param {bool} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
+ * @param {Boolean} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {string} The data URL representing the RenderTarget's texture contents.
  */
 function renderTargetToDataURL(renderTarget, renderer, flipY = false) {
@@ -3023,8 +3091,7 @@ function convertFFLiCharInfoToStudioCharInfo(src) {
 // //  Generic Hex/Base64 Utilities
 // // ---------------------------------------------------------------------
 
-// TODO: keep as => syntax?
-// TODO: take safari 5.1-compatible versions?
+// TODO: keep as => syntax? take safari 5.1-compatible versions?
 /**
  * Removes all spaces from a string.
  * @param {string} str - The input string.

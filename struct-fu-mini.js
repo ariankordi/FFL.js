@@ -79,7 +79,7 @@ function arrayizeField(f, count) {
          * @returns {Array} The unpacked array of values.
          */
         valueFromBytes: function (buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var arr = new Array(count);
             for (var idx = 0, len = arr.length; idx < len; idx += 1) {
                 arr[idx] = f.valueFromBytes(buf, off);
@@ -97,14 +97,14 @@ function arrayizeField(f, count) {
         bytesFromValue: function (arr, buf, off) {
             arr || (arr = new Array(count));
             buf || (buf = newBuffer(this.size));
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             for (var idx = 0, len = Math.min(arr.length, count); idx < len; idx += 1) {
                 f.bytesFromValue(arr[idx], buf, off);
             }
             while (idx++ < count) addField(off, f);
             return buf;
         }
-    }, ('width' in f) ? {width: f.width * count} : {size: f.size * count}) : f;
+    }, ('width' in f) ? { width: f.width * count } : { size: f.size * count }) : f;
     f2.pack = f2.bytesFromValue;
     f2.unpack = f2.valueFromBytes;
     return f2;
@@ -125,24 +125,23 @@ _.struct = function (name, fields, count) {
         name = null;
     }
 
-    var _size = {bytes:0, bits:0},
+    var _size = { bytes: 0, bits: 0 },
         _padsById = Object.create(null),
         fieldsObj = fields.reduce(function (obj, f) {
             if ('_padTo' in f) {
                 // HACK: we really should just make local copy of *all* fields
                 f._id || (f._id = 'id' + Math.random().toFixed(20).slice(2)); // WORKAROUND: https://github.com/tessel/runtime/issues/716
                 var _f = _padsById[f._id] = (_size.bits) ? {
-                    width: 8*(f._padTo - _size.bytes) - _size.bits
+                    width: 8 * (f._padTo - _size.bytes) - _size.bits
                 } : {
                     size: f._padTo - _size.bytes
                 };
                 if ((_f.width !== undefined && _f.width < 0) || (_f.size !== undefined && _f.size < 0)) {
-                    var xtraMsg = (_size.bits) ? (" and " + _size.bits + " bits") : '';
-                    throw Error("Invalid .padTo(" + f._padTo + ") field, struct is already " + _size.bytes + " byte(s)" + xtraMsg + "!");
+                    var xtraMsg = (_size.bits) ? (' and ' + _size.bits + ' bits') : '';
+                    throw Error('Invalid .padTo(' + f._padTo + ') field, struct is already ' + _size.bytes + ' byte(s)' + xtraMsg + '!');
                 }
                 f = _f;
-            }
-            else if (f._hoistFields) {
+            } else if (f._hoistFields) {
                 Object.keys(f._hoistFields).forEach(function (name) {
                     var _f = Object.create(f._hoistFields[name]);
                     if ('width' in _f) {
@@ -152,16 +151,15 @@ _.struct = function (name, fields, count) {
                     }
                     obj[name] = _f;
                 });
-            }
-            else if (f.name) {
+            } else if (f.name) {
                 f = Object.create(f);           // local overrides
-                f.offset = ('width' in f) ? {bytes:_size.bytes,bits:_size.bits} : _size.bytes,
+                f.offset = ('width' in f) ? { bytes: _size.bytes,bits: _size.bits } : _size.bytes,
                 obj[f.name] = f;
             }
             addField(_size, f);
             return obj;
         }, {});
-    if (_size.bits) throw Error("Improperly aligned bitfield at end of struct: "+name);
+    if (_size.bits) throw Error('Improperly aligned bitfield at end of struct: ' + name);
 
     return arrayizeField({
         /**
@@ -172,7 +170,7 @@ _.struct = function (name, fields, count) {
          * @returns {Object} The unpacked structure.
          */
         valueFromBytes: function (buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var obj = {};
             fields.forEach(function (f) {
                 if ('_padTo' in f) return addField(off, _padsById[f._id]);
@@ -194,7 +192,7 @@ _.struct = function (name, fields, count) {
         bytesFromValue: function (obj, buf, off) {
             obj || (obj = {});
             buf || (buf = newBuffer(this.size));
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             fields.forEach(function (f) {
                 if ('_padTo' in f) return addField(off, _padsById[f._id]);
 
@@ -218,7 +216,7 @@ _.struct = function (name, fields, count) {
  * @returns {Object} The padding field definition.
  */
 _.padTo = function (off) {
-    return {_padTo:off};
+    return { _padTo: off };
 };
 
 /**
@@ -246,7 +244,7 @@ function bytefield(name, size, count) {
          * @returns {Uint8Array} The unpacked bytefield.
          */
         valueFromBytes: function (buf, off) {
-            off || (off = {bytes:0, bits:0});
+            off || (off = { bytes: 0, bits: 0 });
             var bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
             var val = bytes.subarray(off.bytes, off.bytes + this.size);
             addField(off, this);
@@ -382,7 +380,7 @@ function standardField(sig, size, littleEndian) {
              * @returns {*} The unpacked value.
              */
             valueFromBytes: function (buf, off) {
-                off || (off = {bytes:0});
+                off || (off = { bytes: 0 });
                 var bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
                 var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
                 var val = view[read](off.bytes, littleEndian);
@@ -400,7 +398,7 @@ function standardField(sig, size, littleEndian) {
             bytesFromValue: function (val, buf, off) {
                 val || (val = 0);
                 buf || (buf = newBuffer(this.size));
-                off || (off = {bytes:0});
+                off || (off = { bytes: 0 });
                 var bytes = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
                 var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
                 view[dump](off.bytes, val, littleEndian);
@@ -466,7 +464,7 @@ _.derive = function (orig, pack, unpack) {
                 return orig.bytesFromValue(pack(val), buf, off);
             },
             name: name
-        }, ('width' in orig) ? {width:orig.width} : {size:orig.size}), count);
+        }, ('width' in orig) ? { width: orig.width } : { size: orig.size }), count);
     };
 };
 

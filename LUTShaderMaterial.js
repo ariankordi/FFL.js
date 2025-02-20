@@ -875,10 +875,6 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
           THREE.UnsignedByteType
         );
         texture.needsUpdate = true;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.wrapS = THREE.ClampToEdgeWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
         textures.specular[key] = texture;
       }
       // Create fresnel LUT textures:
@@ -894,10 +890,6 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
           THREE.UnsignedByteType
         );
         texture.needsUpdate = true;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.wrapS = THREE.ClampToEdgeWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
         textures.fresnel[key] = texture;
       }
       LUTShaderMaterial._lutTextures = textures;
@@ -906,14 +898,14 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
   }
 
   // Default light colors for the LUT shader:
-  static defaultHSLightGroundColor = new THREE.Vector3(0.87843, 0.72157, 0.5898);
-  static defaultHSLightSkyColor = new THREE.Vector3(0.87843, 0.83451, 0.80314);
-  static defaultDirLightColor0 = new THREE.Vector3(0.35137, 0.32392, 0.32392);
-  static defaultDirLightColor1 = new THREE.Vector3(0.10039, 0.09255, 0.09255);
+  static defaultHSLightGroundColor = new THREE.Color(0.87843, 0.72157, 0.5898)/*.convertSRGBToLinear()*/;
+  static defaultHSLightSkyColor = new THREE.Color(0.87843, 0.83451, 0.80314)/*.convertSRGBToLinear()*/;
+  static defaultDirLightColor0 = new THREE.Color(0.35137, 0.32392, 0.32392)/*.convertSRGBToLinear()*/;
+  static defaultDirLightColor1 = new THREE.Color(0.10039, 0.09255, 0.09255)/*.convertSRGBToLinear()*/;
   static defaultDirLightCount = 2;
   static defaultDirLightDirAndType0 = new THREE.Vector4(-0.2, 0.5, 0.8, -1.0);
   static defaultDirLightDirAndType1 = new THREE.Vector4(0.0, -0.19612, 0.98058, -1.0);
-  static defaultLightColor = new THREE.Color(0.35137, 0.32392, 0.32392);
+  static defaultLightColor = new THREE.Color(0.35137, 0.32392, 0.32392)/*.convertSRGBToLinear()*/;
 
   static defaultLightDirection = this.defaultDirLightDirAndType0;
 

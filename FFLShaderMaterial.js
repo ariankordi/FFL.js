@@ -280,16 +280,16 @@ uniform mediump vec4  u_const2; ///< constカラー2
 uniform mediump vec4  u_const3; ///< constカラー3
 
 /// ライト設定
-uniform mediump vec4 u_light_ambient;  ///< カメラ空間のライト方向
-uniform mediump vec4 u_light_diffuse;  ///< 拡散光用ライト
+uniform mediump vec3 u_light_ambient;  ///< カメラ空間のライト方向
+uniform mediump vec3 u_light_diffuse;  ///< 拡散光用ライト
 uniform mediump vec3 u_light_dir;
 uniform bool u_light_enable;
-uniform mediump vec4 u_light_specular; ///< 鏡面反射用ライト強度
+uniform mediump vec3 u_light_specular; ///< 鏡面反射用ライト強度
 
 /// マテリアル設定
-uniform mediump vec4 u_material_ambient;         ///< 環境光用マテリアル設定
-uniform mediump vec4 u_material_diffuse;         ///< 拡散光用マテリアル設定
-uniform mediump vec4 u_material_specular;        ///< 鏡面反射用マテリアル設定
+uniform mediump vec3 u_material_ambient;         ///< 環境光用マテリアル設定
+uniform mediump vec3 u_material_diffuse;         ///< 拡散光用マテリアル設定
+uniform mediump vec3 u_material_specular;        ///< 鏡面反射用マテリアル設定
 uniform int u_material_specular_mode;            ///< スペキュラの反射モード(CharModelに依存する設定のためub_modulateにしている)
 uniform mediump float u_material_specular_power; ///< スペキュラの鋭さ(0.0を指定すると頂点カラーの設定が利用される)
 
@@ -297,7 +297,7 @@ uniform mediump float u_material_specular_power; ///< スペキュラの鋭さ(0
 uniform int u_mode;   ///< 描画モード
 
 /// リム設定
-uniform mediump vec4  u_rim_color;
+uniform mediump vec3  u_rim_color;
 uniform mediump float u_rim_power;
 
 // サンプラー
@@ -403,24 +403,21 @@ void main()
 //#endif
 
     gl_FragColor = color;
-
-    //#include <tonemapping_fragment>
-    //#include <colorspace_fragment> // below vv
-    gl_FragColor = linearToOutputTexel( gl_FragColor );
 }
 `;
-
+// #include <tonemapping_fragment>
+// #include <${THREE.REVISION >= 154 ? 'colorspace_fragment' : 'encodings_fragment'}>
 
 // ─────────────────────────────────────────────────────────────
 // FFLShaderMaterial Class
 // ─────────────────────────────────────────────────────────────
 class FFLShaderMaterial extends THREE.ShaderMaterial {
   // Default light and rim constants:
-  static defaultLightAmbient = new THREE.Vector4(0.73, 0.73, 0.73, 1.0);
-  static defaultLightDiffuse = new THREE.Vector4(0.6, 0.6, 0.6, 1.0);
-  static defaultLightSpecular = new THREE.Vector4(0.7, 0.7, 0.7, 1.0);
+  static defaultLightAmbient = new THREE.Color(0.73, 0.73, 0.73)/*.convertSRGBToLinear()*/;
+  static defaultLightDiffuse = new THREE.Color(0.6, 0.6, 0.6)/*.convertSRGBToLinear()*/;
+  static defaultLightSpecular = new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/;
   static defaultLightDir = new THREE.Vector3(-0.4531539381, 0.4226179123, 0.7848858833);
-  static defaultRimColor = new THREE.Vector4(0.3, 0.3, 0.3, 1.0);
+  static defaultRimColor = new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/;
   static defaultRimPower = 2.0;
 
   static defaultLightDirection = this.defaultLightDir;
@@ -430,90 +427,90 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
   static materialParams = [
     {
       // FFL_MODULATE_TYPE_SHAPE_FACELINE
-      ambient: new THREE.Vector4(0.85, 0.75, 0.75, 1.0),
-      diffuse: new THREE.Vector4(0.75, 0.75, 0.75, 1.0),
-      specular: new THREE.Vector4(0.3, 0.3, 0.3, 1.0),
+      ambient: new THREE.Color(0.85, 0.75, 0.75)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/,
       specularPower: 1.2,
       specularMode: 0,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_BEARD
-      ambient: new THREE.Vector4(1.0, 1.0, 1.0, 1.0),
-      diffuse: new THREE.Vector4(0.7, 0.7, 0.7, 1.0),
-      specular: new THREE.Vector4(0.0, 0.0, 0.0, 1.0),
+      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
       specularPower: 40.0,
       specularMode: 1,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_NOSE
-      ambient: new THREE.Vector4(0.9, 0.85, 0.85, 1.0),
-      diffuse: new THREE.Vector4(0.75, 0.75, 0.75, 1.0),
-      specular: new THREE.Vector4(0.22, 0.22, 0.22, 1.0),
+      ambient: new THREE.Color(0.9, 0.85, 0.85)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.22, 0.22, 0.22)/*.convertSRGBToLinear()*/,
       specularPower: 1.5,
       specularMode: 0,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_FOREHEAD
-      ambient: new THREE.Vector4(0.85, 0.75, 0.75, 1.0),
-      diffuse: new THREE.Vector4(0.75, 0.75, 0.75, 1.0),
-      specular: new THREE.Vector4(0.3, 0.3, 0.3, 1.0),
+      ambient: new THREE.Color(0.85, 0.75, 0.75)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/,
       specularPower: 1.2,
       specularMode: 0,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_HAIR
-      ambient: new THREE.Vector4(1.0, 1.0, 1.0, 1.0),
-      diffuse: new THREE.Vector4(0.7, 0.7, 0.7, 1.0),
-      specular: new THREE.Vector4(0.35, 0.35, 0.35, 1.0),
+      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.35, 0.35, 0.35)/*.convertSRGBToLinear()*/,
       specularPower: 10.0,
       specularMode: 1,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_CAP
-      ambient: new THREE.Vector4(0.75, 0.75, 0.75, 1.0),
-      diffuse: new THREE.Vector4(0.72, 0.72, 0.72, 1.0),
-      specular: new THREE.Vector4(0.3, 0.3, 0.3, 1.0),
+      ambient: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.72, 0.72, 0.72)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/,
       specularPower: 1.5,
       specularMode: 0,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_MASK
-      ambient: new THREE.Vector4(1.0, 1.0, 1.0, 1.0),
-      diffuse: new THREE.Vector4(0.7, 0.7, 0.7, 1.0),
-      specular: new THREE.Vector4(0.0, 0.0, 0.0, 1.0),
+      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
       specularPower: 40.0,
       specularMode: 1,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_NOSELINE
-      ambient: new THREE.Vector4(1.0, 1.0, 1.0, 1.0),
-      diffuse: new THREE.Vector4(0.7, 0.7, 0.7, 1.0),
-      specular: new THREE.Vector4(0.0, 0.0, 0.0, 1.0),
+      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
       specularPower: 40.0,
       specularMode: 1,
     },
     {
       // FFL_MODULATE_TYPE_SHAPE_GLASS
-      ambient: new THREE.Vector4(1.0, 1.0, 1.0, 1.0),
-      diffuse: new THREE.Vector4(0.7, 0.7, 0.7, 1.0),
-      specular: new THREE.Vector4(0.0, 0.0, 0.0, 1.0),
+      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
       specularPower: 40.0,
       specularMode: 1,
     },
 
     {
       // body
-      ambient: new THREE.Vector4(0.95622, 0.95622, 0.95622, 1.0),
-      diffuse: new THREE.Vector4(0.49673, 0.49673, 0.49673, 1.0),
-      specular: new THREE.Vector4(0.24099, 0.24099, 0.24099, 1.0),
+      ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(0.49673, 0.49673, 0.49673)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.24099, 0.24099, 0.24099)/*.convertSRGBToLinear()*/,
       specularPower: 3.0,
       specularMode: 0,
     },
     {
       // pants
-      ambient: new THREE.Vector4(0.95622, 0.95622, 0.95622, 1.0),
-      diffuse: new THREE.Vector4(1.08497, 1.08497, 1.08497, 1.0),
-      specular: new THREE.Vector4(0.2409, 0.2409, 0.2409, 1.0),
+      ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/*.convertSRGBToLinear()*/,
+      diffuse: new THREE.Color(1.08497, 1.08497, 1.08497)/*.convertSRGBToLinear()*/,
+      specular: new THREE.Color(0.2409, 0.2409, 0.2409)/*.convertSRGBToLinear()*/,
       specularPower: 3.0,
       specularMode: 0,
     },
