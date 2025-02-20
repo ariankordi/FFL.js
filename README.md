@@ -20,7 +20,7 @@ There are currently two demos: `demo-basic.html` and `demo-minimal.html`, both o
 
 ## Building
 
-This library depnds on FFL built for Emscripten (in WASM). This import is called `ffl-emscripten.js`/`.wasm`, here's how to build it.
+This library depends on FFL built for Emscripten (in WASM). This import is called `ffl-emscripten.js`/`.wasm`, here's how to build it.
 
 0. You will need to make sure [emsdk](https://emscripten.org/docs/tools_reference/emsdk.html) is installed and you can build binaries with Emscripten. This is mostly left as an exercise to the reader, but don't forget to activate your emsdk environment before continuing.
 
@@ -72,7 +72,6 @@ I apologize in advance for the enormous library in one file, I was under pressur
 * End use of globals, pass instances around:
   - window.Module (Emscripten module)
     - _Support async/promise Emscripten module_ (`-s MODULARIZE=1`)
-    - Adding above should fix a bug where it keeps waiting for module to be ready
   - window.FFLTextures (TextureManager)
   - `_resourceDesc` (FFLResourceDesc, currently allocated resource pointers)
   - Potential settings:

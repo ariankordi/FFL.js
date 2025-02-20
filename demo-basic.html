@@ -780,6 +780,31 @@ function addUIControls() {
 // //  Form Submission Handling
 // // ---------------------------------------------------------------------
 
+const defaultTextureResolution = 512; // Typical default.
+/**
+ * Same as updateCharModelInScene, but also initializes scene and animation loop if needed.
+ * @param {string} charData - CharModel data passed to updateCharModelInScene.
+ */
+function initAndUpdateScene(charData) {
+	// First-time scene initialization.
+	if (!isInitialized) {
+		initializeScene();
+	}
+
+	// Define the FFLCharModelDesc.
+	const modelDesc = FFLCharModelDesc.default;
+	modelDesc.resolution = defaultTextureResolution;
+	modelDesc.allExpressionFlag = currentExpressionFlag;
+
+	// Create or update single CharModel in the scene.
+	updateCharModelInScene(charData, modelDesc);
+
+	// Start the animation loop if not already started.
+	if (!isAnimating) {
+		startAnimationLoop();
+	}
+}
+
 // Assume a form with id "charform" exists in the HTML.
 const charFormElement = document.getElementById('charForm');
 /** @type {HTMLInputElement | null} */
@@ -805,8 +830,6 @@ document.addEventListener('DOMContentLoaded', async function () {
 	// Populate shader selector (assumes window.availableMaterialClasses is defined).
 	populateShaderSelector();
 
-	const defaultTextureResolution = 512; // Typical default.
-
 	charFormElement.addEventListener('submit', function (event) {
 		event.preventDefault();
 
@@ -815,24 +838,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 			throw new Error('need you to enter something in that there form...');
 		}
 
-		// Define the FFLCharModelDesc.
-		const modelDesc = FFLCharModelDesc.default;
-		modelDesc.resolution = defaultTextureResolution;
-		modelDesc.allExpressionFlag = currentExpressionFlag;
-
-		// First-time scene initialization.
-		if (!isInitialized) {
-			initializeScene();
-		}
-
-		// Create or update single CharModel in the scene.
-		updateCharModelInScene(charDataInputElement.value, modelDesc);
-
-		// Start the animation loop if not already started.
-		if (!isAnimating) {
-			startAnimationLoop();
-		}
+		initAndUpdateScene(charDataInputElement.value);
 	});
+
 });
 
 // // ---------------------------------------------------------------------
@@ -888,12 +896,8 @@ function onPresetCharacterClick(event) {
 	event.preventDefault();
 	const data = event.currentTarget.getAttribute('data-data');
 	console.log('Preset character data clicked: ', data);
-	// if (!isInitialized) {
-	charDataInputElement.value = data;
-	charFormElement.dispatchEvent(new Event('submit'));
-	// } else {
-	//  updateCharModelInScene(data);
-	// }
+
+	initAndUpdateScene(data);
 }
 	</script>
 </body>
