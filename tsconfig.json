@@ -1,0 +1,21 @@
+{
+  // https://github.com/microsoft/TypeScript/blob/1cd8e20f947513cc8c0c7c59e55b2f4524eff316/tests/baselines/reference/config/initTSConfig/Initialized%20TSConfig%20with%20advanced%20options/tsconfig.json#L7
+  "compilerOptions": {
+    "allowJs": true,
+    //"checkJs": true, // Assumed from @ts-check.
+    "target": "es2018",
+    "module": "commonjs",
+
+    "strict": false,
+    "noImplicitAny": false, // TODO
+    "noUnusedLocals": false, // TODO enable when exports are added
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": false,
+
+    "declaration": true, // Generate only declarations.
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "outDir": "types" // Emit .d.ts into types.
+  }
+}

@@ -1,7 +1,13 @@
-// ─────────────────────────────────────────────────────────
-// Vertex Shader for LUTShaderMaterial
-// Derived from LUT.vsh found in Miitomo.
-// ─────────────────────────────────────────────────────────
+// @ts-check
+'use strict';
+/*
+import * as THREE from 'three';
+import { FFLModulateMode, FFLModulateType } from './ffl.js';
+*/
+// // ---------------------------------------------------------------------
+// //  Vertex Shader for LUTShaderMaterial
+// //  Derived from LUT.vsh found in Miitomo.
+// // ---------------------------------------------------------------------
 const _LUTShader_vert = /* glsl */`
 #define AGX_FEATURE_ALBEDO_TEXTURE
 /**
@@ -373,10 +379,10 @@ void main()
 }
 `;
 
-// ─────────────────────────────────────────────────────────
-// Fragment Shader for LUTShaderMaterial
-// Unmodified from LUT.fsh found in Miitomo.
-// ─────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Fragment Shader for LUTShaderMaterial
+// //  Unmodified from LUT.fsh found in Miitomo.
+// // ---------------------------------------------------------------------
 const _LUTShader_frag = /* glsl */`
 #define AGX_FEATURE_ALBEDO_TEXTURE
 #define AGX_FEATURE_MII
@@ -682,14 +688,30 @@ else
 }
 `;
 
-
-// ─────────────────────────────────────────────────────────────
-// Helper: HermitianCurve for LUT generation
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  Helper: HermitianCurve for LUT generation
+// // ---------------------------------------------------------------------
+/**
+ * Represents a Hermitian curve interpolation for LUT generation.
+ */
 class HermitianCurve {
+  /**
+   * Constructs a HermitianCurve with given control points (keys).
+   * @param {Array<{x: number, y: number, dx: number, dy: number}>} keys - Control points defining the curve.
+   */
   constructor(keys) {
     this.keys = keys.sort((a, b) => a.x - b.x);
   }
+
+  /**
+   * Performs Hermite interpolation between two points.
+   * @param {number} t - Interpolation factor (0 to 1).
+   * @param {number} p0 - Start point value.
+   * @param {number} p1 - End point value.
+   * @param {number} m0 - Tangent at start point.
+   * @param {number} m1 - Tangent at end point.
+   * @returns {number} - Interpolated value.
+   */
   interpolate(t, p0, p1, m0, m1) {
     const h00 = 2 * t * t * t - 3 * t * t + 1;
     const h10 = t * t * t - 2 * t * t + t;
@@ -697,9 +719,23 @@ class HermitianCurve {
     const h11 = t * t * t - t * t;
     return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
   }
+
+  /**
+   * Clamps a value between a minimum and maximum.
+   * @param {number} value - Value to clamp.
+   * @param {number} min - Minimum allowed value.
+   * @param {number} max - Maximum allowed value.
+   * @returns {number} - Clamped value.
+   */
   clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
   }
+
+  /**
+   * Generates a Lookup Table (LUT) based on the Hermitian curve.
+   * @param {number} [lutSize=512] - Size of the LUT.
+   * @returns {Uint8Array} - The generated LUT.
+   */
   generateLUT(lutSize = 512) {
     const lut = new Uint8Array(lutSize);
     let keyIdx = 0;
@@ -725,17 +761,27 @@ class HermitianCurve {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// LUTShaderMaterial Class
-// ─────────────────────────────────────────────────────────────
+// // ---------------------------------------------------------------------
+// //  LUTShaderMaterial Class
+// // ---------------------------------------------------------------------
+/**
+ * Custom THREE.ShaderMaterial using the LUT shader from Miitomo.
+ */
 class LUTShaderMaterial extends THREE.ShaderMaterial {
-  // Enumerations for LUT types:
+  // Enumerations for LUT types.
+
+  /**
+   * @enum {number}
+   */
   static LUTSpecularTextureType = {
     NONE: 0,
     DEFAULT_02: 1,
     SKIN_01: 2,
     MAX: 3,
   };
+  /**
+   * @enum {number}
+   */
   static LUTFresnelTextureType = {
     NONE: 0,
     DEFAULT_02: 1,
@@ -743,7 +789,15 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
     MAX: 3,
   };
 
-  // LUT curve definitions:
+  /**
+   * @private
+   * LUT definitions for materials used in the original shader.
+   * Taken from XMLs in the same folder as the original TGAs..
+   * @typedef {Object.<LUTSpecularTextureType, HermitianCurve>} SpecularLUT
+   * @typedef {Object.<LUTFresnelTextureType, HermitianCurve>} FresnelLUT
+   *
+   * @type {{ specular: SpecularLUT, fresnel: FresnelLUT }}
+   */
   static lutDefinitions = {
     specular: {
       [LUTShaderMaterial.LUTSpecularTextureType.NONE]: new HermitianCurve([
@@ -826,8 +880,11 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
     },
   };
 
-  // LUT lookup tables (indexed by modulate type)
-  static modulateToLUTSpecular = [
+  // Tables mapping modulate type to LUT type.
+  /**
+   * @type {Object.<FFLModulateType, LUTSpecularTextureType>}
+   */
+  static modulateTypeToLUTSpecular = [
     LUTShaderMaterial.LUTSpecularTextureType.SKIN_01, // 0: FACELINE
     LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 1: BEARD
     LUTShaderMaterial.LUTSpecularTextureType.SKIN_01, // 2: NOSE
@@ -840,7 +897,10 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
     LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 9: CUSTOM (BODY)
     LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 10: CUSTOM (PANTS)
   ];
-  static modulateToLUTFresnel = [
+  /**
+   * @type {Object.<FFLModulateType, LUTFresnelTextureType>}
+   */
+  static modulateTypeToLUTFresnel = [
     LUTShaderMaterial.LUTFresnelTextureType.SKIN_01, // 0: FACELINE
     LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 1: BEARD
     LUTShaderMaterial.LUTFresnelTextureType.SKIN_01, // 2: NOSE
@@ -854,61 +914,94 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
     LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 10: CUSTOM (PANTS)
   ];
 
-  // Cache LUT textures so we generate them only once.
+  /**
+   * @private
+   * Cached LUT textures to avoid redundant generation.
+   * @typedef {Object} LUTTextures
+   * @property {Object.<LUTSpecularTextureType, THREE.DataTexture>} specular - Specular LUT textures indexed by LUT type.
+   * @property {Object.<LUTSpecularTextureType, THREE.DataTexture>} fresnel - Fresnel LUT textures indexed by LUT type.
+   */
+  /** @type {LUTTextures|null} */
   static _lutTextures = null;
+
+  /**
+   * Generates and return LUT textures.
+   * @param {number} [lutSize=512] - Width of the LUT.
+   * @returns {LUTTextures} - Specular and fresnel LUT textures.
+   */
   static getLUTTextures(lutSize = 512) {
-    if (!LUTShaderMaterial._lutTextures) {
-      const textures = { specular: {}, fresnel: {} };
-      const r8 = Number(THREE.REVISION) < 137
-        ? THREE.LuminanceFormat
-        : THREE.RedFormat;
-      // Create specular LUT textures:
-      for (const [key, curve] of Object.entries(
-        LUTShaderMaterial.lutDefinitions.specular
-      )) {
-        const lutData = curve.generateLUT(lutSize);
-        const texture = new THREE.DataTexture(
-          lutData,
-          lutSize,
-          1,
-          r8,
-          THREE.UnsignedByteType
-        );
-        texture.needsUpdate = true;
-        textures.specular[key] = texture;
-      }
-      // Create fresnel LUT textures:
-      for (const [key, curve] of Object.entries(
-        LUTShaderMaterial.lutDefinitions.fresnel
-      )) {
-        const lutData = curve.generateLUT(lutSize);
-        const texture = new THREE.DataTexture(
-          lutData,
-          lutSize,
-          1,
-          r8,
-          THREE.UnsignedByteType
-        );
-        texture.needsUpdate = true;
-        textures.fresnel[key] = texture;
-      }
-      LUTShaderMaterial._lutTextures = textures;
+    if (LUTShaderMaterial._lutTextures) {
+      return LUTShaderMaterial._lutTextures;
     }
-    return LUTShaderMaterial._lutTextures;
+    const textures = /** @type {LUTTextures} */ ({ specular: {}, fresnel: {} });
+    // Get the texture format dynamically based on Three.js version.
+    const r8 = Number(THREE.REVISION) < 137
+      ? THREE.LuminanceFormat
+      : THREE.RedFormat;
+
+    /**
+     * Helper function to generate LUT textures.
+     * @param {Object.<number, HermitianCurve>} lutType - The mapping for LUT type to {@link HermitanCurve}.
+     * @param {Object.<number, THREE.DataTexture>} target - The {@link LUTTextures} type instance to emit textures to.
+     */
+    function generateLUTTextures(lutType, target) {
+        for (const key in lutType) {
+            const lutData = lutType[key].generateLUT(lutSize);
+            target[Number(key)] = Object.assign(
+                new THREE.DataTexture(
+                  // Uint8Array.from(lutData.flatMap(value => [value, 0, 0, 255])), // RGBA
+                  lutData,
+                  lutSize,
+                  1,
+                  r8,
+                  // THREE.RGBAFormat, // RGBA
+                  THREE.UnsignedByteType
+                ),
+                {
+                  colorSpace: THREE.LinearSRGBColorSpace,
+                  needsUpdate: true
+                }
+            );
+        }
+    };
+
+    generateLUTTextures(LUTShaderMaterial.lutDefinitions.specular, textures.specular);
+    generateLUTTextures(LUTShaderMaterial.lutDefinitions.fresnel, textures.fresnel);
+
+    LUTShaderMaterial._lutTextures = textures;
+    return textures;
   }
 
-  // Default light colors for the LUT shader:
+  // Default light colors for the LUT shader.
+  /** @type {THREE.Color} */
   static defaultHSLightGroundColor = new THREE.Color(0.87843, 0.72157, 0.5898)/*.convertSRGBToLinear()*/;
+  /** @type {THREE.Color} */
   static defaultHSLightSkyColor = new THREE.Color(0.87843, 0.83451, 0.80314)/*.convertSRGBToLinear()*/;
+  /** @type {THREE.Color} */
   static defaultDirLightColor0 = new THREE.Color(0.35137, 0.32392, 0.32392)/*.convertSRGBToLinear()*/;
+  /** @type {THREE.Color} */
   static defaultDirLightColor1 = new THREE.Color(0.10039, 0.09255, 0.09255)/*.convertSRGBToLinear()*/;
   static defaultDirLightCount = 2;
+  /** @type {THREE.Vector4} */
   static defaultDirLightDirAndType0 = new THREE.Vector4(-0.2, 0.5, 0.8, -1.0);
+  /** @type {THREE.Vector4} */
   static defaultDirLightDirAndType1 = new THREE.Vector4(0.0, -0.19612, 0.98058, -1.0);
+  /** @type {THREE.Color} */
   static defaultLightColor = new THREE.Color(0.35137, 0.32392, 0.32392)/*.convertSRGBToLinear()*/;
 
+  /**
+   * Alias for default light direction.
+   * @type {THREE.Vector4}
+   */
   static defaultLightDirection = this.defaultDirLightDirAndType0;
 
+  /**
+   * @private
+   * Retrieves blending parameters based on the FFLModulateType.
+   * @param {FFLModulateType} modulateType - The modulate type.
+   * @returns {Object} An object containing blending parameters for the material constructor.
+   * @throws {Error} Unknown modulate type
+   */
   static getBlendOptionsFromModulateType(modulateType) {
     if (modulateType >= 0 && modulateType <= 5) {
       // Opaque (DrawOpa)
@@ -943,21 +1036,61 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
         blendDstAlpha: THREE.OneFactor,
       };
     } else {
-      console.error(`Unknown modulate type: ${modulateType}.`);
-      return {};
+      throw new Error(`getBlendOptionsFromModulateType: Unknown modulate type: ${modulateType}`);
     }
   }
 
   /**
-   * Options (all optional):
-   *   - modulateMode: number (default 0)
-   *   - modulateType: number (default 0; used to pick LUTs via lookup tables)
-   *   - modulateColor: either a THREE.Vector4 OR an array of 3 THREE.Vector4
-   *         (maps to uColor0, uColor1, uColor2)
-   *   - lightEnable: boolean (default true)
-   *   - dirLightDirAndType0, dirLightDirAndType1: THREE.Vector3 (default as defined)
-   *   - map: (optional) albedo map
-   *   - Additional light colors (hslight, directional, etc.) can be provided.
+   * @private
+   * Multiplies beard and hair colors by a factor seen
+   * in libcocos2dcpp.so in order to match its rendering style.
+   * @param {THREE.Vector4} color - The original color.
+   * @param {FFLModulateType} modulateType - The modulate type, or type of shape.
+   * @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
+   * Refer to: https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/src/ShaderMiitomo.cpp#L587
+   * @returns {THREE.Vector4} The final color.
+   */
+  static multiplyColorIfNeeded(color, modulateType, modulateMode) {
+    if (
+      modulateType === 1 || // SHAPE_BEARD
+      modulateType === 4 || // SHAPE_HAIR
+      (modulateMode === 0 && // CONSTANT
+      modulateType === 9) // CUSTOM (BODY)
+    ) {
+      const mul = 0.9019608;
+      // Multiply XYZ (RGB) by mul and not alpha.
+      return new THREE.Vector4(
+        color.x * mul, color.y * mul, color.z * mul, color.w
+      )
+    }
+    return color; // no multiply needed
+  }
+
+  /**
+   * Constructs a LUTShaderMaterial instance.
+   * @param {Object} [options={}] - Options for the material.
+   * @param {FFLModulateMode} [options.modulateMode=0] - Modulate mode.
+   * @param {FFLModulateType} [options.modulateType=0] - Modulate type.
+   * @param {THREE.Vector4 | Array<THREE.Vector4>} [options.modulateColor] - Constant color assigned to uColor0/1/2 depending on single or array.
+   * @param {boolean} [options.lightEnable=true] - Enable lighting. Needs to be off when drawing faceline/mask textures.
+   * @param {THREE.Vector3} [options.lightDirection] - Light direction.
+   * Uniforms:
+   * @param {boolean} [options.alphaTest=false] - Enables alpha testing in the shader.
+   * @param {THREE.Color} [options.hslightGroundColor] - Ground light color.
+   * @param {THREE.Color} [options.hslightSkyColor] - Sky light color.
+   * @param {THREE.Color} [options.dirLightColor0] - Primary directional light color.
+   * @param {THREE.Color} [options.dirLightColor1] - Secondary directional light color.
+   * @param {number} [options.dirLightCount=2] - Number of directional lights.
+   * @param {THREE.Vector4} [options.dirLightDirAndType0] - Primary directional light vector.
+   * @param {THREE.Vector4} [options.dirLightDirAndType1] - Secondary directional light vector.
+   * @param {THREE.Color} [options.lightColor] - Light color.
+   * General:
+   * @param {string} [options.vertexShader] - Vertex shader source.
+   * @param {string} [options.fragmentShader] - Fragment shader source.
+   * @param {THREE.Texture} [options.map=null] - Texture map/albedo texture.
+   * @param {string} [options.vertexShader] - Vertex shader source.
+   * @param {string} [options.fragmentShader] - Fragment shader source.
+   * @param {THREE.Side} [options.side=THREE.FrontSide] - Side. This is overridden to no culling for mask shape.
    */
   constructor(options = {}) {
     const modulateMode = options.modulateMode ?? 0;
@@ -970,26 +1103,34 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
     // Force culling to none for mask.
     const side = modulateType === 6 ? THREE.DoubleSide : (options.side || THREE.FrontSide);
 
-    // Process modulateColor:
+    // Process modulateColor input.
     let colorUniforms = {};
     if (Array.isArray(options.modulateColor) && options.modulateColor.length === 3) {
       colorUniforms = {
+        // Assign multiple modulateColor elements to constant color uniforms.
         uColor0: { value: options.modulateColor[0] },
         uColor1: { value: options.modulateColor[1] },
         uColor2: { value: options.modulateColor[2] }
       };
     } else {
+      // Use multiplyColorIfNeeded method for a single color.
+      const modulateColor = options.modulateColor || new THREE.Vector4(1, 1, 1, 1);
+      const color = LUTShaderMaterial.multiplyColorIfNeeded(
+        Array.isArray(modulateColor) ? modulateColor[0] : modulateColor, modulateType, modulateMode);
+
       colorUniforms = {
-        uColor0: { value: options.modulateColor || new THREE.Vector4(1, 1, 1, 1) }
+        // Assign single color with white as a placeholder.
+        uColor0: { value: color }
       };
     }
 
+    // Assign LUT texture using modulate type.
     const lutTextures = LUTShaderMaterial.getLUTTextures();
     const specType =
-      LUTShaderMaterial.modulateToLUTSpecular[modulateType] ??
+      LUTShaderMaterial.modulateTypeToLUTSpecular[modulateType] ??
       LUTShaderMaterial.LUTSpecularTextureType.NONE;
     const fresType =
-      LUTShaderMaterial.modulateToLUTFresnel[modulateType] ??
+      LUTShaderMaterial.modulateTypeToLUTFresnel[modulateType] ??
       LUTShaderMaterial.LUTFresnelTextureType.NONE;
     const lutSpecTexture = lutTextures.specular[specType];
     const lutFresTexture = lutTextures.fresnel[fresType];
@@ -1056,22 +1197,63 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
       //...getBlendOptionsFromModulateType(modulateType) // Merge blend options
     });
     // Expose these properties.
+    /** @type {FFLModulateMode} */
     this.modulateMode = modulateMode;
+    /** @type {FFLModulateType} */
     this.modulateType = modulateType;
-    this.modulateColor = options.modulateColor;
+    // Set alias for modulateColor as strictly a single color.
+    /** @private */
+    this._modulateColor = Array.isArray(options.modulateColor) ? null : options.modulateColor;
+    /** @type {boolean} */
     this.lightEnable = lightEnable;
+    /** @type {number|undefined} */
     this._side = options.side; // Store original side.
   }
 
+  /**
+   * Gets the texture map.
+   * @returns {THREE.Texture}
+   */
   get map() {
     return this.uniforms.uAlbedoTexture.value; // Expose as 'map'
   }
+  /**
+   * Sets the texture map.
+   * @param {THREE.Texture} value - The new texture map.
+   */
   set map(value) {
     this.uniforms.uAlbedoTexture.value = value;
   }
+  /**
+   * Gets the first/primary constant color.
+   * @returns {THREE.Vector4} The color as Vector4.
+   */
+  get modulateColor() {
+    // Use alias for modulateColor if it is set.
+    if (this._modulateColor) {
+      return this._modulateColor;
+    }
+    return this.uniforms.uColor0.value;
+  }
+  /**
+   * Sets the primary constant color. Will not set any other colors (uColor1/2).
+   * @param {THREE.Vector4} value - The new color as Vector4.
+   */
+  set modulateColor(value) {
+    this._modulateColor = null; // Clear alias for modulateColor.
+    this.uniforms.uColor0.value = value;
+  }
+  /**
+   * Gets the light direction.
+   * @returns {THREE.Vector3}
+   */
   get lightDirection() {
     return this.uniforms.uDirLightDirAndType0.value;
   }
+  /**
+   * Sets the light direction, overriding w with -1.
+   * @param {THREE.Vector3} value - The new light direction.
+   */
   set lightDirection(value) {
     this.uniforms.uDirLightDirAndType0.value = value;
     this.uniforms.uDirLightDirAndType0.value.w = -1; // Override w
@@ -1079,4 +1261,6 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
   // TODO: normalMap, etc...? see: https://github.com/pixiv/three-vrm/blob/776c2823dcf3453d689a2d56aa82b289fdf963cf/packages/three-vrm-materials-mtoon/src/MToonMaterial.ts#L75
 }
 
-window.LUTShaderMaterial = LUTShaderMaterial; // Export.
+/** @global */
+window.LUTShaderMaterial = LUTShaderMaterial;
+//export { LUTShaderMaterial };
