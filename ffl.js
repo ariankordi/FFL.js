@@ -94,10 +94,11 @@ function generateJSDocStructFu(typeName) {
 /**
  * @typedef {Object} WindowCustom
  * @property {Module} Module
+ * @property {Object} THREE
  * @property {TextureManager} FFLTextures
  * List shader materials:
- * @property {object} FFLShaderMaterial
- * @property {object} LUTShaderMaterial
+ * @property {Object} FFLShaderMaterial
+ * @property {Object} LUTShaderMaterial
  */
 
 /** @type {WindowCustom} */
@@ -782,10 +783,10 @@ class TextureManager {
 	/**
 	 * @private
 	 * @param {number} format - Enum value for FFLTextureFormat.
-	 * @returns {number|null} Three.js texture format constant.
+	 * @returns {THREE.PixelFormat} Three.js texture format constant.
 	 * @throws {Error} Unexpected FFLTextureFormat value
 	 *
-	 * Note that this function won't work on WebGL1Renderer in Three.js r137-r161 since R and RG textures need to use Luminance(Alpha)Format
+	 * Note that this function won't work on WebGL1Renderer in Three.js r137-r162 since R and RG textures need to use Luminance(Alpha)Format
      *     - (you'd somehow need to detect which renderer is used)
 	 */
 	_getTextureFormat(format) {
@@ -1034,15 +1035,17 @@ async function _loadDataIntoHeap(resource, module) {
 			module.HEAPU8.set(resource, heapPtr);
 		} else if (resource instanceof Response) {
 			// Handle as fetch response.
+			if (!resource.ok) {
+				throw new Error(`HTTP error while fetching resource at URL = ${resource.url}, response code = ${resource.status}`);
+			}
 			// Throw an error if it is not a streamable response.
 			if (!resource.body) {
-				throw new Error('Fetch response is not streamable.');
+				throw new Error(`Fetch response is not streamable (resource.body = ${resource.body})`);
 			}
-
 			// Get the total size of the resource from the headers.
 			const contentLength = resource.headers.get('Content-Length');
 			if (!contentLength) {
-				throw new Error('Fetch response missing Content-Length.');
+				throw new Error('Fetch response is missing Content-Length.');
 			}
 
 			// Allocate into heap using the Content-Length.
@@ -1773,7 +1776,6 @@ function _allocateModelSource(data, module) {
 
 	// Enumerate through supported data types.
 	switch (data.length) {
-		// @ts-expect-error
 		case FFLStoreData_size: { // sizeof(FFLStoreData)
 			// modelSource.dataSource = FFLDataSource.STORE_DATA;
 			// Convert FFLStoreData to FFLiCharInfo instead.
@@ -1818,7 +1820,7 @@ function _allocateModelSource(data, module) {
  *
  * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
  * @param {Module} module - Module to access the data and call FFL through.
- * @param {Boolean} verifyName - Whether the name and creator name should be verified.
+ * @param {boolean} verifyName - Whether the name and creator name should be verified.
  * @returns {void} Returns nothing if verification passes.
  * @throws {Error} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
  * @todo TODO: Should preferably return a custom error class.
@@ -1861,7 +1863,7 @@ function verifyCharInfo(data, module, verifyName = false) {
  * @todo TODO: Should this return FFLiCharInfo object?
  * @returns {Uint8Array} The random FFLiCharInfo.
  */
-function getRandomCharInfo(module, gender, age, race) {
+function getRandomCharInfo(module, gender = FFLGender.ALL, age = FFLAge.ALL, race = FFLRace.ALL) {
 	const ptr = module._malloc(FFLiCharInfo.size);
 	module._FFLiGetRandomCharInfo(ptr, gender, age, race);
 	const result = module.HEAPU8.slice(ptr, ptr + FFLiCharInfo.size);
@@ -1872,11 +1874,13 @@ function getRandomCharInfo(module, gender, age, race) {
 // --------------------- makeExpressionFlag(expressions) ----------------------
 /**
  * Creates an expression flag to be used in FFLCharModelDesc.
- * @param {number[]|number} expressions - Array of expression indices, or a single expression index.
+ * Use this whenever you need to describe which expression, or expressions, you want to be able to use in the CharModel.
+ * @param {Array<number>|number} expressions - Either a single expression index or an array of expression indices. See {@link FFLExpression} for min/max.
  * @returns {Uint32Array} FFLAllExpressionFlag type of three 32-bit integers.
- * @throws {Error} expressions must be in range and less than FFLExpression.MAX.
+ * @throws {Error} expressions must be in range and less than {@link FFLExpression.MAX}.
  */
 function makeExpressionFlag(expressions) {
+	/** @param {number} i */
 	function checkRange(i) {
 		if (i >= FFLExpression.MAX) {
 			throw new Error(`makeExpressionFlag: input out of range: got ${i}, max: ${FFLExpression.MAX}`);
@@ -1985,10 +1989,11 @@ function createCharModel(data, modelDesc, materialClass, module = window.Module,
  * @todo  TODO: Should this ^^^^^^^ just pass the charInfo object instance instead of "_data"?
  * @param {THREE.Renderer} renderer - The Three.js renderer.
  * @param {Object|Array|Uint32Array|null} descOrExpFlag - Either a new FFLCharModelDesc object, an array of expressions, a single expression, or an expression flag.
+ * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The updated CharModel instance.
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  */
-function updateCharModel(charModel, newData, renderer, descOrExpFlag = null) {
+function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, verify = true) {
 	let newModelDesc;
 	newData = newData || charModel._data;
 	if (!newData) {
@@ -2028,30 +2033,11 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null) {
 		default:
 			throw new Error('updateCharModel: Unexpected type for descOrExpFlag');
 	}
-	/*
-	if (Array.isArray(descOrExpFlag) || typeof descOrExpFlag === 'number') {
-		let newFlag;
-		// If this is already an expression flag (Uint32Array), use it.
-		if (descOrExpFlag instanceof Uint32Array) {
-			newFlag = descOrExpFlag;
-		} else {
-			// If an array is passed, treat it as a new expression flag.
-			newFlag = makeExpressionFlag(descOrExpFlag);
-		}
-		// Inherit the CharModelDesc from the current model.
-		newModelDesc = charModel._model.charModelDesc;
-		newModelDesc.allExpressionFlag = newFlag;
-	} else if (!descOrExpFlag) {
-		// Reuse old modelDesc.
-		newModelDesc = charModel._model.charModelDesc;
-	} else {
-		newModelDesc = descOrExpFlag;
-	}
-	*/
+
 	// Dispose of the old CharModel.
 	charModel.dispose();
 	// Create a new CharModel with the new data and ModelDesc.
-	const newCharModel = createCharModel(newData, newModelDesc, charModel._materialClass, charModel._module);
+	const newCharModel = createCharModel(newData, newModelDesc, charModel._materialClass, charModel._module, verify);
 	// Initialize its textures.
 	initCharModelTextures(newCharModel, renderer, charModel._module);
 	return newCharModel;
@@ -2325,6 +2311,14 @@ function initCharModelTextures(charModel, renderer) {
 	const textureTempObject = charModel._getTextureTempObject();
 	// Draw faceline texture if applicable.
 	_drawFacelineTexture(charModel, textureTempObject, renderer, module);
+
+	// Warn if renderer.alpha is not set to true.
+	const clearAlpha = renderer.getClearAlpha();
+	if (clearAlpha !== 0) {
+		// console.warn('initCharModelTextures: renderer was not initialized with alpha: true, so mask textures will probably all look blank right now.');
+		renderer.setClearAlpha(0); // Override clearAlpha to 0.
+	}
+
 	// Draw mask textures for all expressions.
 	_drawMaskTextures(charModel, textureTempObject, renderer, module);
 	// Finalize CharModel, deleting and freeing it.
@@ -2333,13 +2327,16 @@ function initCharModelTextures(charModel, renderer) {
 	}
 	// Update the expression to refresh the mask texture.
 	charModel.setExpression(charModel.expression);
+	// Set clearAlpha back.
+	if (clearAlpha !== 0) {
+		renderer.setClearAlpha(clearAlpha);
+	}
 }
 
 /**
  * @private
  * @param {THREE.RenderTarget} renderTarget
  * @param {THREE.WebGLRenderer} renderer
- * @param {Boolean} [flipY=false]
  */
 function _displayTextureDebug(target, renderer) {
 	if (_displayRenderTexturesElement) {
@@ -2378,7 +2375,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
 	// Get the faceline color from CharModel.
 	const bgColor = charModel.facelineColor;
 	// Create an offscreen scene.
-	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, bgColor, charModel._materialClass, charModel._module, renderer);
+	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, bgColor, charModel._materialClass, charModel._module);
 	// Render scene to texture.
 	const width = charModel._getResolution() / 2;
 	const height = charModel._getResolution();
@@ -2403,8 +2400,8 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
 	// Delete temp faceline object to free resources.
 	if (!_noCharModelCleanupDebug) {
 		module._FFLiDeleteTempObjectFacelineTexture(facelineTempObjectPtr, charModel._ptr, charModel._model.charModelDesc.resourceType);
+		disposeMeshes(offscreenScene); // Dispose meshes in scene.
 	}
-	disposeMeshes(offscreenScene); // Dispose meshes in scene.
 }
 
 /**
@@ -2442,14 +2439,14 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
 		scenes.push(scene);
 	}
 
-	// Some texures are shared which is why this
-	// needs to be done given that disposeMeshes
-	// unconditionally deletes textures.
-	scenes.forEach((scene) => {
-		disposeMeshes(scene);
-	});
-
 	if (!_noCharModelCleanupDebug) {
+		// Some texures are shared which is why this
+		// needs to be done given that disposeMeshes
+		// unconditionally deletes textures.
+		scenes.forEach((scene) => {
+			disposeMeshes(scene);
+		});
+
 		module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr, expressionFlagPtr, charModel._model.charModelDesc.resourceType);
 		module._FFLiDeleteTextureTempObject(charModel._ptr);
 	}
@@ -2559,7 +2556,7 @@ function createSceneFromDrawParams(drawParams, bgColor = null, materialClass, mo
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
  *
- * @param {Boolean} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
+ * @param {boolean} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {THREE.OrthographicCamera} The orthographic camera.
  */
 function getIdentCamera(flipY = false) {
@@ -2581,7 +2578,7 @@ function getIdentCamera(flipY = false) {
  * @param {THREE.WebGLRenderer} renderer - The renderer.
  * @param {number} width - Desired width of the target.
  * @param {number} height - Desired height of the target.
- * @param {Object} [targetOptions={}] - Optional options for the render target.
+ * @param {Object} [targetOptions] - Optional options for the render target.
  * @returns {THREE.RenderTarget} The render target (which contains .texture).
  */
 function createAndRenderToTarget(scene, camera, renderer, width, height, targetOptions = {}) {
@@ -2658,7 +2655,7 @@ function disposeMeshes(group, scene) {
  *
  * @param {THREE.RenderTarget} renderTarget - The render target.
  * @param {THREE.WebGLRenderer} renderer - The renderer (MUST be the same renderer used for the target).
- * @param {Boolean} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
+ * @param {boolean} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {string} The data URL representing the RenderTarget's texture contents.
  */
 function renderTargetToDataURL(renderTarget, renderer, flipY = false) {
@@ -3123,7 +3120,7 @@ function base64ToUint8Array(base64) {
 
 /**
  * Converts a Uint8Array to a Base64 string.
- * @param {Uint8Array} data - The Uint8Array to convert.
+ * @param {Array<number>} data - The Uint8Array to convert. TODO: check if Uint8Array truly can be used
  * @returns {string} The Base64-encoded string.
  */
 const uint8ArrayToBase64 = data => btoa(String.fromCharCode.apply(null, data));
