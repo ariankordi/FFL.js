@@ -3,9 +3,8 @@
 import eslint from '@eslint/js';
 import eslintCommentPlugin from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import stylisticPlugin from '@stylistic/eslint-plugin';
-
 import importPlugin from 'eslint-plugin-import';
-import globals from 'globals'
+import globals from 'globals';
 
 // Customize the stylistic rules as desired.
 const stylisticConfig = stylisticPlugin.configs.customize({
@@ -16,19 +15,18 @@ const stylisticConfig = stylisticPlugin.configs.customize({
 	braceStyle: '1tbs'
 });
 
+const ecmaVersion = 2022;
+
 export default [
 	// Base recommended configuration for plain JavaScript.
 	// (No "extends" key is used here; we include the shared config object directly.)
 	eslint.configs.recommended,
 	{
 		languageOptions: {
-			ecmaVersion: 'latest',
+			ecmaVersion,
 			sourceType: 'module',
 			globals: {
-				...globals.browser,
-                                THREE: 'readonly',  // TODO three.js
-                                Module: 'readonly', // TODO emscripten
-                                _: 'readonly'       // TODO struct-fu
+				...globals.browser
 			}
 		},
 		rules: {
@@ -38,7 +36,7 @@ export default [
 			'no-var': 'error',
 			'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^ignore' }],
 			'one-var': ['error', 'never'],
-			curly: ['error', 'all'] // Always require curly braces
+			'curly': ['error', 'all'] // Always require curly braces
 		}
 	},
 
@@ -69,11 +67,11 @@ export default [
 	importPlugin.flatConfigs.warnings,
 	{
 		languageOptions: {
-			ecmaVersion: 'latest' // Ensure modern syntax is recognized
+			ecmaVersion
 		},
 		rules: {
 			'import/order': ['warn', {
-				groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type'],
+				'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type'],
 				'newlines-between': 'never'
 			}],
 			'import/first': 'error',

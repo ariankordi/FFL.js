@@ -3,19 +3,21 @@
   "compilerOptions": {
     "allowJs": true,
     //"checkJs": true, // Assumed from @ts-check.
-    "target": "es2018",
+    "target": "es2015", // but materials use ES2020 "??"
     "module": "commonjs",
 
-    "strict": false,
-    "noImplicitAny": false, // TODO
+    "strict": true,
+    "noImplicitAny": true,
     "noUnusedLocals": false, // TODO enable when exports are added
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": false,
 
     "declaration": true, // Generate only declarations.
-    "declarationMap": true,
+    //"declarationMap": true, // Emits .d.ts.map.
     "emitDeclarationOnly": true,
     "outDir": "types" // Emit .d.ts into types.
-  }
+  },
+  // Only include main sources.
+  "include": ["ffl.js", "*Material.js"]
 }

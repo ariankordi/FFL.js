@@ -1,5 +1,18 @@
-// import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.167.0/+esm';
+// @ts-check
+'use strict';
+/*!
+ * Bindings for FFL, a Mii renderer, in JavaScript.
+ * https://github.com/ariankordi/FFL.js
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 
+// ------------------ ESM imports, uncomment if you use ESM ------------------
+// Also see the bottom of the script for corresponding exports.
+/*
+import * as THREE from 'three';
+// import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.167.0/+esm';
+import * as _ from '../struct-fu/lib';
+*/
 // // ---------------------------------------------------------------------
 // //  Emscripten Types, JSDoc Helpers
 // // ---------------------------------------------------------------------
@@ -558,6 +571,10 @@ const FFLiCharInfo = _.struct([
 	_.uint8('authorID', 8) // stub
 ]);
 
+/**
+ * @public
+ * Size of FFLStoreData, a structure not included currently.
+ */
 const FFLStoreData_size = 96; // sizeof(FFLStoreData)
 
 // ---------------------- Common Color Mask Definitions ----------------------
@@ -1280,18 +1297,18 @@ async function initializeFFL(resource, module = window.Module) {
 	/** @type {number} */
 	let resourceDescPtr; // Store pointer to free later.
 	// Continue when Emscripten module is initialized.
-	return new Promise((resolve) => {
+	return new Promise((resolve, _) => {
 		// try {
 		// If onRuntimeInitialized is not defined on module, add it.
 		if (!module.calledRun && !module.onRuntimeInitialized) {
 			module.onRuntimeInitialized = () => {
 				console.debug('initializeFFL: Emscripten runtime initialized, resolving.');
-				resolve();
+				resolve(null);
 			};
 			console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, module.onRuntimeInitialized:\n${module.onRuntimeInitialized}\n // ^^ assigned and waiting.`);
 		} else {
 			console.debug('initializeFFL: Assuming module is ready.');
-			resolve();
+			resolve(null);
 		}
 		// } catch(e) {
 		// 	debugger; throw e;
@@ -1453,8 +1470,8 @@ class CharModel {
 	/**
 	 * @constructor
 	 * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
-	 * @param {Function} materialClass - The material constructor (e.g., FFLShaderMaterial).
 	 * @param {Module} module - The Emscripten module.
+	 * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - The material class (e.g., FFLShaderMaterial).
 	 */
 	constructor(ptr, module, materialClass) {
 		/** @package */
@@ -2193,8 +2210,8 @@ function makeExpressionFlag(expressions) {
  * Don't forget to call dispose() on the CharModel when you are done.
  *
  * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
- * @param {Function} materialClass - Constructor for the material (e.g. FFLShaderMaterial).
  * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
+ * @param {function(new: THREE.Material, ...*): THREE.Material} [materialClass=window.FFLShaderMaterial] - Class for the material (constructor), e.g.: FFLShaderMaterial
  * @param {Module} [module=window.Module] - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
@@ -2328,7 +2345,7 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, ver
  * Binds geometry, texture, and material parameters.
  *
  * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
- * @param {Function} materialClass - Material constructor.
+ * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - Class for the material (constructor).
  * @param {Module} module - The Emscripten module.
  * @returns {THREE.Mesh|null} The THREE.Mesh instance, or null if the index count is 0 indicating no shape data.
  * @throws {Error} drawParam may be null, Unexpected value for FFLCullMode
@@ -2407,10 +2424,12 @@ function _bindDrawParamGeometry(drawParam, module) {
 	const indices = module.HEAPU16.subarray(indexPtr, indexPtr + indexCount);
 	geometry.setIndex(new THREE.Uint16BufferAttribute(indices, 1));
 	// Add attribute data.
-	Object.entries(attributes).forEach(([typeStr, buffer]) => {
+	for (const typeStr in attributes) {
+		const buffer = attributes[typeStr];
 		const type = parseInt(typeStr);
-		if (buffer.size === 0 && type !== FFLAttributeBufferType.POSITION) {
-			return;
+		// Skip disabled attributes that have size of 0.
+		if (buffer.size === 0) {
+			continue;
 		}
 		switch (type) {
 			case FFLAttributeBufferType.POSITION: {
@@ -2462,7 +2481,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 				break;
 			}
 		}
-	});
+	}
 	return geometry;
 }
 
@@ -2492,7 +2511,7 @@ function _getTextureFromModulateParam(modulateParam, textureManager = window.FFL
 	// Selective apply mirrored repeat.
 	const applyMirrorTypes = [FFLModulateType.SHAPE_FACELINE, FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_GLASS];
 	// ^^ Faceline, cap, and glass. NOTE that faceline texture won't go through here
-	if (applyMirrorTypes.includes(modulateParam.type)) {
+	if (applyMirrorTypes.indexOf(modulateParam.type) !== -1) {
 		texture.wrapS = THREE.MirroredRepeatWrapping;
 		texture.wrapT = THREE.MirroredRepeatWrapping;
 		texture.needsUpdate = true;
@@ -2807,8 +2826,8 @@ function _setFaceline(charModel, target) {
  * to a new mesh. Used for one-time rendering of faceline/mask 2D planes.
  *
  * @param {Array<FFLDrawParam>} drawParams - Array of FFLDrawParam.
- * @param {Function} materialClass - The material constructor. This shader must be able to handle the texture swizzling (RGB_LAYERED, LUMINANCE_ALPHA, etc.) for textures that create mask and faceline.
  * @param {THREE.Color|null} bgColor - Optional background color.
+ * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - The material class (constructor). This shader must be able to handle the texture component selection (RGB_LAYERED, LUMINANCE_ALPHA, etc.) for textures that create mask and faceline.
  * @param {Module} module - The Emscripten module.
  * @returns {{scene: THREE.Scene, meshes: Array<THREE.Mesh|null>}}
  */
@@ -3385,20 +3404,28 @@ function convertFFLiCharInfoToStudioCharInfo(src) {
 // //  Generic Hex/Base64 Utilities
 // // ---------------------------------------------------------------------
 
-// TODO: keep as => syntax? take safari 5.1-compatible versions?
 /**
  * Removes all spaces from a string.
  * @param {string} str - The input string.
  * @returns {string} The string without spaces.
  */
-const stripSpaces = str => str.replace(/\s+/g, '');
+function stripSpaces(str) {
+	return str.replace(/\s+/g, '');
+}
 
 /**
  * Converts a hexadecimal string to a Uint8Array.
  * @param {string} hex - The hexadecimal string.
  * @returns {Uint8Array} The converted Uint8Array.
  */
-const hexToUint8Array = hex => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+function hexToUint8Array(hex) {
+	const match = hex.match(/.{1,2}/g);
+	// If match returned null, use an empty array.
+	const arr = (match ? match : []).map(function (byte) {
+		return parseInt(byte, 16);
+	});
+	return new Uint8Array(arr);
+}
 
 /**
  * Converts a Base64 or Base64-URL encoded string to a Uint8Array.
@@ -3408,11 +3435,22 @@ const hexToUint8Array = hex => new Uint8Array(hex.match(/.{1,2}/g).map(byte => p
 function base64ToUint8Array(base64) {
 	// Replace URL-safe Base64 characters
 	const normalizedBase64 = base64.replace(/-/g, '+').replace(/_/g, '/');
-	// Add padding if necessary
-	const paddedBase64 = normalizedBase64.padEnd(
-		normalizedBase64.length + (4 - (normalizedBase64.length % 4)) % 4, '='
-	);
-	return Uint8Array.from(atob(paddedBase64), c => c.charCodeAt(0));
+	// Custom function to pad the string with '=' manually
+	/** @param {string} str */ function padBase64(str) {
+		while (str.length % 4 !== 0) {
+			str += '=';
+		}
+		return str;
+	}
+	// Add padding if necessary.
+	const paddedBase64 = padBase64(normalizedBase64);
+	const binaryString = atob(paddedBase64);
+	const len = binaryString.length;
+	const bytes = new Uint8Array(len);
+	for (let i = 0; i < len; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+	return bytes;
 }
 
 /**
@@ -3420,7 +3458,9 @@ function base64ToUint8Array(base64) {
  * @param {Array<number>} data - The Uint8Array to convert. TODO: check if Uint8Array truly can be used
  * @returns {string} The Base64-encoded string.
  */
-const uint8ArrayToBase64 = data => btoa(String.fromCharCode.apply(null, data));
+function uint8ArrayToBase64(data) {
+	return btoa(String.fromCharCode.apply(null, data));
+}
 
 /**
  * Parses a string contaning either hex or Base64 representation
@@ -3441,3 +3481,55 @@ function parseHexOrB64ToUint8Array(text) {
 	}
 	return inputData;
 }
+
+// ------------------ ESM exports, uncomment if you use ESM ------------------
+/*
+export {
+	// Generic enums
+	FFLModulateMode,
+	FFLModulateType,
+	FFLExpression,
+	FFLModelFlag,
+
+	// Types for CharModel initialization
+	FFLiCharInfo,
+	FFLCharModelDesc,
+	FFLCharModelDescDefault,
+	FFLDataSource,
+	FFLCharModelSource,
+
+	// Enums for getRandomCharInfo
+	FFLGender,
+	FFLAge,
+	FFLRace,
+
+	// Begin public methods
+	initializeFFLWithResource,
+	exitFFL,
+	CharModel, // CharModel class
+	verifyCharInfo,
+	getRandomCharInfo,
+	makeExpressionFlag,
+
+	// Pants colors
+	PantsColor,
+	pantsColors,
+
+	// CharModel creation
+	_allocateModelSource,
+	createCharModel,
+	updateCharModel,
+	initCharModelTextures,
+	renderTargetToDataURL,
+
+	// Icon rendering
+	ViewType,
+	createCharModelIcon,
+	StudioCharInfo,
+
+	// Export utilities
+	convertStudioCharInfoToFFLiCharInfo,
+	uint8ArrayToBase64,
+	parseHexOrB64ToUint8Array
+};
+*/
