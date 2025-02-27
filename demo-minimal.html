@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 	await initializeFFLWithResource();
 
 	// Create renderer now.
-	renderer = new THREE.WebGLRenderer({ alpha: true });
+	renderer = new THREE.WebGLRenderer();
 
 	charFormElement.addEventListener('submit', function (event) {
 		event.preventDefault();
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 		}
 
 		// Define the FFLCharModelDesc.
-		const modelDesc = FFLCharModelDesc.default; // Default expression.
+		const modelDesc = FFLCharModelDescDefault; // Default expression.
 
 		try {
 			// First-time scene initialization.

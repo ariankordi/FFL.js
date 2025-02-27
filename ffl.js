@@ -577,14 +577,26 @@ const FFLiMaskTextures = _.struct([
 ]);
 
 const FFL_RESOLUTION_MASK = 0x3fffffff;
+
+/**
+ * @typedef {Object} FFLCharModelDesc
+ * @property {number} resolution
+ * @property {Uint32Array} allExpressionFlag
+ * @property {number} modelFlag
+ * @property {number} resourceType
+ */
 const FFLCharModelDesc = _.struct([
 	_.uint32le('resolution'),
 	_.uint32le('allExpressionFlag', 3),
 	_.uint32le('modelFlag'),
 	_.uint32le('resourceType')
 ]);
-// Define a static default FFLCharModelDesc.
-FFLCharModelDesc.default = {
+/**
+ * @public
+ * Static default for FFLCharModelDesc.
+ * @type {FFLCharModelDesc}
+ */
+const FFLCharModelDescDefault = {
 	resolution: 512, // Typical default.
 	// Choose normal expression.
 	allExpressionFlag: new Uint32Array([1, 0, 0]), // Normal expression.
@@ -684,6 +696,11 @@ const FFLRace = {
 	ALL: 3
 };
 
+/**
+ * @typedef {Object} FFLResourceDesc
+ * @property {Array<number>} pData
+ * @property {Array<number>} size
+ */
 const FFLResourceDesc = _.struct([
 	_.uintptr('pData', FFLResourceType.MAX),
 	_.uint32le('size', FFLResourceType.MAX)
@@ -1084,6 +1101,7 @@ async function _loadDataIntoHeap(resource, module) {
  * @global
  * Global storing the FFLResourceDesc instance that points to
  * where the FFL resource is allocated in the heap.
+ * @type FFLResourceDesc
  */
 let _resourceDesc;
 
@@ -1102,6 +1120,15 @@ let _resourceDesc;
 async function initializeFFL(resource, module = window.Module) {
 	console.debug('initializeFFL: Entrypoint, waiting for module to be ready.');
 
+	/** Frees the FFLResourceDesc - not the resources it POINTS to unlike _freeResourceDesc. */
+	function freeResDesc() {
+		if (resourceDescPtr) {
+			// Free FFLResourceDesc, unused after init.
+			module._free(resourceDescPtr);
+		}
+	}
+
+	/** @type {number} */
 	let resourceDescPtr; // Store pointer to free later.
 	// Continue when Emscripten module is initialized.
 	return new Promise((resolve) => {
@@ -1112,7 +1139,7 @@ async function initializeFFL(resource, module = window.Module) {
 				console.debug('initializeFFL: Emscripten runtime initialized, resolving.');
 				resolve();
 			};
-			console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, module.onRuntimeInitialized: ${module.onRuntimeInitialized} / << assigned and waiting.`);
+			console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, module.onRuntimeInitialized:\n${module.onRuntimeInitialized}\n // ^^ assigned and waiting.`);
 		} else {
 			console.debug('initializeFFL: Assuming module is ready.');
 			resolve();
@@ -1153,7 +1180,7 @@ async function initializeFFL(resource, module = window.Module) {
 			// Set required globals in FFL.
 			module._FFLInitResGPUStep(); // CanInitCharModel will fail if not called.
 			module._FFLSetNormalIsSnorm8_8_8_8(true); // Set normal format to FFLiSnorm8_8_8_8.
-			module._FFLSetTextureFlipY(true); // Set textures to be flipped for WebGL.
+			module._FFLSetTextureFlipY(true); // Set textures to be flipped for OpenGL.
 
 			// Requires refactoring:
 			// module._FFLSetScale(0.1); // Sets model scale back to 1.0.
@@ -1161,16 +1188,12 @@ async function initializeFFL(resource, module = window.Module) {
 			// I don't think ^^ will work because the shaders need sRGB
 		})
 		.catch((error) => {
-			module._free();
+			_freeResourceDesc(_resourceDesc, module);
+			freeResDesc();
 			console.error('initializeFFL failed:', error);
 			throw error;
 		})
-		.finally(() => {
-			if (resourceDescPtr) {
-				// Free FFLResourceDesc, unused after init.
-				module._free(resourceDescPtr);
-			}
-		});
+		.then(freeResDesc);
 }
 
 // ------------- initializeFFLWithResource(resourcePath, module) -------------
@@ -1181,7 +1204,7 @@ async function initializeFFL(resource, module = window.Module) {
  *
  * @param {string|null} [resourcePath=null] - The URL for the FFL resource.
  * @param {Module} [module=window.Module] - The Emscripten module instance.
- * @returns {void} Returns when the fetch and initializeFFL are finished.
+ * @returns {Promise<void>} Resolves when the fetch and initializeFFL are finished.
  * @throws {Error} resourcePath must be a URL string, or, an HTML element with FFL resource must exist and have content.
  */
 async function initializeFFLWithResource(resourcePath = null, module = window.Module) {
@@ -1210,10 +1233,29 @@ async function initializeFFLWithResource(resourcePath = null, module = window.Mo
 		window.FFLTextures = new TextureManager(module);
 		console.debug('initializeFFLWithResource: FFLiManager and TextureManager initialized, exiting');
 	} catch (error) {
-		// TODO: should this alert or no, because it's meant to be a nice wrapper
-		alert(`Error initializing FFL with resource: ${error}`);
+		if (typeof alert !== 'undefined') {
+			alert(`Error initializing FFL with resource: ${error}`);
+		}
 		throw error;
 	}
+}
+
+/**
+ * @private
+ * Frees all pData pointers within {@link FFLResourceDesc}.
+ * @param {FFLResourceDesc} desc
+ * @param {Module} module
+ */
+function _freeResourceDesc(desc, module) {
+	if (!desc || !desc.pData) {
+		return;
+	}
+	desc.pData.forEach((ptr, i) => {
+		if (ptr) {
+			module._free(ptr);
+			desc.pData[i] = 0;
+		}
+	});
 }
 
 // -------------------------------- exitFFL() --------------------------------
@@ -1234,11 +1276,14 @@ function exitFFL(module) {
 	module._FFLExit();
 
 	// Free resources in heap after FFLExit().
-	_resourceDesc.pData.forEach((ptr) => {
-		if (ptr) {
-			module._free(_fflResourcePtr);
-		}
-	});
+	_freeResourceDesc(_resourceDesc, module);
+
+	// Exit the module...? Is this even necessary?
+	if (module._exit) {
+		module._exit();
+	} else {
+		console.debug('exitFFL: not calling module._exit = ', module._exit);
+	}
 }
 
 // // ---------------------------------------------------------------------
@@ -1314,6 +1359,7 @@ class CharModel {
 		this._addCharModelMeshes(module); // Populate this.meshes.
 	}
 
+	// ----------------------- _addCharModelMeshes(module) -----------------------
 	/**
 	 * @private
 	 * This is the method that populates meshes
@@ -1360,6 +1406,8 @@ class CharModel {
 			this.meshes.add(mesh); // Add the mesh or null.
 		}
 	}
+
+	// --------------------------- Private Get Methods ---------------------------
 
 	/** @private */
 	_getTextureTempObjectPtr() {
@@ -1471,6 +1519,8 @@ class CharModel {
 		return this._model.charModelDesc.resolution & FFL_RESOLUTION_MASK;
 	}
 
+	// --------------------------------- Disposal ---------------------------------
+
 	/**
 	 * @private
 	 * Finalizes the CharModel.
@@ -1509,7 +1559,7 @@ class CharModel {
 		});
 	}
 
-	// Public methods:
+	// ---------------------- Public Methods - Cleanup, Data ----------------------
 
 	/**
 	 * @public
@@ -1518,8 +1568,9 @@ class CharModel {
 	 * - Deletes faceline texture if it exists.
 	 * - Deletes all mask textures.
 	 * - Removes all meshes from the scene.
+	 * @param {boolean} [disposeTextures=true] - Whether or not to dispose of mask and faceline render targets.
 	 */
-	dispose() {
+	dispose(disposeTextures = true) {
 		// Print the permanent __ptr rather than _ptr.
 		console.debug('CharModel.dispose: ptr =', this.__ptr);
 		this._finalizeCharModel(); // Should've been called already
@@ -1527,10 +1578,10 @@ class CharModel {
 		disposeMeshes(this.meshes);
 		this.meshes = null;
 		// Dispose render textures.
-		this._disposeTextures();
+		if (disposeTextures) {
+			this._disposeTextures();
+		}
 	}
-
-	// Data properties
 
 	/**
 	 * @public
@@ -1562,9 +1613,9 @@ class CharModel {
 		return storeData;
 	}
 
-	// getCharInfoStudio
+	// TODO: getStudioCharInfo
 
-	// Cosmetic properties
+	// ------------------------ Mask and Faceline Textures ------------------------
 
 	/**
 	 * @public
@@ -1588,6 +1639,43 @@ class CharModel {
 		mesh.material.map = target.texture;
 		mesh.material.needsUpdate = true;
 	}
+
+	/**
+	 * Gets the faceline texture, or the texture that wraps around
+	 * the faceline shape (opaque, the one hair is placed atop).
+	 * Not to be confused with the texture containing facial features
+	 * such as eyes, mouth, etc. which is the mask.
+	 * The faceline texture may not exist if it is not needed, in which
+	 * case the faceline color is used directly, see property {@link facelineColor}.
+	 //* @not-returns {THREE.Texture|null} The faceline texture, or null if it does not exist, in which case {@link facelineColor} should be used. It becomes invalid if the CharModel is disposed.
+	 * @returns {THREE.RenderTarget|null} The faceline render target, or null if it does not exist, in which case {@link facelineColor} should be used. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
+	 */
+	getFaceline() { // getFaceTexture / "FFLiGetFaceTextureFromCharModel"
+		// Return the render target if it exists.
+		if (this._facelineTarget) {
+			return this._facelineTarget;
+		}
+		return null;
+	}
+
+	/**
+	 * Gets the mask texture, or the texture containing facial
+	 * features such as eyes, mouth, eyebrows, etc. This is wrapped
+	 * around the mask shape, which is a transparent shape
+	 * placed in front of the head model.
+	 * @param {FFLExpression} [expression=this.expression] expression - The desired expression, or the current expression.
+	 //* @not-returns {THREE.Texture|null} The mask texture for the given expression, or null if the CharModel was not initialized with that expression. It becomes invalid if the CharModel is disposed.
+	 * @returns {THREE.RenderTarget|null} The mask render target for the given expression, or null if the CharModel was not initialized with that expression. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
+	 */
+	getMask(expression = this.expression) { // getMaskTexture
+		// Return the render target if it exists.
+		if (this._maskTargets && this._maskTargets[expression]) {
+			return this._maskTargets[expression];
+		}
+		return null;
+	}
+
+	// ------------------------------ Public Getters ------------------------------
 
 	/**
 	 * @public
@@ -1659,6 +1747,8 @@ class CharModel {
 		return this._boundingBox;
 	}
 
+	// -------------------------------- Body Scale --------------------------------
+
 	/**
 	 * @enum {number}
 	 */
@@ -1670,7 +1760,7 @@ class CharModel {
 	/**
 	 * @public
 	 * Gets a vector in which to scale the body model for this CharModel.
-	 * @param {CharModel.BodyScaleMode} [scaleMode=CharModel.BodyScaleMode.Apply] scaleMode
+	 * @param {BodyScaleMode} [scaleMode=CharModel.BodyScaleMode.Apply] scaleMode
 	 * @returns {THREE.Vector3} Scale vector for the body model.
 	 * @throws {Error} Unexpected value for scaleMode
 	 */
@@ -1926,8 +2016,8 @@ function makeExpressionFlag(expressions) {
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
  */
-function createCharModel(data, modelDesc, materialClass, module = window.Module, verify = true) {
-	modelDesc = modelDesc || FFLCharModelDesc.default;
+function createCharModel(data, modelDesc, materialClass = window.FFLShaderMaterial, module = window.Module, verify = true) {
+	modelDesc = modelDesc || FFLCharModelDescDefault;
 	// Allocate memory for model source, description, char model, and char info.
 	const modelSourcePtr = module._malloc(FFLCharModelSource.size);
 	const modelDescPtr = module._malloc(FFLCharModelDesc.size);
@@ -1987,13 +2077,14 @@ function createCharModel(data, modelDesc, materialClass, module = window.Module,
  * @param {CharModel} charModel - The existing CharModel instance.
  * @param {Uint8Array|null} newData - The new raw charInfo data, or null to use the original.
  * @todo  TODO: Should this ^^^^^^^ just pass the charInfo object instance instead of "_data"?
- * @param {THREE.Renderer} renderer - The Three.js renderer.
- * @param {Object|Array|Uint32Array|null} descOrExpFlag - Either a new FFLCharModelDesc object, an array of expressions, a single expression, or an expression flag.
+ * @param {THREE.WebGLRenderer} renderer - The Three.js renderer.
+ * @param {FFLCharModelDesc|Array<number>|Uint32Array|null} descOrExpFlag - Either a new {@link FFLCharModelDesc}, an array of expressions, a single expression, or an expression flag (Uint32Array).
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The updated CharModel instance.
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  */
 function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, verify = true) {
+	/** @type {FFLCharModelDesc} */
 	let newModelDesc;
 	newData = newData || charModel._data;
 	if (!newData) {
@@ -2039,7 +2130,7 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, ver
 	// Create a new CharModel with the new data and ModelDesc.
 	const newCharModel = createCharModel(newData, newModelDesc, charModel._materialClass, charModel._module, verify);
 	// Initialize its textures.
-	initCharModelTextures(newCharModel, renderer, charModel._module);
+	initCharModelTextures(newCharModel, renderer);
 	return newCharModel;
 }
 

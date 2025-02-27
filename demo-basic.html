@@ -689,7 +689,6 @@ function toggleReinitTextures() {
 	if (currentCharModel) {
 		updateCharModelInScene(null, currentExpressionFlag);
 	}
-	updateCharModelInScene();
 	console.log(`Reinitialize textures every frame: ${reinitTexturesElement.checked}`);
 }
 
@@ -792,7 +791,7 @@ function initAndUpdateScene(charData) {
 	}
 
 	// Define the FFLCharModelDesc.
-	const modelDesc = FFLCharModelDesc.default;
+	const modelDesc = FFLCharModelDescDefault;
 	modelDesc.resolution = defaultTextureResolution;
 	modelDesc.allExpressionFlag = currentExpressionFlag;
 
@@ -821,7 +820,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 	// Create renderer now.
 	renderer = new THREE.WebGLRenderer({
-		alpha: true // Needed for mask textures.
+		alpha: true // Needed for icons with transparent backgrounds.
 	});
 
 	loadCharacterButtons(); // Load character buttons.
