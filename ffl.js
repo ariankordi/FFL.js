@@ -562,7 +562,7 @@ const FFLStoreData_size = 96; // sizeof(FFLStoreData)
 
 // ---------------------- Common Color Mask Definitions ----------------------
 
-/** @private */
+/** @package */
 const commonColorEnableMask = (1 << 31);
 
 /**
@@ -579,7 +579,7 @@ const commonColorMask = color => color | commonColorEnableMask;
  * @param {number} color - The flagged color index.
  * @returns {number} The original color index before flagging.
  */
-const commonColorUnmask = color => color & ~commonColorEnableMask === 0
+const commonColorUnmask = color => (color & ~commonColorEnableMask) === 0
 // Only unmask color if the mask is enabled.
 	? color
 	: color & ~commonColorEnableMask;
@@ -685,6 +685,7 @@ const FFLiMaskTextures = _.struct([
 	_uintptr('pRenderTextures', FFLExpression.MAX)
 ]);
 
+/** @package */
 const FFL_RESOLUTION_MASK = 0x3fffffff;
 
 /**
@@ -912,6 +913,7 @@ const FFLTextureCallback = _.struct([
 class TextureManager {
 	/**
 	 * @constructor
+	 * Constructs the TextureManager. This MUST be created after initializing FFL.
 	 * @param {Module} [module=window.Module] - The Emscripten module.
 	 */
 	constructor(module = window.Module) {
@@ -1451,16 +1453,24 @@ class CharModel {
 	/**
 	 * @constructor
 	 * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
-	 * @param {Module} [module=window.Module] - The Emscripten module.
 	 * @param {Function} materialClass - The material constructor (e.g., FFLShaderMaterial).
+	 * @param {Module} module - The Emscripten module.
 	 */
-	constructor(ptr, module = window.Module, materialClass = window.FFLShaderMaterial) {
-		/** @private */
+	constructor(ptr, module, materialClass) {
+		/** @package */
 		this._module = module;
-		/** @public */
+		/**
+		 * @package
+		 * @type {*}
+		 */
+		this._data = null;
+		/**
+		 * @public
+		 * @type {function(new: THREE.Material, ...*): THREE.Material}
+		 */
 		this._materialClass = materialClass; // Store the material class.
 		/**
-		 * @private
+		 * @package
 		 * Pointer to the FFLiCharModel in memory, set to null when deleted.
 		 */
 		this._ptr = ptr;
@@ -1483,12 +1493,12 @@ class CharModel {
 
 		// Add RenderTargets for faceline and mask.
 		/**
-		 * @private
-		 * @type {THREE.RenderTarget}
+		 * @package
+		 * @type {THREE.RenderTarget|null}
 		 */
 		this._facelineTarget = null;
 		/**
-		 * @private
+		 * @package
 		 * @type {Array<THREE.RenderTarget|null>}
 		 */
 		this._maskTargets = new Array(FFLExpression.MAX).fill(null);
@@ -1496,7 +1506,7 @@ class CharModel {
 		/**
 		 * @public
 		 * Group of THREE.Mesh objects representing the CharModel.
-		 * @type {THREE.Group}
+		 * @type {THREE.Group|null}
 		 */
 		this.meshes = new THREE.Group();
 		// Set boundingBox getter ("this" = CharModel), dummy geometry needed
@@ -1562,7 +1572,7 @@ class CharModel {
 		return this._model.pTextureTempObject;
 	}
 
-	/** @public */
+	/** @package */
 	_getTextureTempObject() {
 		const ptr = this._getTextureTempObjectPtr();
 		return FFLiTextureTempObject.unpack(this._module.HEAPU8.subarray(ptr, ptr + FFLiTextureTempObject.size));
@@ -1586,19 +1596,23 @@ class CharModel {
 	 * @private
 	 * Accesses partsTransform in FFLiCharModel,
 	 * converting every FFLVec3 to THREE.Vector3.
+	 * @returns {Object.<string, THREE.Vector3>}
 	 * @throws {Error} Throws if this._model.partsTransform has objects that do not have "x" property.
 	 */
 	_getPartsTransform() {
-		const obj = this._model.partsTransform;
+		const obj = /** @type {Object.<string, FFLVec3>} */ (this._model.partsTransform);
+		/** @type {Object.<string, THREE.Vector3>} */
+		const newPartsTransform = {};
 		for (const key in obj) {
+			const vec = obj[key];
 			// sanity check make sure there is "x"
-			if (obj[key].x === undefined) {
+			if (vec.x === undefined) {
 				throw new Error();
 			}
 			// convert to THREE.Vector3
-			obj[key] = new THREE.Vector3(obj[key].x, obj[key].y, obj[key].z);
+			newPartsTransform[key] = new THREE.Vector3(vec.x, vec.y, vec.z);
 		}
-		return obj;
+		return newPartsTransform;
 	}
 
 	/** @private */
@@ -1631,20 +1645,24 @@ class CharModel {
 		return FFLiCharInfo.pack(this._model.charInfo);
 	}
 
-	/** @public */
+	/** @package */
 	_getPartsTexturesPtr() {
-		return this._model.pTextureTempObject + FFLiTextureTempObject.fields.maskTextures.offset +
-			FFLiMaskTexturesTempObject.fields.partsTextures.offset;
+		return this._model.pTextureTempObject + /** @type {number} */ (FFLiTextureTempObject.fields.maskTextures.offset) + /** @type {number} */ (FFLiMaskTexturesTempObject.fields.partsTextures.offset);
 	}
 
-	/** @public */
+	/** @package */
 	_getFacelineTempObjectPtr() {
-		return this._model.pTextureTempObject + FFLiTextureTempObject.fields.facelineTexture.offset;
+		return this._model.pTextureTempObject + /** @type {number} */ (FFLiTextureTempObject.fields.facelineTexture.offset);
 	}
 
-	/** @public */
+	/** @package */
 	_getMaskTempObjectPtr() {
-		return this._model.pTextureTempObject + FFLiTextureTempObject.fields.maskTextures.offset;
+		return this._model.pTextureTempObject + /** @type {number} */ (FFLiTextureTempObject.fields.maskTextures.offset);
+	}
+
+	/** @package */
+	_getExpressionFlagPtr() {
+		return this._ptr + /** @type {number} */ (FFLiCharModel.fields.charModelDesc.offset) + /** @type {number} */ (FFLCharModelDesc.fields.allExpressionFlag.offset);
 	}
 
 	/**
@@ -1659,7 +1677,7 @@ class CharModel {
 	}
 
 	/**
-	 * @public
+	 * @package
 	 * Get the texture resolution.
 	 */
 	_getResolution() {
@@ -1669,7 +1687,7 @@ class CharModel {
 	// --------------------------------- Disposal ---------------------------------
 
 	/**
-	 * @private
+	 * @package
 	 * Finalizes the CharModel.
 	 * Frees and deletes the CharModel right after generating textures.
 	 * This is **not** the same as `dispose()` which cleans up the scene.
@@ -1680,7 +1698,7 @@ class CharModel {
 		}
 		this._module._FFLDeleteCharModel(this._ptr);
 		this._module._free(this._ptr);
-		this._ptr = null;
+		this._ptr = 0;
 	}
 
 	/**
@@ -1783,8 +1801,8 @@ class CharModel {
 		}
 
 		// Update texture and material.
-		mesh.material.map = target.texture;
-		mesh.material.needsUpdate = true;
+		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = target.texture;
+		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
 	}
 
 	/**
@@ -1843,6 +1861,16 @@ class CharModel {
 
 	/**
 	 * @public
+	 * Contains the CharInfo of the model.
+	 * Changes to this will not be reflected whatsoever.
+	 * @returns {FFLiCharInfo} The CharInfo of the model.
+	 */
+	get charInfo() {
+		return this._model.charInfo;
+	}
+
+	/**
+	 * @public
 	 * The faceline color for this CharModel.
 	 * @returns {THREE.Color} The faceline color.
 	 */
@@ -1857,7 +1885,7 @@ class CharModel {
 	/**
 	 * @public
 	 * The favorite color for this CharModel.
-	 * @returns {THREE.Vector4} The favorite color as Vector4.
+	 * @returns {THREE.Color} The favorite color.
 	 */
 	get favoriteColor() {
 		if (!this._favoriteColor) {
@@ -1865,6 +1893,14 @@ class CharModel {
 			this._favoriteColor = this._getFavoriteColor();
 		}
 		return this._favoriteColor;
+	}
+
+	/**
+	 * @public
+	 * @returns {number} Gender as 0 = male, 1 = female
+	 */
+	get gender() {
+		return this._model.charInfo.personal.gender;
 	}
 
 	/**
@@ -1961,7 +1997,7 @@ const PantsColor = {
 };
 
 /**
- * @type {Record<PantsColor, THREE.Color>}
+ * @type {Object.<PantsColor, THREE.Color>}
  */
 const pantsColors = {
 	[PantsColor.GrayNormal]: new THREE.Color(0x40474E),
@@ -2308,6 +2344,7 @@ function drawParamToMesh(drawParam, materialClass, module) {
 	// Bind geometry data.
 	const geometry = _bindDrawParamGeometry(drawParam, module);
 	// Determine cull mode by mapping FFLCullMode to THREE.Side.
+	/** @type {Object.<FFLCullMode, THREE.Side>} */
 	const cullModeToThreeSide = {
 		[FFLCullMode.NONE]: THREE.DoubleSide,
 		[FFLCullMode.BACK]: THREE.FrontSide,
@@ -2337,6 +2374,8 @@ function drawParamToMesh(drawParam, materialClass, module) {
 
 	// NOTE: Only putting it in geometry because FFL-Testing does the same.
 	if (mesh.geometry.userData) {
+		// Set modulateMode/modulateType (not modulateColor or cullMode).
+		mesh.geometry.userData.modulateMode = drawParam.modulateParam.mode;
 		mesh.geometry.userData.modulateType = drawParam.modulateParam.type;
 	}
 	return mesh;
@@ -2366,7 +2405,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 	const indexPtr = drawParam.primitiveParam.pIndexBuffer / 2;
 	const indexCount = drawParam.primitiveParam.indexCount;
 	const indices = module.HEAPU16.subarray(indexPtr, indexPtr + indexCount);
-	geometry.setIndex(new THREE.Uint16BufferAttribute(new Uint16Array(indices), 1));
+	geometry.setIndex(new THREE.Uint16BufferAttribute(indices, 1));
 	// Add attribute data.
 	Object.entries(attributes).forEach(([typeStr, buffer]) => {
 		const type = parseInt(typeStr);
@@ -2471,6 +2510,7 @@ function _getTextureFromModulateParam(modulateParam, textureManager = window.FFL
  */
 function _applyModulateParam(modulateParam, module) {
 	// Default modulate color is a Vector4; if provided, extract it.
+	/** @type {THREE.Vector4 | Array<THREE.Vector4>} */
 	let modulateColor = new THREE.Vector4(0, 0, 0, 0);
 	if (modulateParam.pColorR !== 0) {
 		const colorPtr = modulateParam.pColorR / 4;
@@ -2515,7 +2555,7 @@ function _getVector4FromFFLColorPtr(colorPtr, module) {
 }
 
 // // ---------------------------------------------------------------------
-// //  Debug Globals Do Not Use Please
+// //  Debug Globals
 // // ---------------------------------------------------------------------
 
 /**
@@ -2541,7 +2581,7 @@ if (_displayRenderTexturesElement) {
  * At the end, calls setExpression to update the mask texture.
  *
  * @param {CharModel} charModel - The CharModel instance.
- * @param {THREE.Renderer} renderer - The Three.js renderer.
+ * @param {THREE.WebGLRenderer} renderer - The Three.js renderer.
  * @todo Should this just be called in createCharModel() or something? But it's the only function requiring renderer. Maybe if you pass in renderer to that?
  */
 function initCharModelTextures(charModel, renderer) {
@@ -2573,7 +2613,7 @@ function initCharModelTextures(charModel, renderer) {
 
 /**
  * @private
- * @param {THREE.RenderTarget} renderTarget
+ * @param {THREE.RenderTarget} target
  * @param {THREE.WebGLRenderer} renderer
  */
 function _displayTextureDebug(target, renderer) {
@@ -2588,8 +2628,8 @@ function _displayTextureDebug(target, renderer) {
  * Draws and applies the faceline texture for the CharModel.
  *
  * @param {CharModel} charModel - The CharModel.
- * @param {THREE.Renderer} renderer - The renderer.
  * @param {FFLiTextureTempObject} textureTempObject - The FFLiTextureTempObject containing faceline DrawParams.
+ * @param {THREE.WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  */
 function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
@@ -2647,14 +2687,13 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
  * Iterates through mask textures and draws each mask texture.
  *
  * @param {CharModel} charModel - The CharModel.
- * @param {THREE.Renderer} renderer - The renderer.
  * @param {FFLiTextureTempObject} textureTempObject - The temporary texture object.
+ * @param {THREE.WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  */
 function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
 	const maskTempObjectPtr = charModel._getMaskTempObjectPtr();
-	const expressionFlagPtr = charModel._ptr + FFLiCharModel.fields.charModelDesc.offset +
-		FFLCharModelDesc.fields.allExpressionFlag.offset;
+	const expressionFlagPtr = charModel._getExpressionFlagPtr();
 
 	// Collect all scenes and only dispose them at the end.
 	/** @type Array<THREE.Scene> */
@@ -2696,8 +2735,8 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
  * Note that the caller needs to dispose meshes within the returned scene.
  *
  * @param {CharModel} charModel - The CharModel.
- * @param {THREE.Renderer} renderer - The renderer.
  * @param {FFLiRawMaskDrawParam} rawMaskParam - The RawMaskDrawParam.
+ * @param {THREE.WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  * @returns {{target: THREE.RenderTarget, scene: THREE.Scene}} The RenderTarget and scene of this mask texture.
  * @throws {Error} All DrawParams are empty.
@@ -2753,8 +2792,8 @@ function _setFaceline(charModel, target) {
 	}
 
 	// Update texture and material.
-	mesh.material.map = target.texture;
-	mesh.material.needsUpdate = true;
+	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = target.texture;
+	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
 }
 
 // // ---------------------------------------------------------------------
@@ -2768,15 +2807,17 @@ function _setFaceline(charModel, target) {
  * to a new mesh. Used for one-time rendering of faceline/mask 2D planes.
  *
  * @param {Array<FFLDrawParam>} drawParams - Array of FFLDrawParam.
- * @param {THREE.Color|null} [bgColor=null] - Optional background color.
  * @param {Function} materialClass - The material constructor. This shader must be able to handle the texture swizzling (RGB_LAYERED, LUMINANCE_ALPHA, etc.) for textures that create mask and faceline.
+ * @param {THREE.Color|null} bgColor - Optional background color.
  * @param {Module} module - The Emscripten module.
- * @returns {{scene: THREE.Scene, meshes: Array<THREE.Mesh>}}
+ * @returns {{scene: THREE.Scene, meshes: Array<THREE.Mesh|null>}}
  */
-function createSceneFromDrawParams(drawParams, bgColor = null, materialClass, module) {
+function createSceneFromDrawParams(drawParams, bgColor, materialClass, module) {
 	const scene = new THREE.Scene();
 	// For 2D plane rendering, set the background if provided.
 	scene.background = bgColor || null;
+	// TODO: use THREE.Group?
+	/** @type {Array<THREE.Mesh|null>} */
 	const meshes = [];
 	drawParams.forEach((dp) => {
 		const mesh = drawParamToMesh(dp, materialClass, module);
@@ -2838,18 +2879,34 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
 
 // -------------------------- disposeMeshes(target) --------------------------
 /**
- * Disposes meshes in a scene and removes them or from an array of meshes.
+ * Disposes meshes in a {@link THREE.Object3D} and removes them from the {@link THREE.Scene} specified.
  *
- * @param {THREE.Scene|THREE.Group|Array<THREE.Mesh>} target - The scene or array of meshes to dispose meshes from.
+ * @param {THREE.Scene|THREE.Object3D} group - The scene or group to dispose meshes from.
  * @param {THREE.Scene} [scene] - The scene to remove the meshes from, if provided.
  * @todo TODO: Rename to disposeGroup/Scene or something
  */
 function disposeMeshes(group, scene) {
 	// Taken from: https://github.com/igvteam/spacewalk/blob/21c0a9da27f121a54e0cf6c0d4a23a9cf80e6623/js/utils/utils.js#L135C10-L135C29
 
+	/**
+	 * Disposes a single material.
+	 * @param {THREE.MeshBasicMaterial} material
+	 */
+	function disposeMaterial(material) {
+		// Dispose texture in material.
+		if (material.map) {
+			// console.debug('Disposing texture ', child.material.map.id);
+			// If this was created by TextureManager
+			// then it overrides dispose() to also
+			// remove itself from the TextureManager map.
+			material.map.dispose();
+		}
+		material.dispose(); // Dispose material itself.
+	}
+
 	// Traverse all children of the scene/group/THREE.Object3D.
 	group.traverse((child) => {
-		if (!child.isMesh) {
+		if (!(child instanceof THREE.Mesh)) {
 			// Only dispose of meshes.
 			return;
 		}
@@ -2859,18 +2916,13 @@ function disposeMeshes(group, scene) {
 		}
 
 		if (child.material) {
-			// Dispose texture in material.
-			if (child.material.map) {
-				console.debug('Disposing texture ', child.material.map.id);
-				// If this was created by TextureManager
-				// then it overrides dispose() to also
-				// remove itself from the TextureManager map.
-				child.material.map.dispose();
-				// Dispose texture and set to null.
-				// child.material.map.source = null;
-				// child.material.map.mipmaps = null;
-			}
-			child.material.dispose(); // Dispose material itself.
+			// Dispose depending on if it is an array or not.
+			Array.isArray(child.material)
+				// Assume that materials are compatible with THREE.MeshBasicMaterial for .map.
+				? child.material.forEach((material) => {
+						disposeMaterial(/** @type {THREE.MeshBasicMaterial} */ (material));
+					})
+				: disposeMaterial(/** @type {THREE.MeshBasicMaterial} */(child.material));
 		}
 	});
 
@@ -2921,22 +2973,29 @@ function renderTargetToDataURL(renderTarget, renderer, flipY = false) {
 	// Render to the main canvas to extract pixels.
 	renderer.setRenderTarget(null); // Switch render target.
 	// Use working color space.
-	renderer.outputColorSpace = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : null;
+	renderer.outputColorSpace = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
 	renderer.setSize(renderTarget.width, renderTarget.height, false);
 	renderer.render(scene, camera);
+
+	/** Disposes working materials used and restores renderer options. */
+	function cleanup() {
+		// Dispose material, plane, remove it from scene.
+		material.dispose();
+		plane.dispose();
+		scene.remove(mesh);
+		// (Optionally set all above to null to destroy references)
+
+		// Restore previous size, color space, and target.
+		renderer.outputColorSpace = prevColorSpace;
+		renderer.setSize(size.x, size.y, false);
+		renderer.setRenderTarget(prevTarget);
+	}
 
 	// Convert the renderer's canvas to an image.
 	const dataURL = renderer.domElement.toDataURL('image/png');
 
-	// Cleanup.
-	material.dispose();
-	plane.dispose();
-	scene.remove(mesh);
+	cleanup();
 
-	// Restore previous size, color space, and target.
-	renderer.outputColorSpace = prevColorSpace;
-	renderer.setSize(size.x, size.y, false);
-	renderer.setRenderTarget(prevTarget);
 	return dataURL;
 }
 
@@ -3002,11 +3061,11 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
 
 // ---- createCharModelIcon(charModel, renderer, viewType, width, height) ----
 /**
- * Creates a small icon (data URL) representing the CharModel.
- * Renders an offscreen scene with a copy of each mesh scaled down.
+ * Creates an icon representing the CharModel's head,
+ * using a render target and reading its pixels into a data URL.
  *
  * @param {CharModel} charModel - The CharModel instance.
- * @param {THREE.Renderer} renderer - The renderer.
+ * @param {THREE.WebGLRenderer} renderer - The renderer.
  * @param {ViewType} [viewType=ViewType.IconFovy45] viewType
  * @param {number} [width=256] - Desired icon width.
  * @param {number} [height=256] - Desired icon height.
