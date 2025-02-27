@@ -1,43 +1,98 @@
 // import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.167.0/+esm';
 
-// Tested on Three.js r137, should work on r109.
-
 // // ---------------------------------------------------------------------
-// //  JSDoc Types
+// //  Emscripten Types, JSDoc Helpers
 // // ---------------------------------------------------------------------
 
 /**
+ * Emscripten "Module" type.
+ * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26
  * @typedef {Object} Module
+ *
+ * @property {function(): void} onRuntimeInitialized
+ * @property {function(object): void} destroy
+ * @property {boolean|null} calledRun
+ * // USE_TYPED_ARRAYS == 2
  * @property {Int8Array} HEAP8
  * @property {Uint8Array} HEAPU8
  * @property {Uint16Array} HEAPU16
  * @property {Uint32Array} HEAPU32
  * @property {Float32Array} HEAPF32
  * Runtime methods:
- * @property {(byteLength: number) => number} _malloc
- * @property {(ptr: number) => number} _free
- * @property {() => void} onRuntimeInitialized
- * @property boolean calledRun
- * addFunction
+ * @property {function(number): number} _malloc
+ * @property {function(number): void} _free
+ * @property {function((...args: *[]) => *, string=): number} addFunction
+ * @property {function(number): void} removeFunction
  *
+ * ------------------------------- FFL Bindings -------------------------------
+ * @property {function(number, number, number, number): *} _FFLInitCharModelCPUStepWithCallback
+ * @property {function(number, number, number): *} _FFLInitCharModelCPUStep
+ * @property {function(number): *} _FFLDeleteCharModel
+ * @property {function(number): *} _FFLGetDrawParamOpaFaceline
+ * @property {function(number): *} _FFLGetDrawParamOpaBeard
+ * @property {function(number): *} _FFLGetDrawParamOpaNose
+ * @property {function(number): *} _FFLGetDrawParamOpaForehead
+ * @property {function(number): *} _FFLGetDrawParamOpaHair
+ * @property {function(number): *} _FFLGetDrawParamOpaCap
+ * @property {function(number): *} _FFLGetDrawParamXluMask
+ * @property {function(number): *} _FFLGetDrawParamXluNoseLine
+ * @property {function(number): *} _FFLGetDrawParamXluGlass
+ * @property {function(number, number): *} _FFLSetExpression
+ * @property {function(number): *} _FFLGetExpression
+ * @property {function(number, number): *} _FFLSetViewModelType
+ * @property {function(number, number): *} _FFLGetBoundingBox
+ * @property {function(number, number): *} _FFLIsAvailableExpression
+ * @property {function(number, number): *} _FFLSetCoordinate
+ * @property {function(number): *} _FFLSetScale
+ * @property {function(number, number, number, number): *} _FFLiGetRandomCharInfo
+ * @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
+ * @property {function(number, number): *} _FFLpGetCharInfoFromStoreData
+ * @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo
+ * @property {function(number, number): *} _FFLInitRes
+ * @property {function(): *} _FFLInitResGPUStep
+ * @property {function(): *} _FFLExit
+ * @property {function(): *} _FFLIsAvailable
+ * @property {function(number, number): *} _FFLGetFavoriteColor
+ * @property {function(number): *} _FFLSetLinearGammaMode
+ * @property {function(number, number): *} _FFLGetFacelineColor
+ * @property {function(boolean): *} _FFLSetTextureFlipY
+ * @property {function(boolean): *} _FFLSetNormalIsSnorm8_8_8_8
+ * @property {function(boolean): *} _FFLSetFrontCullForFlipX
+ * @property {function(number): *} _FFLSetTextureCallback
+ * @property {function(number): *} _FFLiDeleteTextureTempObject
+ * @property {function(number, number, number): *} _FFLiDeleteTempObjectMaskTextures
+ * @property {function(number, number, number): *} _FFLiDeleteTempObjectFacelineTexture
+ * @property {function(number): *} _FFLiiGetEyeRotateOffset
+ * @property {function(number): *} _FFLiiGetEyebrowRotateOffset
+ * @property {function(number): *} _FFLiInvalidateTempObjectFacelineTexture
+ * @property {function(number): *} _FFLiInvalidatePartsTextures
+ * @property {function(number): *} _FFLiInvalidateRawMask
+ * @property {function(number, boolean): *} _FFLiVerifyCharInfoWithReason
+ * @property {function(): void} _exit
  */
 
 /**
- * @typedef {import('./struct-fu-mini.js')} StructFu
+ * Generate JSDoc typedef from an object, supporting nested types up to depth 5.
+ * Ignores keys starting with "_".
+ * @param {Object.<string, *>} obj - The object to analyze.
+ * @param {string} typeName - The name of the type.
+ * @param {number} depth - Current recursion depth (default: 0).
+ * @param {Set<string>} definedTypes - Tracks already defined types to avoid duplicates.
+ * @returns {string} JSDoc typedef output.
  */
-
-function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0) {
+function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0, definedTypes = new Set()) {
 	// Stop at max depth 5.
 	if (depth > 5) {
 		return '';
 	}
 
-	const indent = '  '.repeat(depth);
-	let text = `${indent}/**\n${indent} * @typedef {Object} ${typeName}\n`;
+	let text = `/**\n * @typedef {Object} ${typeName}\n`;
+	let nestedDefinitions = '';
 
 	Object.keys(obj).forEach((key) => {
 		// Ignore private keys beginning with underscore.
 		if (key.startsWith('_')) {
+			// Ignore private keys beginning with underscore.
 			return;
 		}
 
@@ -48,26 +103,44 @@ function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0) {
 		if (value === null) {
 			propType = 'null';
 		} else if (Array.isArray(value)) {
-			let arrayType = value.length > 0 ? typeof value[0] : 'any'; // Assume first element type
-			if (typeof value[0] === 'object' && value[0] !== null) {
-				arrayType = generateJSDoc(value[0], `${typeName}_${key}_Item`, depth + 1);
+			let arrayType = '*'; // Assume first element type.
+			if (value.length > 0) {
+				const firstElem = value[0];
+				if (typeof firstElem === 'object' && firstElem !== null) {
+					const subType = `${typeName}_${key}_Item`;
+					if (!definedTypes.has(subType)) {
+						nestedDefinitions += generateJSDoc(firstElem, subType, depth + 1, definedTypes) + '\n';
+						definedTypes.add(subType);
+					}
+					arrayType = subType;
+				} else {
+					arrayType = typeof firstElem;
+				}
 			}
 			propType = `Array<${arrayType}>`;
 		} else if (valueType === 'object') {
-			const nestedType = generateJSDoc(value, `${typeName}_${key}`, depth + 1);
-			propType = nestedType || 'Object';
+			const subType = `${typeName}_${key}`;
+			if (!definedTypes.has(subType)) {
+				nestedDefinitions += generateJSDoc(value, subType, depth + 1, definedTypes) + '\n';
+				definedTypes.add(subType);
+			}
+			propType = subType;
 		} else {
 			propType = valueType;
 		}
 
-		text += `${indent} * @property {${propType}} ${key}\n`;
+		text += ` * @property {${propType}} ${key}\n`;
 	});
 
-	text += `${indent} */\n`;
-	console.log(text);
+	text += ' */';
+	return nestedDefinitions + text;
 }
 
 /**
+ * Generates JSDoc, calling {@link generateJSDoc}, from the name
+ * of a type defined as a struct-fu struct.
+ * The result will be logged to console.
+ * @param {string} typeName - Name of the type.
  * @throws {Error} typeName must be a string.
  */
 function generateJSDocStructFu(typeName) {
@@ -76,20 +149,10 @@ function generateJSDocStructFu(typeName) {
 	}
 	eval(`
 		const empty = new Uint8Array(${typeName}.size);
-		generateJSDoc(${typeName}.unpack(empty), typeName);
+		const ret = generateJSDoc(${typeName}.unpack(empty), typeName);
+		console.log(ret);
 	`);
 }
-
-/**
- * Template for the return type of _.struct().
- *
- * @template T
- * @typedef {Object} StructInstance
- * @property {function(Uint8Array): T} unpack - Deserializes a Uint8Array into the structured object.
- * @property {function(T): Uint8Array} pack - Serializes the structured object into a Uint8Array.
- * @property {Object} fields - List of fields in the struct, including offsets.
- * @property {number} size - The size of the packed structure.
- */
 
 /**
  * @typedef {Object} WindowCustom
@@ -103,13 +166,6 @@ function generateJSDocStructFu(typeName) {
 
 /** @type {WindowCustom} */
 window;
-
-if (_ === undefined) {
-	// NOTE only here to satisfy eslint
-	/** @type {StructFu} */
-	const _ = window._;
-}
-_;
 
 // // ---------------------------------------------------------------------
 // //  Enum Definitions
@@ -231,22 +287,27 @@ const FFLModelFlag = {
 // // ---------------------------------------------------------------------
 // Mostly leading up to FFLDrawParam.
 
+// Define _uintptr as a mirror for _.uint32le.
+const _uintptr = _.uint32le;
+
 /**
  * @typedef {Object} FFLAttributeBuffer
  * @property {number} size
  * @property {number} stride
  * @property {number} ptr
  */
+/** @type {_.StructInstance<FFLAttributeBuffer>} */
 const FFLAttributeBuffer = _.struct([
 	_.uint32le('size'),
 	_.uint32le('stride'),
-	_.uintptr('ptr')
+	_uintptr('ptr')
 ]);
 
 /**
  * @typedef {Object} FFLAttributeBufferParam
  * @property {Array<FFLAttributeBuffer>} attributeBuffers
  */
+/** @type {_.StructInstance<FFLAttributeBufferParam>} */
 const FFLAttributeBufferParam = _.struct([
 	_.struct('attributeBuffers', [FFLAttributeBuffer], 5)
 ]);
@@ -257,11 +318,12 @@ const FFLAttributeBufferParam = _.struct([
  * @property {number} indexCount
  * @property {number} pIndexBuffer
  */
+/** @type {_.StructInstance<FFLPrimitiveParam>} */
 const FFLPrimitiveParam = _.struct([
 	_.uint32le('primitiveType'),
 	_.uint32le('indexCount'),
 	_.uint32le('_8'),
-	_.uintptr('pIndexBuffer')
+	_uintptr('pIndexBuffer')
 ]);
 
 /**
@@ -271,6 +333,7 @@ const FFLPrimitiveParam = _.struct([
  * @property {number} b
  * @property {number} a
  */
+/** @type {_.StructInstance<FFLColor>} */
 const FFLColor = _.struct([
 	_.float32le('r'),
 	_.float32le('g'),
@@ -278,6 +341,13 @@ const FFLColor = _.struct([
 	_.float32le('a')
 ]);
 
+/**
+ * @typedef {Object} FFLVec3
+ * @property {number} x
+ * @property {number} y
+ * @property {number} z
+ */
+/** @type {_.StructInstance<FFLVec3>} */
 const FFLVec3 = _.struct([
 	_.float32le('x'),
 	_.float32le('y'),
@@ -288,18 +358,19 @@ const FFLVec3 = _.struct([
  * @typedef {Object} FFLModulateParam
  * @property {FFLModulateMode} mode
  * @property {FFLModulateType} type
- * @property {FFLColor} pColorR
- * @property {FFLColor} pColorG
- * @property {FFLColor} pColorB
+ * @property {number} pColorR - Pointer to FFLColor
+ * @property {number} pColorG - Pointer to FFLColor
+ * @property {number} pColorB - Pointer to FFLColor
  * @property {number} pTexture2D
  */
+/** @type {_.StructInstance<FFLModulateParam>} */
 const FFLModulateParam = _.struct([
 	_.uint32le('mode'), // enum FFLModulateMode
 	_.uint32le('type'), // enum FFLModulateType
-	_.uintptr('pColorR'),
-	_.uintptr('pColorG'),
-	_.uintptr('pColorB'),
-	_.uintptr('pTexture2D')
+	_uintptr('pColorR'),
+	_uintptr('pColorG'),
+	_uintptr('pColorB'),
+	_uintptr('pTexture2D')
 ]);
 
 /**
@@ -309,6 +380,7 @@ const FFLModulateParam = _.struct([
  * @property {FFLCullMode} cullMode
  * @property {FFLPrimitiveParam} primitiveParam
  */
+/** @type {_.StructInstance<FFLDrawParam>} */
 const FFLDrawParam = _.struct([
 	_.struct('attributeBufferParam', [FFLAttributeBufferParam]),
 	_.struct('modulateParam', [FFLModulateParam]),
@@ -437,9 +509,7 @@ const FFLCreateID = _.struct([
  * @property {number} authorType
  * @property {Array<number>} authorID
  */
-/**
- * @type {StructInstance<FFLiCharInfo>}
- */
+/** @type {_.StructInstance<FFLiCharInfo>} */
 const FFLiCharInfo = _.struct([
 	_.int32le('miiVersion'),
 	_.struct('faceline', [_.int32le('type'), _.int32le('color'),
@@ -539,19 +609,40 @@ const FFLAdditionalInfo = _.struct([
 
 const FFLiRenderTexture = _.struct([
 	// STUB: four pointers in one field
-	_.uintptr('pTexture2DRenderBufferColorTargetDepthTarget', 4)
+	_uintptr('pTexture2DRenderBufferColorTargetDepthTarget', 4)
 ]);
 
+/**
+ * @typedef {Object} FFLiFacelineTextureTempObject
+ * @property {number} pTextureFaceLine
+ * @property {FFLDrawParam} drawParamFaceLine
+ * @property {number} pTextureFaceMake
+ * @property {FFLDrawParam} drawParamFaceMake
+ * @property {number} pTextureFaceBeard
+ * @property {FFLDrawParam} drawParamFaceBeard
+ * @property {Array<number>} pRenderTextureCompressorParam
+ */
+/** @type {_.StructInstance<FFLiFacelineTextureTempObject>} */
 const FFLiFacelineTextureTempObject = _.struct([
-	_.uintptr('pTextureFaceLine'),
+	_uintptr('pTextureFaceLine'),
 	_.struct('drawParamFaceLine', [FFLDrawParam]),
-	_.uintptr('pTextureFaceMake'),
+	_uintptr('pTextureFaceMake'),
 	_.struct('drawParamFaceMake', [FFLDrawParam]),
-	_.uintptr('pTextureFaceBeard'),
+	_uintptr('pTextureFaceBeard'),
 	_.struct('drawParamFaceBeard', [FFLDrawParam]),
-	_.uintptr('pRenderTextureCompressorParam', 2) // stub
+	_uintptr('pRenderTextureCompressorParam', 2) // stub
 ]);
 
+/**
+ * @typedef {Object} FFLiRawMaskDrawParam
+ * @property {Array<FFLDrawParam>} drawParamRawMaskPartsEye - 2
+ * @property {Array<FFLDrawParam>} drawParamRawMaskPartsEyebrow - 2
+ * @property {FFLDrawParam} drawParamRawMaskPartsMouth
+ * @property {Array<FFLDrawParam>} drawParamRawMaskPartsMustache - 2
+ * @property {FFLDrawParam} drawParamRawMaskPartsMole
+ * @property {FFLDrawParam} drawParamRawMaskPartsFill
+ */
+/** @type {_.StructInstance<FFLiRawMaskDrawParam>} */
 const FFLiRawMaskDrawParam = _.struct([
 	_.struct('drawParamRawMaskPartsEye', [FFLDrawParam], 2),
 	_.struct('drawParamRawMaskPartsEyebrow', [FFLDrawParam], 2),
@@ -561,19 +652,37 @@ const FFLiRawMaskDrawParam = _.struct([
 	_.struct('drawParamRawMaskPartsFill', [FFLDrawParam])
 ]);
 
+/**
+ * @typedef {Object} FFLiMaskTexturesTempObject
+ * @property {Array<number>} partsTextures
+ * @property {Array<number>} pRawMaskDrawParam
+ * @property {Uint8Array} _remaining
+ */
+/** @type {_.StructInstance<FFLiMaskTexturesTempObject>} */
 const FFLiMaskTexturesTempObject = _.struct([
 	_.uint8('partsTextures', 0x154),
-	_.uintptr('pRawMaskDrawParam', FFLExpression.MAX),
+	_uintptr('pRawMaskDrawParam', FFLExpression.MAX),
 	_.byte('_remaining', 0x388 - 620) // stub
 ]);
 
+/**
+ * @typedef {Object} FFLiTextureTempObject
+ * @property {FFLiMaskTexturesTempObject} maskTextures
+ * @property {FFLiFacelineTextureTempObject} facelineTexture
+ */
+/** @type {_.StructInstance<FFLiTextureTempObject>} */
 const FFLiTextureTempObject = _.struct([
 	_.struct('maskTextures', [FFLiMaskTexturesTempObject]),
 	_.struct('facelineTexture', [FFLiFacelineTextureTempObject])
 ]);
 
+/**
+ * @typedef {Object} FFLiMaskTextures
+ * @property {Array<number>} pRenderTextures
+ */
+/** @type {_.StructInstance<FFLiMaskTextures>} */
 const FFLiMaskTextures = _.struct([
-	_.uintptr('pRenderTextures', FFLExpression.MAX)
+	_uintptr('pRenderTextures', FFLExpression.MAX)
 ]);
 
 const FFL_RESOLUTION_MASK = 0x3fffffff;
@@ -585,6 +694,7 @@ const FFL_RESOLUTION_MASK = 0x3fffffff;
  * @property {number} modelFlag
  * @property {number} resourceType
  */
+/** @type {_.StructInstance<FFLCharModelDesc>} */
 const FFLCharModelDesc = _.struct([
 	_.uint32le('resolution'),
 	_.uint32le('allExpressionFlag', 3),
@@ -604,11 +714,28 @@ const FFLCharModelDescDefault = {
 	resourceType: FFLResourceType.HIGH // Default resource type.
 };
 
+/**
+ * @typedef {Object.<string, FFLVec3>} FFLBoundingBox
+ * @property {FFLVec3} min
+ * @property {FFLVec3} max
+ */
+/** @type {_.StructInstance<FFLBoundingBox>} */
 const FFLBoundingBox = _.struct([
 	_.struct('min', [FFLVec3]),
 	_.struct('max', [FFLVec3])
 ]);
 
+/**
+ * @typedef {Object.<string, FFLVec3>} FFLPartsTransform
+ * @property {FFLVec3} hatTranslate
+ * @property {FFLVec3} headFrontRotate
+ * @property {FFLVec3} headFrontTranslate
+ * @property {FFLVec3} headSideRotate
+ * @property {FFLVec3} headSideTranslate
+ * @property {FFLVec3} headTopRotate
+ * @property {FFLVec3} headTopTranslate
+ */
+/** @type {_.StructInstance<FFLPartsTransform>} */
 const FFLPartsTransform = _.struct([
 	_.struct('hatTranslate', [FFLVec3]),
 	_.struct('headFrontRotate', [FFLVec3]),
@@ -619,15 +746,32 @@ const FFLPartsTransform = _.struct([
 	_.struct('headTopTranslate', [FFLVec3])
 ]);
 
+/**
+ * @typedef {Object} FFLiCharModel
+ * @property {FFLiCharInfo} charInfo
+ * @property {FFLCharModelDesc} charModelDesc
+ * @property {FFLExpression} expression
+ * @property {number} pTextureTempObject
+ * @property {Array<FFLDrawParam>} drawParam
+ * @property {Array<number>} pShapeData
+ * @property {Array<Object>} facelineRenderTexture
+ * @property {Array<number>} pCapGlassNoselineTextures
+ * @property {FFLiMaskTextures} maskTextures
+ * @property {Array<FFLVec3>} beardHairFaceCenterPos
+ * @property {FFLPartsTransform} partsTransform
+ * @property {number} modelType
+ * @property {Array<FFLBoundingBox>} boundingBox
+ */
+/** @type {_.StructInstance<FFLiCharModel>} */
 const FFLiCharModel = _.struct([
 	_.struct('charInfo', [FFLiCharInfo]),
 	_.struct('charModelDesc', [FFLCharModelDesc]),
 	_.uint32le('expression'), // enum FFLExpression
-	_.uintptr('pTextureTempObject'), // stub
+	_uintptr('pTextureTempObject'), // stub
 	_.struct('drawParam', [FFLDrawParam], FFLiShapeType.MAX),
-	_.uintptr('pShapeData', FFLiShapeType.MAX),
+	_uintptr('pShapeData', FFLiShapeType.MAX),
 	_.struct('facelineRenderTexture', [FFLiRenderTexture]),
-	_.uintptr('pCapGlassNoselineTextures', 3),
+	_uintptr('pCapGlassNoselineTextures', 3),
 	_.struct('maskTextures', [FFLiMaskTextures]),
 	_.struct('beardHairFaceCenterPos', [FFLVec3], 3),
 	_.struct('partsTransform', [FFLPartsTransform]),
@@ -655,12 +799,10 @@ const FFLDataSource = {
  * @property {number} pBuffer
  * @property {number} index
  */
-/**
- * @type {StructInstance<FFLCharModelSource>}
- */
+/** @type {_.StructInstance<FFLCharModelSource>} */
 const FFLCharModelSource = _.struct([
 	_.uint32le('dataSource'),
-	_.uintptr('pBuffer'),
+	_uintptr('pBuffer'),
 	_.uint16le('index')
 ]);
 
@@ -701,8 +843,11 @@ const FFLRace = {
  * @property {Array<number>} pData
  * @property {Array<number>} size
  */
+/**
+ * @type {_.StructInstance<FFLResourceDesc>}
+ */
 const FFLResourceDesc = _.struct([
-	_.uintptr('pData', FFLResourceType.MAX),
+	_uintptr('pData', FFLResourceType.MAX),
 	_.uint32le('size', FFLResourceType.MAX)
 ]);
 
@@ -734,7 +879,9 @@ const FFLTextureFormat = {
  * @property {number} mipPtr
  * @property {Array<number>} mipLevelOffset
  */
-
+/**
+ * @type {_.StructInstance<FFLTextureInfo>}
+ */
 const FFLTextureInfo = _.struct([
 	_.uint16le('width'),
 	_.uint16le('height'),
@@ -743,18 +890,18 @@ const FFLTextureInfo = _.struct([
 	_.uint8('isGX2Tiled'),
 	_.byte('_padding', 1),
 	_.uint32le('imageSize'),
-	_.uintptr('imagePtr'),
+	_uintptr('imagePtr'),
 	_.uint32le('mipSize'),
-	_.uintptr('mipPtr'),
+	_uintptr('mipPtr'),
 	_.uint32le('mipLevelOffset', 13)
 ]);
 
 const FFLTextureCallback = _.struct([
-	_.uintptr('pObj'),
+	_uintptr('pObj'),
 	_.uint8('useOriginalTileMode'),
 	_.byte('_padding', 3), // alignment
-	_.uintptr('pCreateFunc'),
-	_.uintptr('pDeleteFunc')
+	_uintptr('pCreateFunc'),
+	_uintptr('pDeleteFunc')
 ]);
 
 // ------------------------ Class: TextureManager -----------------------------
@@ -2010,8 +2157,8 @@ function makeExpressionFlag(expressions) {
  * Don't forget to call dispose() on the CharModel when you are done.
  *
  * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
- * @param {Object} [modelDesc=FFLCharModelDesc.default] - The model description.
  * @param {Function} materialClass - Constructor for the material (e.g. FFLShaderMaterial).
+ * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
  * @param {Module} [module=window.Module] - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
@@ -2441,8 +2588,8 @@ function _displayTextureDebug(target, renderer) {
  * Draws and applies the faceline texture for the CharModel.
  *
  * @param {CharModel} charModel - The CharModel.
- * @param {Object} textureTempObject - The temporary texture object.
  * @param {THREE.Renderer} renderer - The renderer.
+ * @param {FFLiTextureTempObject} textureTempObject - The FFLiTextureTempObject containing faceline DrawParams.
  * @param {Module} module - The Emscripten module.
  */
 function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
@@ -2500,8 +2647,8 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
  * Iterates through mask textures and draws each mask texture.
  *
  * @param {CharModel} charModel - The CharModel.
- * @param {Object} textureTempObject - The temporary texture object.
  * @param {THREE.Renderer} renderer - The renderer.
+ * @param {FFLiTextureTempObject} textureTempObject - The temporary texture object.
  * @param {Module} module - The Emscripten module.
  */
 function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
@@ -2549,10 +2696,11 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
  * Note that the caller needs to dispose meshes within the returned scene.
  *
  * @param {CharModel} charModel - The CharModel.
- * @param {Object} rawMaskParam - The RawMaskDrawParam.
  * @param {THREE.Renderer} renderer - The renderer.
+ * @param {FFLiRawMaskDrawParam} rawMaskParam - The RawMaskDrawParam.
  * @param {Module} module - The Emscripten module.
  * @returns {{target: THREE.RenderTarget, scene: THREE.Scene}} The RenderTarget and scene of this mask texture.
+ * @throws {Error} All DrawParams are empty.
  */
 function _drawMaskTexture(charModel, rawMaskParam, renderer, module) {
 	const drawParams = [
@@ -2566,8 +2714,7 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, module) {
 		rawMaskParam.drawParamRawMaskPartsMole
 	].filter(dp => dp && dp.primitiveParam.indexCount !== 0);
 	if (drawParams.length === 0) {
-		console.error('No mask drawParams found');
-		return null;
+		throw new Error('_drawMaskTexture: All DrawParams are empty.');
 	}
 	// Configure the RenderTarget for no depth/stencil.
 	const options = {
@@ -2943,7 +3090,7 @@ function createCharModelIcon(charModel, renderer, viewType = ViewType.MakeIcon, 
 /**
  * Structure representing data from the studio.mii.nintendo.com site and API.
  *
- * @type {StructInstance<StudioCharInfo>}
+ * @type {_.StructInstance<StudioCharInfo>}
  */
 const StudioCharInfo = _.struct([
 	// Fields are named according to nn::mii::CharInfo.
