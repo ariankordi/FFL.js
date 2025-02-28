@@ -7,7 +7,7 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 * Implemented in JSDoc annotated JavaScript directly calling into the FFL library.
 * Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and exporting FFLStoreData.
 * Supported FFL features: Expressions, mipmaps, bounding box, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, (head only) icon creation
-* Tested with Three.js r109 up to r160
+* Tested with Three.js r109 up to r173 _(Both included shaders work exclusively in sRGB)_
 
 There are currently two demos: `demo-basic.html` and `demo-minimal.html`, both of which are pretty underwhelming. Read TODOs further down for more plaannnnnsssss
 
@@ -17,10 +17,14 @@ There are currently two demos: `demo-basic.html` and `demo-minimal.html`, both o
 
 <img width="200" src="https://github.com/user-attachments/assets/2376e69b-ef53-49a9-a98f-29d4df0eb1c6">
 
+### Usage
+This section is TBD because the library needs to be modularized - it's only made to work with browsers in global scope for now.
 
-## Building
+I recommend just looking at the demos to see how they call the library. For more help you can either look at the code, or, generate documentation with [TypeDoc, install it](https://typedoc.org/#quick-start) and run: `typedoc ffl.js`
 
-This library depends on FFL built for Emscripten (in WASM). This import is called `ffl-emscripten.js`/`.wasm`, here's how to build it.
+## Building `ffl-emscripten.js`/`.wasm`
+
+This library depends on FFL built for Emscripten (in WASM). **NOTE** that this is already included in the repository as of writing, but you may either need to rebuild it, or I may remove it at some point.
 
 0. You will need to make sure [emsdk](https://emscripten.org/docs/tools_reference/emsdk.html) is installed and you can build binaries with Emscripten. This is mostly left as an exercise to the reader, but don't forget to activate your emsdk environment before continuing.
 
@@ -51,11 +55,11 @@ cmake --build build
 4. If that worked, find and copy the library.
 * It should be sitting in `build-em` (or whatever folder you chose) as:
   - `ffl-emscripten.js`, `ffl-emscripten.wasm`
-  - (To build JS only you can use `-DFFL_BUILD_WASM=OFF`, which may be more convenient/compatible at 2x the size of the wasm binary.)
+  - To build JS only you can use `-DFFL_BUILD_WASM=OFF`, which may be more convenient/compatible at 2x the size of the wasm binary.
+  - Finally, if you want to pass other options to emcc, use `-DCMAKE_EXE_LINKER_FLAGS="-s SINGLE_FILE=1"`, for example.
 
 5. Finally, in order to use the library, you'll need an FFL resource such as `FFLResHigh.dat`, `AFLResHigh_2_3.dat`, etc.
   - See the ffl or FFL-Testing repo to know how to acquire this.
-  - (_If you have somehow made your own custom one with mipmaps:_ if it is AFLResHigh_2_3.dat you MUST build with `-DCMAKE_CXX_FLAGS="-DFFL_ALLOW_MIPMAPS_FOR_AFL_2_3"`)
   - **Currently the demos hardcode the location of the resource in `meta#ffl-js-resource-fetch-path` so you will need to change that. For now.**
 
 If you run into issues with dependencies here, see the FFL-Testing repo.
@@ -65,9 +69,8 @@ The only reason this has package.json at the time of writing is for eslint, npm 
 
 ## TODO
 
-I apologize in advance for the enormous library in one file, I was under pressure by myself to get this out unpolished.
+The big one is that the library needs to be modularized.
 
-#### Severe
 
 * End use of globals, pass instances around:
   - window.Module (Emscripten module)
@@ -83,8 +86,7 @@ I apologize in advance for the enormous library in one file, I was under pressur
 
 * Throw errors with more specificity ([See FFLSharp's approach for details](https://github.com/ariankordi/FFLSharp/blob/master/FFLSharp.FFLManager/FFLExceptions.cs))
   - Include reverse enum to string tables for `FFLResult`, `FFLiVerifyReason`
-* Validate code with TypeScript (`--checkJs`) and complete adding types.
-  - (Can someone harshly criticize my code, naming conventions and whatnot 🥺)
+* Can someone harshly criticize my code? Style, naming conventions, ease of use and import, low quality sections...?
 * (Eliminate all memory leaks? Most should be gone now tho. Strip console.debug?)
 
 ### Wishlist

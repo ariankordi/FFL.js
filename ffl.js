@@ -11,7 +11,7 @@
 /*
 import * as THREE from 'three';
 // import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.167.0/+esm';
-import * as _ from '../struct-fu/lib';
+import * as _ from './struct-fu';
 */
 // // ---------------------------------------------------------------------
 // //  Emscripten Types, JSDoc Helpers
@@ -154,11 +154,11 @@ function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0, definedTypes 
  * of a type defined as a struct-fu struct.
  * The result will be logged to console.
  * @param {string} typeName - Name of the type.
- * @throws {Error} typeName must be a string.
+ * @throws {Error} typeName must be a string
  */
 function generateJSDocStructFu(typeName) {
 	if (typeof typeName !== 'string') {
-		throw new Error();
+		throw new Error('typeName must be a string.');
 	}
 	eval(`
 		const empty = new Uint8Array(${typeName}.size);
@@ -183,6 +183,15 @@ window;
 // // ---------------------------------------------------------------------
 // //  Enum Definitions
 // // ---------------------------------------------------------------------
+
+/**
+ * enum {number}
+ */
+const FFLResult = {
+	OK: 0,
+	MAX: 20
+	// To be completed.
+};
 
 /**
  * @enum {number}
@@ -1184,35 +1193,167 @@ class TextureManager {
 }
 
 // // ---------------------------------------------------------------------
-// //  FFL Initialization
+// //  Classes for FFL Exceptions
 // // ---------------------------------------------------------------------
 
-// ---------------------- handleFFLResult(name, result) ----------------------
 /**
- * Checks the FFLResult returned from a function and throws an exception
- * if the result is not FFL_RESULT_OK.
- *
- * @param {string} name - The name of the function whose result to check.
- * @param {number} result - The returned FFLResult enum value.
- * @throws {Error} Throws if the result is not 0 (FFL_RESULT_OK).
- * @returns {void} Returns nothing if the result is 0.
- * @todo TODO: Should preferably return a custom error class.
+ * Base exception type for all exceptions based on FFLResult.
+ * https://github.com/ariankordi/FFLSharp/blob/master/FFLSharp.FFLManager/FFLExceptions.cs
+ * https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/FFLResult.h
  */
-function handleFFLResult(name, result) {
-	let error; // Error string to alert() and construct new Error from.
-	if (typeof result !== 'number') {
-		error = `Unexpected type for FFLResult from ${name}: ${typeof result}`;
-	} else if (result !== 0) { // FFL_RESULT_OK
-		error = `${name} failed with FFLResult: ${result}`;
+class FFLResultException extends Error {
+	/**
+	 * @constructor
+	 * @param {number|FFLResult} result - The returned {@link FFLResult}.
+	 * @param {string} [funcName] - The name of the function that was called.
+	 * @param {string} [message] - An optional message for the exception.
+	 */
+	constructor(result, funcName, message) {
+		if (!message) {
+			if (funcName) {
+				message = `${funcName} failed with FFLResult: ${result}`;
+			} else {
+				message = `From FFLResult: ${result}`;
+			}
+		}
+		super(message);
+		/** The stored {@link FFLResult} code. */
+		this.result = result;
 	}
 
-	if (error) {
-		// Alert and throw Error from string.
-		// alert(error);
-		throw new Error(error);
+	/**
+	 * Throws an exception if the {@link FFLResult} is not OK.
+	 * @param {number} result - The {@link FFLResult} from an FFL function.
+	 * @param {string} [funcName] - The name of the function that was called.
+	 */
+	static handleResult(result, funcName) {
+		switch (result) {
+			case 1: // FFL_RESULT_WRONG_PARAM
+				throw new FFLResultWrongParam(funcName);
+			case 3: // FFL_RESULT_BROKEN
+				throw new FFLResultBroken(funcName);
+			case 4: // FFL_RESULT_NOT_AVAILABLE
+				throw new FFLResultNotAvailable(funcName);
+			case 5: // FFL_RESULT_FATAL
+				throw new FFLResultFatal(funcName);
+			case FFLResult.OK: // FFL_RESULT_OK
+				return; // All is OK.
+			default:
+				throw new FFLResultException(result, funcName);
+		}
 	}
-	// Result equals 0 (FFL_RESULT_OK), meaning that function succeeded.
 }
+
+/**
+ * Exception reflecting FFL_RESULT_WRONG_PARAM / FFL_RESULT_ERROR.
+ * This is the most common error thrown in FFL. It usually
+ * means that input parameters are invalid.
+ * So many cases this is thrown: parts index is out of bounds,
+ * CharModelCreateParam is malformed, FFLDataSource is invalid, FFLInitResEx
+ * parameters are null or invalid... Many different causes, very much an annoying error.
+ */
+class FFLResultWrongParam extends FFLResultException {
+	/**
+	 * @param {string} [funcName]
+	 */
+	constructor(funcName) {
+		super(1, `${funcName} returned FFL_RESULT_WRONG_PARAM. This usually means parameters going into that function were invalid.`);
+	}
+}
+
+/**
+ * Exception reflecting FFL_RESULT_BROKEN / FFL_RESULT_FILE_INVALID.
+ */
+class FFLResultBroken extends FFLResultException {
+	/**
+	 * @param {string} [funcName]
+	 * @param {string} [message] - An optional message for the exception.
+	 */
+	constructor(funcName, message) {
+		super(3, message ? message : `${funcName} returned FFL_RESULT_BROKEN. This usually indicates invalid underlying data.`);
+	}
+}
+
+/**
+ * Exception when resource header verification fails.
+ */
+class BrokenInitRes extends FFLResultBroken {
+	constructor() {
+		super('The header for the FFL resource is probably invalid. Check the version and magic, should be "FFRA" or "ARFF".');
+	}
+}
+
+/**
+ * Thrown when: CRC16 fails, CharInfo verification fails, or failing to fetch from a database (impossible here)
+ */
+class BrokenInitModel extends FFLResultBroken {
+	constructor() {
+		super('FFLInitCharModelCPUStep failed probably because your data failed CRC or CharInfo verification (FFLiVerifyCharInfoWithReason).');
+	}
+}
+
+/**
+ * Exception reflecting FFL_RESULT_NOT_AVAILABLE / FFL_RESULT_MANAGER_NOT_CONSTRUCT.
+ * This is seen when FFLiManager is not constructed, which it is not when FFLInitResEx fails
+ * or was never called to begin with.
+ */
+class FFLResultNotAvailable extends FFLResultException {
+	/**
+	 * @param {string} [funcName]
+	 */
+	constructor(funcName) {
+		super(4, `Tried to call FFL function ${funcName} when FFLManager is not constructed (FFL is not initialized properly).`);
+	}
+}
+
+/**
+ * Exception reflecting FFL_RESULT_FATAL / FFL_RESULT_FILE_LOAD_ERROR.
+ * This error indicates database file load errors or failures from FFLiResourceLoader (decompression? misalignment?)
+ */
+class FFLResultFatal extends FFLResultException {
+	/**
+	 * @param {string} [funcName]
+	 */
+	constructor(funcName) {
+		super(5, `Failed to uncompress or load a specific asset from the FFL resource file during call to ${funcName}`);
+	}
+}
+
+/**
+ * Exception thrown by the result of FFLiVerifyCharInfoWithReason.
+ * Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/detail/FFLiCharInfo.h#L90
+ */
+class FFLiVerifyReasonException extends Error {
+	/**
+	 * @constructor
+	 * @param {number} result - The FFLiVerifyReason code from FFLiVerifyCharInfoWithReason.
+	 */
+	constructor(result) {
+		super(`FFLiVerifyCharInfoWithReason (CharInfo verification) failed with result: ${result}`);
+		/** The stored FFLiVerifyReason code. */
+		this.result = result;
+	}
+}
+
+/**
+ * Exception thrown when the mask is set to an expression that
+ * the {@link CharModel} was never initialized to, which can't happen
+ * because that mask texture does not exist on the {@link CharModel}.
+ * @extends Error
+ */
+class ExpressionNotSet extends Error {
+	/**
+	 * @param {FFLExpression} expression - The attempted expression.
+	 */
+	constructor(expression) {
+		super(`Attempted to set expression ${expression}, but the mask for that expression does not exist. You must reinitialize the CharModel with this expression in the expression flags before using it.`);
+		this.expression = expression;
+	}
+}
+
+// // ---------------------------------------------------------------------
+// //  FFL Initialization
+// // ---------------------------------------------------------------------
 
 /**
  * @private
@@ -1369,7 +1510,12 @@ async function initializeFFL(resource, module = window.Module) {
 
 			// Call FFL initialization. FFL_FONT_REGION_JP_US_EU = 0
 			const result = module._FFLInitRes(0, resourceDescPtr);
-			handleFFLResult('FFLInitRes', result); // Potentially throw.
+
+			// Handle failed result.
+			if (result === 3) { // FFL_RESULT_BROKEN
+				throw new BrokenInitRes();
+			}
+			FFLResultException.handleResult(result, 'FFLInitRes');
 
 			// Set required globals in FFL.
 			module._FFLInitResGPUStep(); // CanInitCharModel will fail if not called.
@@ -1629,7 +1775,7 @@ class CharModel {
 		const mod = this._module;
 		const addInfoPtr = mod._malloc(FFLAdditionalInfo.size);
 		const result = mod._FFLGetAdditionalInfo(addInfoPtr, FFLDataSource.BUFFER, this._ptr, 0, false);
-		handleFFLResult('FFLGetAdditionalInfo', result);
+		FFLResultException.handleResult(result, 'FFLGetAdditionalInfo');
 		const info = FFLAdditionalInfo.unpack(mod.HEAPU8.subarray(addInfoPtr, addInfoPtr + FFLAdditionalInfo.size));
 		mod._free(addInfoPtr);
 		return info;
@@ -1891,18 +2037,11 @@ class CharModel {
 	/**
 	 * @public
 	 * The current expression for this CharModel.
-	 * Use setExpression to set the expression.
+	 * Read-only. Use setExpression to set the expression.
 	 * @returns {FFLExpression} The current expression.
 	 */
 	get expression() {
 		return this._model.expression; // mirror
-	}
-
-	/**
-	 * @throws {Error} This method cannot be called, you have to use setExpression.
-	 */
-	set expression(_) {
-		throw new Error('nope you cannot do this, try setExpression instead');
 	}
 
 	/**
@@ -2167,7 +2306,7 @@ function verifyCharInfo(data, module, verifyName = false) {
 
 	if (result !== 0) {
 		// Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/detail/FFLiCharInfo.h#L90
-		throw new Error(`FFLiVerifyCharInfoWithReason failed with result: ${result}`);
+		throw new FFLiVerifyReasonException(result);
 	}
 }
 
@@ -2275,7 +2414,10 @@ function createCharModel(data, modelDesc, materialClass = window.FFLShaderMateri
 
 		// Call FFLInitCharModelCPUStep and check the result.
 		const result = module._FFLInitCharModelCPUStep(charModelPtr, modelSourcePtr, modelDescPtr);
-		handleFFLResult('FFLInitCharModelCPUStep', result);
+		if (result === 3) { // FFL_RESULT_BROKEN
+			throw new BrokenInitModel();
+		}
+		FFLResultException.handleResult(result, 'FFLInitCharModelCPUStep');
 	} catch (error) {
 		// Free CharModel prematurely.
 		module._free(charModelPtr);
@@ -2361,6 +2503,30 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, ver
 	// Initialize its textures.
 	initCharModelTextures(newCharModel, renderer);
 	return newCharModel;
+}
+
+/**
+ * Copies faceline and mask render targets from `src`
+ * to the `dst` CharModel, disposing textures from `dst`
+ * and disposing shapes from `src`, effectively transferring.
+ * @param {CharModel} src - The source {@link CharModel} from which to copy textures from and dispose shapes.
+ * @param {CharModel} dst - The destination {@link CharModel} receiving the textures.
+ * @returns {CharModel} - The final CharModel.
+ * @todo TODO: Completely untested.
+ */
+function transferCharModelTex(src, dst) {
+	// Dispose textures on destination CharModel, they will be replaced.
+	dst._disposeTextures();
+	// Dispose everything but textures on the source CharModel.
+	src.dispose(false);
+
+	// Transfer faceline and mask targets.
+	dst._facelineTarget = src._facelineTarget;
+	dst._maskTargets = src._maskTargets;
+
+	// The references are transferred too so when the
+	// dst CharModel gets deleted it will dispose the right ones.
+	return dst;
 }
 
 // // ---------------------------------------------------------------------
@@ -2449,6 +2615,15 @@ function _bindDrawParamGeometry(drawParam, module) {
 	if (positionBuffer.size === 0) {
 		throw new Error('_bindDrawParamGeometry: Position buffer must not have size of 0');
 	}
+
+	// To use half float resources, set this, use Three.js >=160 and comment out `_FFLSetNormalIsSnorm8_8_8_8`call
+	const halfFloatTest = false; // TODO: Temporary until FFL itself picks this up automatically
+	// faceline/mask are never half float, they have cull mode set to 3
+	if (halfFloatTest && (drawParam.cullMode !== FFLCullMode.MAX)) { // cullMode === 3
+		attributes[FFLAttributeBufferType.POSITION].stride = 6;
+		attributes[FFLAttributeBufferType.TEXCOORD].stride = 4;
+	}
+
 	// Get vertex count from position buffer.
 	const vertexCount = positionBuffer.size / positionBuffer.stride;
 	const geometry = new THREE.BufferGeometry(); // Create BufferGeometry.
@@ -2465,14 +2640,27 @@ function _bindDrawParamGeometry(drawParam, module) {
 		if (buffer.size === 0) {
 			continue;
 		}
+		function unexpectedStride() {
+			throw new Error(`_bindDrawParamGeometry: Unexpected stride for attribute ${typeStr}: ${buffer.stride}`);
+		}
+
 		switch (type) {
 			case FFLAttributeBufferType.POSITION: {
-				// Float3, last 4 bytes unused (stride = 16)
-				const ptr = buffer.ptr / 4;
-				const data = module.HEAPF32.subarray(ptr, ptr + (vertexCount * 4));
-				const interleavedBuffer = new THREE.InterleavedBuffer(data, 4);
-				// Only works on Three.js r109 and above (previously used addAttribute which can be remapped)
-				geometry.setAttribute('position', new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0));
+				if (buffer.stride === 16) {
+					// 3 floats, last 4 bytes unused.
+					const ptr = buffer.ptr / 4; // float data type
+					const data = module.HEAPF32.subarray(ptr, ptr + (vertexCount * 4));
+					const interleavedBuffer = new THREE.InterleavedBuffer(data, 4);
+					// Only works on Three.js r109 and above (previously used addAttribute which can be remapped)
+					geometry.setAttribute('position', new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0));
+					// ^^ Selectively use first three elements only.
+				} else if (buffer.stride === 6) {
+					const ptr = buffer.ptr / 2; // half-float data type
+					const data = module.HEAPU16.subarray(ptr, ptr + (vertexCount * 3));
+					geometry.setAttribute('position', new THREE.Float16BufferAttribute(data, 3));
+				} else {
+					unexpectedStride();
+				}
 				break;
 			}
 			case FFLAttributeBufferType.NORMAL: {
@@ -2494,10 +2682,17 @@ function _bindDrawParamGeometry(drawParam, module) {
 				break;
 			}
 			case FFLAttributeBufferType.TEXCOORD: {
-				// Float2
-				const ptr = buffer.ptr / 4;
-				const data = module.HEAPF32.subarray(ptr, ptr + (vertexCount * 2));
-				geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data, buffer.stride / 4));
+				if (buffer.stride === 8) {
+					const ptr = buffer.ptr / 4; // float data type
+					const data = module.HEAPF32.subarray(ptr, ptr + (vertexCount * 2));
+					geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data, 2));
+				} else if (buffer.stride === 4) {
+					const ptr = buffer.ptr / 2; // half-float data type
+					const data = module.HEAPU16.subarray(ptr, ptr + (vertexCount * 2));
+					geometry.setAttribute('uv', new THREE.Float16BufferAttribute(data, 2));
+				} else {
+					unexpectedStride();
+				}
 				break;
 			}
 			case FFLAttributeBufferType.COLOR: {
