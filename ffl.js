@@ -934,9 +934,20 @@ class TextureManager {
 	 * @param {Module} [module=window.Module] - The Emscripten module.
 	 */
 	constructor(module = window.Module) {
-		this.module = module;
-		this.textures = new Map(); // Internal map of texture id -> THREE.Texture.
-		this.textureCallbackPtr = null;
+		/** @private */
+		this._module = module;
+		/** @private */
+		this._textures = new Map(); // Internal map of texture id -> THREE.Texture.
+		/** @private */
+		this._textureCallbackPtr = 0;
+		/**
+		 * @public
+		 * Controls whether or not the TextureManager
+		 * will log creations and deletions of textures
+		 * in order to better track memory allocations.
+		 */
+		this.logging = false;
+
 		this._setupTextureCallbacks();
 	}
 
@@ -946,21 +957,25 @@ class TextureManager {
 	 * with the module. Called by the constructor.
 	 */
 	_setupTextureCallbacks() {
-		const mod = this.module;
+		const mod = this._module;
 		// Bind the callbacks to this instance.
-		this.createCallback = mod.addFunction(this._textureCreateFunc.bind(this), 'vppp');
-		this.deleteCallback = mod.addFunction(this._textureDeleteFunc.bind(this), 'vpp');
+		/** @private */
+		this._createCallback = mod.addFunction(this._textureCreateFunc.bind(this), 'vppp');
+		/** @private */
+		this._deleteCallback = mod.addFunction(this._textureDeleteFunc.bind(this), 'vpp');
 		const textureCallback = {
 			pObj: 0,
 			useOriginalTileMode: false,
 			_padding: [0, 0, 0],
-			pCreateFunc: this.createCallback,
-			pDeleteFunc: this.deleteCallback
+			pCreateFunc: this._createCallback,
+			pDeleteFunc: this._deleteCallback
 		};
 		const packed = FFLTextureCallback.pack(textureCallback);
-		this.textureCallbackPtr = mod._malloc(FFLTextureCallback.size);
-		mod.HEAPU8.set(new Uint8Array(packed), this.textureCallbackPtr);
-		mod._FFLSetTextureCallback(this.textureCallbackPtr);
+		/** @private */
+		this._textureCallbackPtr = mod._malloc(FFLTextureCallback.size);
+		mod.HEAPU8.set(new Uint8Array(packed), this._textureCallbackPtr);
+		mod._FFLSetTextureCallback(this._textureCallbackPtr);
+		// TODO: module.removeFunction(this._createCallback);
 	}
 
 	/**
@@ -1010,14 +1025,15 @@ class TextureManager {
 	 * @param {number} texturePtrPtr
 	 */
 	_textureCreateFunc(_, textureInfoPtr, texturePtrPtr) {
-		const u8 = this.module.HEAPU8.subarray(textureInfoPtr, textureInfoPtr + FFLTextureInfo.size);
+		const u8 = this._module.HEAPU8.subarray(textureInfoPtr, textureInfoPtr + FFLTextureInfo.size);
 		const textureInfo = FFLTextureInfo.unpack(u8);
-		console.debug(`_textureCreateFunc: width=${textureInfo.width}, height=${textureInfo.height}, format=${textureInfo.format}, imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
+		if (this.logging) {
+			console.debug(`_textureCreateFunc: width=${textureInfo.width}, height=${textureInfo.height}, format=${textureInfo.format}, imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
+		}
 
-		const dataFormat = this._getTextureFormat(textureInfo.format);
-
+		const format = this._getTextureFormat(textureInfo.format); // Resolve THREE.PixelFormat.
 		// Copy image data from HEAPU8 via slice. This is base level/mip level 0.
-		const imageData = this.module.HEAPU8.slice(textureInfo.imagePtr, textureInfo.imagePtr + textureInfo.imageSize);
+		const imageData = this._module.HEAPU8.slice(textureInfo.imagePtr, textureInfo.imagePtr + textureInfo.imageSize);
 
 		const texture = new THREE.DataTexture(imageData, textureInfo.width, textureInfo.height, dataFormat, THREE.UnsignedByteType);
 
@@ -1036,7 +1052,7 @@ class TextureManager {
 
 		texture.needsUpdate = true;
 		this.set(texture.id, texture);
-		this.module.HEAPU32[texturePtrPtr / 4] = texture.id;
+		this._module.HEAPU32[texturePtrPtr / 4] = texture.id;
 	}
 
 	/**
@@ -1072,10 +1088,12 @@ class TextureManager {
 
 			// Copy the data from the heap.
 			const start = textureInfo.mipPtr + mipOffset;
-			const mipData = this.module.HEAPU8.slice(start, start + mipSize);
+			const mipData = this._module.HEAPU8.slice(start, start + mipSize);
 
-			// console.debug(`  - Mip ${mipLevel}: ${mipWidth}x${mipHeight}, offset=${mipOffset}`);
 			// console.debug(uint8ArrayToBase64(mipData));
+			if (this.logging) {
+				console.debug(`  - Mip ${mipLevel}: ${mipWidth}x${mipHeight}, offset=${mipOffset}`);
+			}
 
 			// Push this mip level data into the texture's mipmaps array.
 			texture.mipmaps.push({
@@ -1092,14 +1110,14 @@ class TextureManager {
 	 * @param {number} texturePtr
 	 */
 	_textureDeleteFunc(_, texturePtr) {
-		const texId = this.module.HEAPU32[texturePtr / 4];
+		const texId = this._module.HEAPU32[texturePtr / 4];
 		// this.delete(texId);
 		// NOTE: This is effectively no longer used as when
 		// we delete a CharModel instance it deletes
 		// cap/noseline/glass textures before we are
 		// finished with the model itself. It is now only logging
-		const tex = this.textures.get(texId);
-		if (tex) {
+		const tex = this._textures.get(texId);
+		if (tex && this.logging) {
 			console.debug('Delete texture    ', tex.id);
 		}
 	}
@@ -1110,8 +1128,8 @@ class TextureManager {
 	 * @returns {THREE.Texture|null}
 	 */
 	get(id) {
-		const texture = this.textures.get(id);
-		if (!texture) {
+		const texture = this._textures.get(id);
+		if (!texture && this.logging) {
 			console.error('Unknown texture', id);
 		}
 		return texture;
@@ -1124,16 +1142,18 @@ class TextureManager {
 	 */
 	set(id, texture) {
 		// Set texture with an override for dispose.
-		texture._dispose = texture.dispose.bind(texture);
+		const disposeReal = texture.dispose.bind(texture);
 		texture.dispose = () => {
-			// Remove from the texture map before disposing.
+			// Remove this texture from the map after disposing.
+			disposeReal();
 			this.delete(id); // this = TextureManager
-			// The above will call _dispose.
 		};
 
-		this.textures.set(id, texture);
+		this._textures.set(id, texture);
 		// Log is spaced to match delete/deleting/dispose messages.
-		console.debug('Adding texture    ', texture.id);
+		if (this.logging) {
+			console.debug('Adding texture    ', texture.id);
+		}
 	}
 
 	/**
@@ -1143,14 +1163,14 @@ class TextureManager {
 	delete(id) {
 		// Get texture from array instead of with get()
 		// because it's okay if it was already deleted.
-		const texture = this.textures.get(id);
+		const texture = this._textures.get(id);
 		if (texture) {
-			// This class will always set _dispose as
-			// the original dispose method on textures.
-			texture._dispose();
+			// This is assuming the texture has already been disposed.
 			texture.source = null;
-			console.debug('Deleted texture   ', id);
-			this.textures.delete(id);
+			if (this.logging) {
+				console.debug('Deleted texture   ', id);
+			}
+			this._textures.delete(id);
 		}
 	}
 }
@@ -1539,8 +1559,12 @@ class CharModel {
 	 * This is the method that populates meshes
 	 * from the internal FFLiCharModel instance.
 	 * @param {Module} module - Module to pass to drawParamToMesh to access mesh data.
+	 * @throws {Error} Throws if this.meshes is null or undefined.
 	 */
 	_addCharModelMeshes(module) {
+		if (!this.meshes) {
+			throw new Error('_addCharModelMeshes: this.meshes is null or undefined, was this CharModel disposed?');
+		}
 		// Add all meshes in the CharModel to the class instance.
 		for (let shapeType = 0; shapeType < FFLiShapeType.MAX; shapeType++) {
 			// Iterate through all DrawParams and convert to THREE.Mesh.
@@ -1557,22 +1581,16 @@ class CharModel {
 			// Use FFLModulateType to indicate render order.
 			mesh.renderOrder = drawParam.modulateParam.type;
 			// }
-			// Set _facelineID and _maskID.
+			// Set faceline and mask meshes to use later.
 			switch (shapeType) {
 				case FFLiShapeType.OPA_FACELINE: {
-					/**
-					 * @private
-					 * The object ID representing the faceline shape.
-					 */
-					this._facelineID = mesh.id;
+					/** @package */
+					this._facelineMesh = mesh;
 					break;
 				}
 				case FFLiShapeType.XLU_MASK: {
-					/**
-					 * @private
-					 * The object ID representing the mask shape.
-					 */
-					this._maskID = mesh.id;
+					/** @package */
+					this._maskMesh = mesh;
 					break;
 				}
 			}
@@ -1757,8 +1775,12 @@ class CharModel {
 		console.debug('CharModel.dispose: ptr =', this.__ptr);
 		this._finalizeCharModel(); // Should've been called already
 		// Dispose meshes: materials, geometries, textures.
-		disposeMeshes(this.meshes);
-		this.meshes = null;
+		if (this.meshes) {
+			disposeMeshes(this.meshes);
+			this.meshes = null;
+			this._facelineMesh = null;
+			this._maskMesh = null;
+		}
 		// Dispose render textures.
 		if (disposeTextures) {
 			this._disposeTextures();
@@ -1807,16 +1829,15 @@ class CharModel {
 	 */
 	setExpression(expression) {
 		this._model.expression = expression;
-		const target = this._maskTargets[expression];
-		if (!target || !target.texture) {
-			throw new Error(`setExpression: this._maskTargets[${expression}].texture is not a valid texture`);
-		}
-		// const mesh = this.meshes[FFLiShapeType.XLU_MASK];
-		const mesh = this.meshes.getObjectById(this._maskID);
-		if (!mesh) {
-			throw new Error('setExpression: this.meshes[FFLiShapeType.XLU_MASK] does not exist, cannot set expression on the mask');
-		}
 
+		const target = this._maskTargets[expression]; // or getMaskTexture()?
+		if (!target || !target.texture) {
+			throw new ExpressionNotSet(expression);
+		}
+		const mesh = this._maskMesh;
+		if (!mesh || !(mesh instanceof THREE.Mesh)) {
+			throw new Error('setExpression: mask mesh does not exist, cannot set expression on it');
+		}
 		// Update texture and material.
 		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = target.texture;
 		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
@@ -2804,12 +2825,10 @@ function _setFaceline(charModel, target) {
 		throw new Error('setFaceline: passed in RenderTarget is invalid');
 	}
 	charModel._facelineTarget = target; // Store for later disposal.
-	// const mesh = charModel.meshes[FFLiShapeType.OPA_FACELINE];
-	const mesh = charModel.meshes.getObjectById(charModel._facelineID);
-	if (!mesh) {
-		throw new Error('setFaceline: charModel.meshes[FFLiShapeType.OPA_FACELINE] does not exist');
+	const mesh = charModel._facelineMesh;
+	if (!mesh || !(mesh instanceof THREE.Mesh)) {
+		throw new Error('setFaceline: faceline shape does not exist');
 	}
-
 	// Update texture and material.
 	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = target.texture;
 	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
@@ -3089,8 +3108,12 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
  * @param {number} [width=256] - Desired icon width.
  * @param {number} [height=256] - Desired icon height.
  * @returns {string} A data URL of the icon image.
+ * @throws {Error} CharModel.meshes is null or undefined, it may have been disposed.
  */
 function createCharModelIcon(charModel, renderer, viewType = ViewType.MakeIcon, width = 256, height = 256) {
+	if (!charModel.meshes) {
+		throw new Error('CharModel.meshes is null or undefined, it may have been disposed.');
+	}
 	// Create an offscreen scene for the icon.
 	const iconScene = new THREE.Scene();
 	iconScene.background = null; // Transparent background.
