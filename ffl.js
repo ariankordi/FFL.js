@@ -329,13 +329,14 @@ const FFLAttributeBufferParam = _.struct([
  * @typedef {Object} FFLPrimitiveParam
  * @property {number} primitiveType
  * @property {number} indexCount
+ * @property {number} pAdjustMatrix
  * @property {number} pIndexBuffer
  */
 /** @type {_.StructInstance<FFLPrimitiveParam>} */
 const FFLPrimitiveParam = _.struct([
 	_.uint32le('primitiveType'),
 	_.uint32le('indexCount'),
-	_.uint32le('_8'),
+	_uintptr('pAdjustMatrix'), // TODO: Not uintptr in 64-bit.
 	_uintptr('pIndexBuffer')
 ]);
 
@@ -1035,16 +1036,28 @@ class TextureManager {
 		// Copy image data from HEAPU8 via slice. This is base level/mip level 0.
 		const imageData = this._module.HEAPU8.slice(textureInfo.imagePtr, textureInfo.imagePtr + textureInfo.imageSize);
 
-		const texture = new THREE.DataTexture(imageData, textureInfo.width, textureInfo.height, dataFormat, THREE.UnsignedByteType);
+		// Mipmaps were not implemented before Three.js r136
+		// and they only began functioning properly on r138
+		const canUseMipmaps = Number(THREE.REVISION) >= 138;
+		// Actually use mipmaps if the mip count is over 1.
+		const useMipmaps = textureInfo.mipCount > 1 && canUseMipmaps;
+
+		// Create new THREE.Texture with the specified format.
+		const texture = new THREE.DataTexture(useMipmaps ? null : imageData,
+			textureInfo.width, textureInfo.height, format, THREE.UnsignedByteType);
 
 		texture.magFilter = THREE.LinearFilter;
 		// texture.generateMipmaps = true; // not necessary at higher resolutions
 		texture.minFilter = THREE.LinearFilter;
 
-		// Mipmaps were not implemented before Three.js r136
-		// and they only began functioning properly on r138
-		const useMipmaps = Number(THREE.REVISION) >= 138;
 		if (useMipmaps) {
+			// Add base texture.
+			texture.mipmaps = [{
+				data: imageData,
+				width: textureInfo.width,
+				height: textureInfo.height
+			}];
+			// Enable filtering option for mipmap and add levels.
 			texture.minFilter = THREE.LinearMipmapLinearFilter;
 			texture.generateMipmaps = false;
 			this._addMipmaps(texture, textureInfo);
@@ -1059,19 +1072,12 @@ class TextureManager {
 	 * @private
 	 * @param {THREE.Texture} texture - Texture to upload mipmaps into.
 	 * @param {FFLTextureInfo} textureInfo - FFLTextureInfo object representing this texture.
-	 * @throws {Error} Unexpected FFLTextureFormat value
+	 * @throws {Error} Throws if mipPtr is null.
 	 */
 	_addMipmaps(texture, textureInfo) {
-		// Skip if there are no mipmaps.
-		if (textureInfo.mipPtr === 0 || textureInfo.mipCount < 2) {
-			return;
-		}
-
-		// Calculate bytes per pixel.
-		// Mapping: FFLTextureFormat.R8_UNORM -> 1, R8_G8_UNORM -> 2, R8_G8_B8_A8_UNORM -> 4.
-		const bytesPerPixel = [1, 2, 4][textureInfo.format];
-		if (!bytesPerPixel) {
-			throw new Error(`_addMipmaps: Unexpected FFLTextureFormat value: ${textureInfo.format}`);
+		// Make sure mipPtr is not null.
+		if (textureInfo.mipPtr === 0) {
+			throw new Error('_addMipmaps: mipPtr is null, so the caller incorrectly assumed this texture has mipmaps');
 		}
 
 		// Iterate through mip levels starting from 1 (base level is mip level 0).
@@ -1083,21 +1089,23 @@ class TextureManager {
 			const mipWidth = Math.max(1, textureInfo.width >> mipLevel);
 			const mipHeight = Math.max(1, textureInfo.height >> mipLevel);
 
-			// Calculate the size in bytes of the current mip level.
-			const mipSize = mipWidth * mipHeight * bytesPerPixel;
+			// Get the offset of the next mipmap and calculate end offset.
+			const nextMipOffset = textureInfo.mipLevelOffset[mipLevel] || textureInfo.mipSize;
+			const end = textureInfo.mipPtr + nextMipOffset;
 
 			// Copy the data from the heap.
 			const start = textureInfo.mipPtr + mipOffset;
-			const mipData = this._module.HEAPU8.slice(start, start + mipSize);
+			const mipData = this._module.HEAPU8.slice(start, end);
 
-			// console.debug(uint8ArrayToBase64(mipData));
 			if (this.logging) {
-				console.debug(`  - Mip ${mipLevel}: ${mipWidth}x${mipHeight}, offset=${mipOffset}`);
+				console.debug(`  - Mip ${mipLevel}: ${mipWidth}x${mipHeight}, offset=${mipOffset}, range=${start}-${end}`);
 			}
+			// console.debug(uint8ArrayToBase64(mipData)); // will leak the data
 
 			// Push this mip level data into the texture's mipmaps array.
+			// @ts-ignore - data = "CompressedTextureMipmap & CubeTexture & HTMLCanvasElement"
 			texture.mipmaps.push({
-				data: mipData,
+				data: mipData, // Should still accept Uint8Array.
 				width: mipWidth,
 				height: mipHeight
 			});
@@ -2410,6 +2418,11 @@ function drawParamToMesh(drawParam, materialClass, module) {
 	// Create mesh and set userData.modulateType.
 	const mesh = new THREE.Mesh(geometry, material);
 
+	// Apply pAdjustMatrix transformations if it is not null.
+	if (drawParam.primitiveParam.pAdjustMatrix !== 0) {
+		_applyAdjustMatrixToMesh(drawParam.primitiveParam.pAdjustMatrix, mesh, module.HEAPF32);
+	}
+
 	// NOTE: Only putting it in geometry because FFL-Testing does the same.
 	if (mesh.geometry.userData) {
 		// Set modulateMode/modulateType (not modulateColor or cullMode).
@@ -2592,6 +2605,42 @@ function _getVector4FromFFLColorPtr(colorPtr, module) {
 	}
 	const colorData = module.HEAPF32.subarray(colorPtr / 4, colorPtr / 4 + 4);
 	return new THREE.Vector4(colorData[0], colorData[1], colorData[2], colorData[3]);
+}
+
+/**
+ * @private
+ * Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
+ * @param {number} pMtx - Pointer to rio::Matrix34f.
+ * @param {THREE.Object3D} mesh - The mesh to apply transformations to.
+ * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
+ */
+function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
+	// Assumes pMtx !== 0.
+	const ptr = pMtx / 4;
+	const m = heapf32.slice(ptr, ptr + (0x30 / 4)); // sizeof(rio::BaseMtx34f<float>)
+	// console.debug('drawParamToMesh: shape has pAdjustMatrix: ', m);
+	/**
+	* Creates a THREE.Matrix4 from a 3x4 row-major matrix array.
+	* @param {Array<number>|Float32Array} m - The array that makes up the 3x4 matrix, expected to have 12 elements.
+	* @returns {THREE.Matrix4}
+	*/
+	function matrixFromRowMajor3x4(m) {
+		const matrix = new THREE.Matrix4();
+		// Convert from rio::BaseMtx34f/row-major to column-major.
+		matrix.set(
+			m[0], m[4], m[8],  m[3],
+			m[1], m[5], m[9],  m[7],
+			m[2], m[6], m[10], m[11],
+			0,    0,    0,     1
+		);
+		return matrix;
+	}
+	// Create a matrix from the array.
+	const matrix = matrixFromRowMajor3x4(m);
+
+	// Set position and scale. FFLiAdjustShape does not set rotation.
+	mesh.scale.setFromMatrixScale(matrix);
+	mesh.position.setFromMatrixPosition(matrix);
 }
 
 // // ---------------------------------------------------------------------
