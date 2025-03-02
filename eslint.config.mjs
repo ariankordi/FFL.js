@@ -1,12 +1,12 @@
-// TODO: npm install eslint @eslint/js @eslint-community/eslint-plugin-eslint-comments @stylistic/eslint-plugin eslint-plugin-import globals
+// TODO: npm install eslint @eslint/js @eslint-community/eslint-plugin-eslint-comments @stylistic/eslint-plugin eslint-plugin-import globals eslint-plugin-jsdoc
 
 import eslint from '@eslint/js';
 import eslintCommentPlugin from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import stylisticPlugin from '@stylistic/eslint-plugin';
 import importPlugin from 'eslint-plugin-import';
 import globals from 'globals';
+import jsdoc from 'eslint-plugin-jsdoc';
 
-// Customize the stylistic rules as desired.
 const stylisticConfig = stylisticPlugin.configs.customize({
 	indent: 'tab',
 	quotes: 'single',
@@ -18,8 +18,7 @@ const stylisticConfig = stylisticPlugin.configs.customize({
 const ecmaVersion = 2022;
 
 export default [
-	// Base recommended configuration for plain JavaScript.
-	// (No "extends" key is used here; we include the shared config object directly.)
+	// https://eslint.org/docs/rules/
 	eslint.configs.recommended,
 	{
 		languageOptions: {
@@ -30,17 +29,19 @@ export default [
 			}
 		},
 		rules: {
-			'require-atomic-updates': 'off', // Disabled due to occasional false positives
+			'require-atomic-updates': 'off', // This rule is widely controversial and causes false positives
 			'no-console': 'off',
-			'prefer-const': ['error', { destructuring: 'all' }],
+			'prefer-const': ['error', {
+				destructuring: 'all' // Only error if all destructured variables can be const
+			}],
 			'no-var': 'error',
-			'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^ignore' }],
+			// TODO: 'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^ignore' }],
 			'one-var': ['error', 'never'],
 			'curly': ['error', 'all'] // Always require curly braces
 		}
 	},
 
-	// ESLint comments plugin configuration.
+	// https://eslint-community.github.io/eslint-plugin-eslint-comments/rules/
 	eslintCommentPlugin.recommended,
 	{
 		rules: {
@@ -49,26 +50,32 @@ export default [
 		}
 	},
 
-	// Stylistic plugin configuration.
+	// https://typescript-eslint.io/rules/
+	// (tseslint.configs.recommended: unused)
+
+	// https://eslint.style/rules
 	stylisticConfig,
 	{
 		rules: {
 			'@stylistic/no-extra-semi': 'error',
 			'@stylistic/yield-star-spacing': ['error', 'after'],
 			'@stylistic/operator-linebreak': ['error', 'after', { overrides: { '?': 'before', ':': 'before' } }],
-			'@stylistic/curly-newline': ['error', { multiline: true, consistent: true }],
-			'@stylistic/object-curly-newline': ['error', { multiline: true, consistent: true }],
+			'@stylistic/curly-newline': ['error', {
+				multiline: true,
+				consistent: true
+			}],
+			'@stylistic/object-curly-newline': ['error', {
+				multiline: true,
+				consistent: true
+			}],
 			'@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: false }]
 		}
 	},
 
-	// Import plugin configuration.
+	// https://www.npmjs.com/package/eslint-plugin-import
 	importPlugin.flatConfigs.recommended,
 	importPlugin.flatConfigs.warnings,
 	{
-		languageOptions: {
-			ecmaVersion
-		},
 		rules: {
 			'import/order': ['warn', {
 				'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type'],
@@ -76,17 +83,53 @@ export default [
 			}],
 			'import/first': 'error',
 			'import/consistent-type-specifier-style': ['error', 'prefer-top-level']
+		},
+		languageOptions: {
+			ecmaVersion // For some reason, the recommended config sets this to 2018, reset this to the default
 		}
 	},
 
-	// Global ignore patterns to skip build directories and minified files.
+	// https://www.npmjs.com/package/eslint-plugin-import - but specifically for TypeScript
+	// (importPlugin.flatConfigs.typescript: unused)
+
+	// https://www.npmjs.com/package/eslint-plugin-jsdoc
+	jsdoc.configs['flat/recommended'],
+	{
+		settings: {
+			jsdoc: {
+				mode: 'typescript', // For templates and type "&" syntax.
+				// Use `Object` for single and `Object<>` for multiple. That works in TS and Closure.
+				preferredTypes: { 'object': 'Object', 'object.<>': 'Object<>', 'Object.<>': 'Object<>', 'object<>': 'Object<>' }
+			}
+		},
+		rules: {
+			// Lots of structs don't need detailed descriptions.
+			'jsdoc/require-property-description': 'off',
+
+			// Rules not enabled in recommended:
+			'jsdoc/sort-tags': 'warn',
+			'jsdoc/require-throws': 'warn',
+			'jsdoc/require-template': 'warn',
+			'jsdoc/check-template-names': 'warn',
+			// Require hyphen before param descriptions but not before return description.
+			'jsdoc/require-hyphen-before-param-description': ['warn', 'always', { tags: { returns: 'never' } }],
+			'jsdoc/require-asterisk-prefix': 'warn',
+			'jsdoc/check-syntax': 'warn',
+			'jsdoc/check-line-alignment': 'warn',
+			'jsdoc/check-indentation': 'warn'
+		}
+	},
+
 	{
 		ignores: [
-			'**/dist/',
-			'**/*.min.js',
-			'struct-fu*.js',
-			'ffl-*.js',
-			'*Material.js'
+			'ffl-emscripten.js', // Do not lint Emscripten-emitted code.
+			'struct-fu*.js', // Assume struct-fu is already linted.
+			'docs/**/*', // TypeDoc output
+			'three*.js',
+
+			// Defaults
+			'**/dist/', // Common build output directory
+			'**/*.min.js' // Minified JavaScript files
 		]
 	}
 ];

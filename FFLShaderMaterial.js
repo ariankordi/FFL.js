@@ -372,16 +372,16 @@ void main()
 
         /// 視線ベクトル
         mediump vec3 eye = normalize(-v_position.xyz);
-        
+
         // ライトの向き
         mediump float fDot = calculateDot(u_light_dir, norm);
 
         /// Diffuse計算
         mediump vec3 diffuse = calculateDiffuseColor(u_light_diffuse.xyz, u_material_diffuse.xyz, fDot);
-        
+
         /// Specular計算
         mediump float specularBlinn = calculateBlinnSpecular(u_light_dir, norm, eye, u_material_specular_power);
-        
+
         /// Specularの値を確保する変数を宣言
         mediump float reflection;
         mediump float strength = v_color.g;
@@ -414,338 +414,342 @@ void main()
 // #include <tonemapping_fragment>
 // #include <${THREE.REVISION >= 154 ? 'colorspace_fragment' : 'encodings_fragment'}>
 
-
 // // ---------------------------------------------------------------------
 // //  FFLShaderMaterial Class
 // // ---------------------------------------------------------------------
 /**
  * Custom THREE.ShaderMaterial using the FFLShader.
+ * @augments {THREE.ShaderMaterial}
  */
 class FFLShaderMaterial extends THREE.ShaderMaterial {
-  // Default light and rim light uniforms.
+	// Default light and rim light uniforms.
 
-  /**
-   * Default ambient light color.
-   * @type {THREE.Color}
-   */
-  static defaultLightAmbient = new THREE.Color(0.73, 0.73, 0.73)/*.convertSRGBToLinear()*/;
-  /**
-   * Default diffuse light color.
-   * @type {THREE.Color}
-   */
-  static defaultLightDiffuse = new THREE.Color(0.6, 0.6, 0.6)/*.convertSRGBToLinear()*/;
-  /**
-   * Default specular light color.
-   * @type {THREE.Color}
-   */
-  static defaultLightSpecular = new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/;
-  /**
-   * Default light direction.
-   * @type {THREE.Vector3}
-   */
-  static defaultLightDir = new THREE.Vector3(-0.4531539381, 0.4226179123, 0.7848858833);
-  /**
-   * Default rim color.
-   * @type {THREE.Color}
-   */
-  static defaultRimColor = new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/;
-  /**
-   * Default rim power (intensity).
-   * @type {number}
-   */
-  static defaultRimPower = 2.0;
+	/**
+	 * Default ambient light color.
+	 * @type {THREE.Color}
+	 */
+	static defaultLightAmbient = new THREE.Color(0.73, 0.73, 0.73)/* .convertSRGBToLinear() */;
+	/**
+	 * Default diffuse light color.
+	 * @type {THREE.Color}
+	 */
+	static defaultLightDiffuse = new THREE.Color(0.6, 0.6, 0.6)/* .convertSRGBToLinear() */;
+	/**
+	 * Default specular light color.
+	 * @type {THREE.Color}
+	 */
+	static defaultLightSpecular = new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */;
+	/**
+	 * Default light direction.
+	 * @type {THREE.Vector3}
+	 */
+	static defaultLightDir = new THREE.Vector3(-0.4531539381, 0.4226179123, 0.7848858833);
+	/**
+	 * Default rim color.
+	 * @type {THREE.Color}
+	 */
+	static defaultRimColor = new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */;
+	/**
+	 * Default rim power (intensity).
+	 * @type {number}
+	 */
+	static defaultRimPower = 2.0;
 
-  /**
-   * Alias for default light direction.
-   * @type {THREE.Vector3}
-   */
-  static defaultLightDirection = this.defaultLightDir;
+	/**
+	 * Alias for default light direction.
+	 * @type {THREE.Vector3}
+	 */
+	static defaultLightDirection = this.defaultLightDir;
 
-  // Material table for FFLDefaultShader mapping to FFLModulateType
-  // Reference: https://github.com/aboood40091/FFL-Testing/blob/master/src/Shader.cpp
-  /**
-   * @private
-   * Material uniform table mapping to FFLModulateType.
-   */
-  static materialParams = [
-    {
-      // FFL_MODULATE_TYPE_SHAPE_FACELINE
-      ambient: new THREE.Color(0.85, 0.75, 0.75)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/,
-      specularPower: 1.2,
-      specularMode: 0,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_BEARD
-      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
-      specularPower: 40.0,
-      specularMode: 1,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_NOSE
-      ambient: new THREE.Color(0.9, 0.85, 0.85)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.22, 0.22, 0.22)/*.convertSRGBToLinear()*/,
-      specularPower: 1.5,
-      specularMode: 0,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_FOREHEAD
-      ambient: new THREE.Color(0.85, 0.75, 0.75)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/,
-      specularPower: 1.2,
-      specularMode: 0,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_HAIR
-      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.35, 0.35, 0.35)/*.convertSRGBToLinear()*/,
-      specularPower: 10.0,
-      specularMode: 1,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_CAP
-      ambient: new THREE.Color(0.75, 0.75, 0.75)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.72, 0.72, 0.72)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.3, 0.3, 0.3)/*.convertSRGBToLinear()*/,
-      specularPower: 1.5,
-      specularMode: 0,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_MASK
-      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
-      specularPower: 40.0,
-      specularMode: 1,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_NOSELINE
-      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
-      specularPower: 40.0,
-      specularMode: 1,
-    },
-    {
-      // FFL_MODULATE_TYPE_SHAPE_GLASS
-      ambient: new THREE.Color(1.0, 1.0, 1.0)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.7, 0.7, 0.7)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.0, 0.0, 0.0)/*.convertSRGBToLinear()*/,
-      specularPower: 40.0,
-      specularMode: 1,
-    },
+	// Material table for FFLDefaultShader mapping to FFLModulateType
+	// Reference: https://github.com/aboood40091/FFL-Testing/blob/master/src/Shader.cpp
+	/**
+	 * Material uniform table mapping to FFLModulateType.
+	 * @private
+	 */
+	static materialParams = [
+		{
+			// FFL_MODULATE_TYPE_SHAPE_FACELINE
+			ambient: new THREE.Color(0.85, 0.75, 0.75)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.75, 0.75, 0.75)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */,
+			specularPower: 1.2,
+			specularMode: 0
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_BEARD
+			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
+			specularPower: 40.0,
+			specularMode: 1
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_NOSE
+			ambient: new THREE.Color(0.9, 0.85, 0.85)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.75, 0.75, 0.75)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.22, 0.22, 0.22)/* .convertSRGBToLinear() */,
+			specularPower: 1.5,
+			specularMode: 0
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_FOREHEAD
+			ambient: new THREE.Color(0.85, 0.75, 0.75)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.75, 0.75, 0.75)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */,
+			specularPower: 1.2,
+			specularMode: 0
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_HAIR
+			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.35, 0.35, 0.35)/* .convertSRGBToLinear() */,
+			specularPower: 10.0,
+			specularMode: 1
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_CAP
+			ambient: new THREE.Color(0.75, 0.75, 0.75)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.72, 0.72, 0.72)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */,
+			specularPower: 1.5,
+			specularMode: 0
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_MASK
+			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
+			specularPower: 40.0,
+			specularMode: 1
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_NOSELINE
+			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
+			specularPower: 40.0,
+			specularMode: 1
+		},
+		{
+			// FFL_MODULATE_TYPE_SHAPE_GLASS
+			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
+			specularPower: 40.0,
+			specularMode: 1
+		},
 
-    {
-      // body
-      ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(0.49673, 0.49673, 0.49673)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.24099, 0.24099, 0.24099)/*.convertSRGBToLinear()*/,
-      specularPower: 3.0,
-      specularMode: 0,
-    },
-    {
-      // pants
-      ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/*.convertSRGBToLinear()*/,
-      diffuse: new THREE.Color(1.08497, 1.08497, 1.08497)/*.convertSRGBToLinear()*/,
-      specular: new THREE.Color(0.2409, 0.2409, 0.2409)/*.convertSRGBToLinear()*/,
-      specularPower: 3.0,
-      specularMode: 0,
-    },
-  ];
+		{
+			// body
+			ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(0.49673, 0.49673, 0.49673)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.24099, 0.24099, 0.24099)/* .convertSRGBToLinear() */,
+			specularPower: 3.0,
+			specularMode: 0
+		},
+		{
+			// pants
+			ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/* .convertSRGBToLinear() */,
+			diffuse: new THREE.Color(1.08497, 1.08497, 1.08497)/* .convertSRGBToLinear() */,
+			specular: new THREE.Color(0.2409, 0.2409, 0.2409)/* .convertSRGBToLinear() */,
+			specularPower: 3.0,
+			specularMode: 0
+		}
+	];
 
-  /**
-   * @private
-   * Retrieves blending parameters based on the FFLModulateType.
-   * @param {FFLModulateType} modulateType - The modulate type.
-   * @returns {Object} An object containing blending parameters for the material constructor.
-   * @throws {Error} Unknown modulate type
-   */
-  static getBlendOptionsFromModulateType(modulateType) {
-    if (modulateType >= 0 && modulateType <= 5) {
-      // Opaque (DrawOpa)
-      return {
-        blending: THREE.CustomBlending,
-        blendSrcAlpha: THREE.SrcAlphaFactor,
-        blendDstAlpha: THREE.OneFactor,
-      };
-    } else if (modulateType >= 6 && modulateType <= 8) {
-      // Translucent (DrawXlu)
-      return {
-        blending: THREE.CustomBlending,
-        blendSrc: THREE.SrcAlphaFactor,
-        blendDst: THREE.OneMinusSrcAlphaFactor,
-        blendDstAlpha: THREE.OneFactor,
-      };
-    } else if (modulateType >= 9 && modulateType <= 13) {
-      // Mask Textures
-      return {
-        blending: THREE.CustomBlending,
-        blendSrc: THREE.OneMinusDstAlphaFactor,
-        blendSrcAlpha: THREE.SrcAlphaFactor,
-        blendDst: THREE.DstAlphaFactor,
-      };
-    } else if (modulateType >= 14 && modulateType <= 17) {
-      // Faceline Texture
-      return {
-        blending: THREE.CustomBlending,
-        blendSrc: THREE.SrcAlphaFactor,
-        blendDst: THREE.OneMinusSrcAlphaFactor,
-        blendSrcAlpha: THREE.OneFactor,
-        blendDstAlpha: THREE.OneFactor,
-      };
-    } else {
-      throw new Error(`getBlendOptionsFromModulateType: Unknown modulate type: ${modulateType}`);
-    }
-  }
+	/**
+	 * Retrieves blending parameters based on the FFLModulateType.
+	 * @param {FFLModulateType} modulateType - The modulate type.
+	 * @returns {Object} An object containing blending parameters for the material constructor.
+	 * @throws {Error} Unknown modulate type
+	 * @private
+	 */
+	static getBlendOptionsFromModulateType(modulateType) {
+		if (modulateType >= 0 && modulateType <= 5) {
+			// Opaque (DrawOpa)
+			return {
+				blending: THREE.CustomBlending,
+				blendSrcAlpha: THREE.SrcAlphaFactor,
+				blendDstAlpha: THREE.OneFactor
+			};
+		} else if (modulateType >= 6 && modulateType <= 8) {
+			// Translucent (DrawXlu)
+			return {
+				blending: THREE.CustomBlending,
+				blendSrc: THREE.SrcAlphaFactor,
+				blendDst: THREE.OneMinusSrcAlphaFactor,
+				blendDstAlpha: THREE.OneFactor
+			};
+		} else if (modulateType >= 9 && modulateType <= 13) {
+			// Mask Textures
+			return {
+				blending: THREE.CustomBlending,
+				blendSrc: THREE.OneMinusDstAlphaFactor,
+				blendSrcAlpha: THREE.SrcAlphaFactor,
+				blendDst: THREE.DstAlphaFactor
+			};
+		} else if (modulateType >= 14 && modulateType <= 17) {
+			// Faceline Texture
+			return {
+				blending: THREE.CustomBlending,
+				blendSrc: THREE.SrcAlphaFactor,
+				blendDst: THREE.OneMinusSrcAlphaFactor,
+				blendSrcAlpha: THREE.OneFactor,
+				blendDstAlpha: THREE.OneFactor
+			};
+		} else {
+			throw new Error(`getBlendOptionsFromModulateType: Unknown modulate type: ${modulateType}`);
+		}
+	}
 
-  /**
-   * @constructor
-   * Constructs an FFLShaderMaterial instance.
-   * @param {Object} [options={}] - Options for the material.
-   * @param {FFLModulateMode} [options.modulateMode=0] - Modulate mode.
-   * @param {FFLModulateType} [options.modulateType=0] - Modulate type.
-   * @param {THREE.Vector4 | Array<THREE.Vector4>} [options.modulateColor] - Constant color assigned to u_const1/2/3 depending on single or array.
-   * @param {boolean} [options.lightEnable=true] - Enable lighting. Needs to be off when drawing faceline/mask textures.
-   * @param {THREE.Vector3} [options.lightDirection] - Light direction.
-   * @param {THREE.Color} [options.lightAmbient] - Ambient light color.
-   * @param {THREE.Color} [options.lightDiffuse] - Diffuse light color.
-   * @param {THREE.Color} [options.lightSpecular] - Specular light color.
-   * @param {boolean} [options.useSpecularModeBlinn] - Whether to override specular mode on all materials with 0 (Blinn-Phong specular).
-   * @param {THREE.Texture} [options.map=null] - Texture map.
-   * @param {string} [options.vertexShader] - Vertex shader source.
-   * @param {string} [options.fragmentShader] - Fragment shader source.
-   * @param {THREE.Side} [options.side=THREE.FrontSide] - Side.
-   */
-  constructor(options = {}) {
-    const modulateMode = options.modulateMode ?? 0;
-    const modulateType = options.modulateType ?? 0;
-    const lightEnable = options.lightEnable ?? true;
-    const lightDir = options.lightDirection ?? FFLShaderMaterial.defaultLightDir.clone();
-    const texture = options.map || null;
+	/**
+	 * Constructs an FFLShaderMaterial instance.
+	 * @param {Object} [options={}] - Options for the material.
+	 * @param {FFLModulateMode} [options.modulateMode=0] - Modulate mode.
+	 * @param {FFLModulateType} [options.modulateType=0] - Modulate type.
+	 * @param {THREE.Vector4 | Array<THREE.Vector4>} [options.modulateColor] - Constant color assigned to u_const1/2/3 depending on single or array.
+	 * @param {boolean} [options.lightEnable=true] - Enable lighting. Needs to be off when drawing faceline/mask textures.
+	 * @param {THREE.Vector3} [options.lightDirection] - Light direction.
+	 * @param {THREE.Color} [options.lightAmbient] - Ambient light color.
+	 * @param {THREE.Color} [options.lightDiffuse] - Diffuse light color.
+	 * @param {THREE.Color} [options.lightSpecular] - Specular light color.
+	 * @param {boolean} [options.useSpecularModeBlinn] - Whether to override specular mode on all materials with 0 (Blinn-Phong specular).
+	 * @param {THREE.Texture} [options.map=null] - Texture map.
+	 * @param {string} [options.vertexShader] - Vertex shader source.
+	 * @param {string} [options.fragmentShader] - Fragment shader source.
+	 * @param {THREE.Side} [options.side=THREE.FrontSide] - Side.
+	 */
+	constructor(options = {}) {
+		const modulateMode = options.modulateMode ?? 0;
+		const modulateType = options.modulateType ?? 0;
+		const lightEnable = options.lightEnable ?? true;
+		const lightDir = options.lightDirection ?? FFLShaderMaterial.defaultLightDir.clone();
+		const texture = options.map || null;
 
-    // Process modulateColor input.
-    let colorUniforms = {};
-    if (Array.isArray(options.modulateColor) && options.modulateColor.length === 3) {
-      colorUniforms = {
-        // Assign multiple modulateColor elements to constant color uniforms.
-        u_const1: { value: options.modulateColor[0] },
-        u_const2: { value: options.modulateColor[1] },
-        u_const3: { value: options.modulateColor[2] }
-      };
-    } else {
-      colorUniforms = {
-        // Assign single color with white as a placeholder.
-        u_const1: { value: options.modulateColor || new THREE.Vector4(1, 1, 1, 1) }
-      };
-    }
+		// Process modulateColor input.
+		let colorUniforms = {};
+		if (Array.isArray(options.modulateColor) && options.modulateColor.length === 3) {
+			colorUniforms = {
+				// Assign multiple modulateColor elements to constant color uniforms.
+				u_const1: { value: options.modulateColor[0] },
+				u_const2: { value: options.modulateColor[1] },
+				u_const3: { value: options.modulateColor[2] }
+			};
+		} else {
+			colorUniforms = {
+				// Assign single color with white as a placeholder.
+				u_const1: { value: options.modulateColor || new THREE.Vector4(1, 1, 1, 1) }
+			};
+		}
 
-    const matParam =
+		const matParam =
       FFLShaderMaterial.materialParams[modulateType] ||
       FFLShaderMaterial.materialParams[0];
 
-    const uniforms = Object.assign({}, colorUniforms, {
-      u_light_ambient: {
-        value: options.lightAmbient || FFLShaderMaterial.defaultLightAmbient
-      },
-      u_light_diffuse: {
-        value: options.lightDiffuse || FFLShaderMaterial.defaultLightDiffuse
-      },
-      u_light_specular: {
-        value: options.lightSpecular || FFLShaderMaterial.defaultLightSpecular
-      },
-      u_light_dir: { value: lightDir },
-      u_light_enable: { value: lightEnable },
-      u_material_ambient: { value: matParam.ambient },
-      u_material_diffuse: { value: matParam.diffuse },
-      u_material_specular: { value: matParam.specular },
-      u_material_specular_mode: {
-        value: options.useSpecularModeBlinn ? 0 : matParam.specularMode
-      },
-      u_material_specular_power: { value: matParam.specularPower },
-      u_mode: { value: modulateMode },
-      u_rim_color: { value: FFLShaderMaterial.defaultRimColor },
-      u_rim_power: { value: FFLShaderMaterial.defaultRimPower },
-      s_texture: { value: texture }
-    });
+		const uniforms = Object.assign({}, colorUniforms, {
+			u_light_ambient: {
+				value: options.lightAmbient || FFLShaderMaterial.defaultLightAmbient
+			},
+			u_light_diffuse: {
+				value: options.lightDiffuse || FFLShaderMaterial.defaultLightDiffuse
+			},
+			u_light_specular: {
+				value: options.lightSpecular || FFLShaderMaterial.defaultLightSpecular
+			},
+			u_light_dir: { value: lightDir },
+			u_light_enable: { value: lightEnable },
+			u_material_ambient: { value: matParam.ambient },
+			u_material_diffuse: { value: matParam.diffuse },
+			u_material_specular: { value: matParam.specular },
+			u_material_specular_mode: {
+				value: options.useSpecularModeBlinn ? 0 : matParam.specularMode
+			},
+			u_material_specular_power: { value: matParam.specularPower },
+			u_mode: { value: modulateMode },
+			u_rim_color: { value: FFLShaderMaterial.defaultRimColor },
+			u_rim_power: { value: FFLShaderMaterial.defaultRimPower },
+			s_texture: { value: texture }
+		});
 
-    super({
-      vertexShader:
+		super({
+			vertexShader:
         options.vertexShader ||
         _FFLShader_vert,
-      fragmentShader:
+			fragmentShader:
         options.fragmentShader ||
         _FFLShader_frag,
-      uniforms: uniforms,
-      side: options.side || THREE.FrontSide,
-      // skinning: options.skinning || false, // Not needed with newer Three.js.
-      // Merge blend options, only if modulateMode is not 0/opqaue.
-      ...modulateMode !== 0 ? FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType) : {}
-    });
-    // Expose these properties.
-    /** @type {FFLModulateMode} */
-    this.modulateMode = modulateMode;
-    /** @type {FFLModulateType} */
-    this.modulateType = modulateType;
-    // Set alias for modulateColor as strictly a single color.
-    /** @private */
-    this._modulateColor = Array.isArray(options.modulateColor) ? null : options.modulateColor;
-    /** @type {boolean} */
-    this.lightEnable = lightEnable;
-  }
+			uniforms: uniforms,
+			side: options.side || THREE.FrontSide,
+			// skinning: options.skinning || false, // Not needed with newer Three.js.
+			// Merge blend options, only if modulateMode is not 0/opqaue.
+			...modulateMode !== 0 ? FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType) : {}
+		});
+		// Expose these properties.
+		/** @type {FFLModulateMode} */
+		this.modulateMode = modulateMode;
+		/** @type {FFLModulateType} */
+		this.modulateType = modulateType;
+		// Set alias for modulateColor as strictly a single color.
+		/** @private */
+		this._modulateColor = Array.isArray(options.modulateColor) ? null : options.modulateColor;
+		/** @type {boolean} */
+		this.lightEnable = lightEnable;
+	}
 
-  /**
-   * Gets the texture map.
-   * @returns {THREE.Texture}
-   */
-  get map() {
-    return this.uniforms.s_texture.value; // Expose as 'map'
-  }
-  /**
-   * Sets the texture map.
-   * @param {THREE.Texture} value - The new texture map.
-   */
-  set map(value) {
-    this.uniforms.s_texture.value = value;
-  }
-  /**
-   * Gets the first/primary constant color.
-   * @returns {THREE.Vector4} The color as Vector4.
-   */
-  get modulateColor() {
-    // Use alias for modulateColor if it is set.
-    if (this._modulateColor) {
-      return this._modulateColor;
-    }
-    return this.uniforms.u_const1.value;
-  }
-  /**
-   * Sets the primary constant color. Will not set any other colors (u_const2/3).
-   * @param {THREE.Vector4} value - The new color as Vector4.
-   */
-  set modulateColor(value) {
-    this._modulateColor = null; // Clear alias for modulateColor.
-    this.uniforms.u_const1.value = value;
-  }
-  /**
-   * Gets the light direction.
-   * @returns {THREE.Vector3}
-   */
-  get lightDirection() {
-    return this.uniforms.u_light_dir.value;
-  }
-  /**
-   * Sets the light direction.
-   * @param {THREE.Vector3} value - The new light direction.
-   */
-  set lightDirection(value) {
-    this.uniforms.u_light_dir.value = value;
-  }
+	/**
+	 * Gets the texture map.
+	 * @returns {THREE.Texture} The texture map.
+	 */
+	get map() {
+		return this.uniforms.s_texture.value; // Expose as 'map'
+	}
+
+	/**
+	 * Sets the texture map.
+	 * @param {THREE.Texture} value - The new texture map.
+	 */
+	set map(value) {
+		this.uniforms.s_texture.value = value;
+	}
+
+	/**
+	 * Gets the first/primary constant color.
+	 * @returns {THREE.Vector4} The color as Vector4.
+	 */
+	get modulateColor() {
+		// Use alias for modulateColor if it is set.
+		if (this._modulateColor) {
+			return this._modulateColor;
+		}
+		return this.uniforms.u_const1.value;
+	}
+
+	/**
+	 * Sets the primary constant color. Will not set any other colors (u_const2/3).
+	 * @param {THREE.Vector4} value - The new color as Vector4.
+	 */
+	set modulateColor(value) {
+		this._modulateColor = null; // Clear alias for modulateColor.
+		this.uniforms.u_const1.value = value;
+	}
+
+	/**
+	 * Gets the light direction.
+	 * @returns {THREE.Vector3} The light direction.
+	 */
+	get lightDirection() {
+		return this.uniforms.u_light_dir.value;
+	}
+
+	/**
+	 * Sets the light direction.
+	 * @param {THREE.Vector3} value - The new light direction.
+	 */
+	set lightDirection(value) {
+		this.uniforms.u_light_dir.value = value;
+	}
 }
 
 /** @global */
