@@ -5,7 +5,7 @@
     "lint": "eslint ffl.js",
     "check-types": "tsc --noEmit",
     "build": "tsc",
-    "closure": "google-closure-compiler -W VERBOSE ffl.js --js_output_file ffl.min.js --language_in UNSTABLE --module_resolution NODE"
+    "closure": "google-closure-compiler --warning_level VERBOSE ffl.js --js_output_file ffl.min.js --language_in UNSTABLE --module_resolution NODE"
   },
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
     "@types/three": "^0.173.0",
     "eslint": "^9.20.1",
     "eslint-plugin-import": "^2.31.0",
-    "globals": "^15.15.0",
+    "tsconfig-paths": "^4.2.0",
+    "globals": "^15.15.0"
   }
 }

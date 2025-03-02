@@ -812,10 +812,9 @@ const charDataInputElement = document.getElementById('charData');
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
 	await initializeFFL(window.ffljsResourceFetchResponse, window.Module);
-	window.FFLTextures = new TextureManager(window.Module);
 
 	// Initialize FFL and TextureManager.
-	// await initializeFFLWithResource();
+	// await initializeFFLWithResource(window.Module);
 	// window.Module._FFLSetLinearGammaMode(1);
 
 	// Create renderer now.
@@ -855,7 +854,7 @@ function loadCharacterButtons(useLocalIcon = true) {
 			let model;
 			try {
 				const dataU8 = parseHexOrB64ToUint8Array(data);
-				model = createCharModel(dataU8, null, window[activeMaterialClassName]);
+				model = createCharModel(dataU8, null, window[activeMaterialClassName], window.Module);
 				initCharModelTextures(model, renderer);
 				const dataURL = createCharModelIcon(model, renderer, viewType);
 				img.setAttribute('src', dataURL);

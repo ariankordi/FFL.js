@@ -171,7 +171,7 @@ const charDataInputElement = document.getElementById('charData');
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
 	// Initialize FFL and TextureManager.
-	await initializeFFLWithResource();
+	await initializeFFLWithResource(window.Module);
 
 	// Create renderer now.
 	renderer = new THREE.WebGLRenderer();

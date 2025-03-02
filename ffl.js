@@ -153,18 +153,15 @@ function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0, definedTypes 
  * Generates JSDoc, calling {@link generateJSDoc}, from the name
  * of a type defined as a struct-fu struct.
  * The result will be logged to console.
- * @param {string} typeName - Name of the type.
+ * @param {_.StructInstance<*>} structInstance - Result of _.struct for the type.
+ * @param {string} [typeName='type'] - Name of the type.
  * @throws {Error} typeName must be a string
+ * @returns {string} The JSDoc typedef with type name set to just "type".
  */
-function generateJSDocStructFu(typeName) {
-	if (typeof typeName !== 'string') {
-		throw new Error('typeName must be a string.');
-	}
-	eval(`
-		const empty = new Uint8Array(${typeName}.size);
-		const ret = generateJSDoc(${typeName}.unpack(empty), typeName);
-		console.log(ret);
-	`);
+function generateJSDocStructFu(structInstance, typeName = 'type') {
+	const empty = new Uint8Array(structInstance.size);
+	const obj = structInstance.unpack(empty); // Object containing all struct fields.
+	return generateJSDoc(obj, typeName);
 }
 
 /**
@@ -941,9 +938,9 @@ class TextureManager {
 	/**
 	 * @constructor
 	 * Constructs the TextureManager. This MUST be created after initializing FFL.
-	 * @param {Module} [module=window.Module] - The Emscripten module.
+	 * @param {Module} module - The Emscripten module.
 	 */
-	constructor(module = window.Module) {
+	constructor(module) {
 		/** @private */
 		this._module = module;
 		/** @private */
@@ -1191,6 +1188,12 @@ class TextureManager {
 		}
 	}
 }
+/**
+ * Global TextureManager instance assigned in {@link initializeFFLWithResource}.
+ * @global
+ * @type {TextureManager|null}
+*/
+let _textureManager = null;
 
 // // ---------------------------------------------------------------------
 // //  Classes for FFL Exceptions
@@ -1448,11 +1451,10 @@ let _resourceDesc;
  * @param {Uint8Array|Response} resource - The FFL resource data.
  *    Use a TypedArray if you have the raw bytes, or a fetch response containing
  *    the FFL resource file.
- * @param {Module} [module=window.Module] - The Emscripten module instance.
+ * @param {Module} module - The Emscripten module instance.
  * @returns {Promise<void>} Resolves when FFL is fully initialized.
- * @todo TODO TODO: DOES NOT WORK PROPERLY when CACHE IS ENABLED ????
  */
-async function initializeFFL(resource, module = window.Module) {
+async function initializeFFL(resource, module) {
 	console.debug('initializeFFL: Entrypoint, waiting for module to be ready.');
 
 	/** Frees the FFLResourceDesc - not the resources it POINTS to unlike _freeResourceDesc. */
@@ -1466,7 +1468,7 @@ async function initializeFFL(resource, module = window.Module) {
 	/** @type {number} */
 	let resourceDescPtr; // Store pointer to free later.
 	// Continue when Emscripten module is initialized.
-	return new Promise((resolve, _) => {
+	return new Promise((resolve) => {
 		// try {
 		// If onRuntimeInitialized is not defined on module, add it.
 		if (!module.calledRun && !module.onRuntimeInitialized) {
@@ -1526,6 +1528,9 @@ async function initializeFFL(resource, module = window.Module) {
 			// module._FFLSetScale(0.1); // Sets model scale back to 1.0.
 			// module._FFLSetLinearGammaMode(1); // Use linear gamma.
 			// I don't think ^^ will work because the shaders need sRGB
+
+			// TextureManager must be initialized after FFL.
+			_textureManager = new TextureManager(module);
 		})
 		.catch((error) => {
 			_freeResourceDesc(_resourceDesc, module);
@@ -1540,14 +1545,13 @@ async function initializeFFL(resource, module = window.Module) {
 /**
  * Fetches the FFL resource from the specified path or the "content"
  * attribute of this HTML element: meta[itemprop=ffl-js-resource-fetch-path]
- * It then calls initializeFFL on the specified module.
- *
- * @param {string|null} [resourcePath=null] - The URL for the FFL resource.
- * @param {Module} [module=window.Module] - The Emscripten module instance.
+ * It then calls {@link initializeFFL} on the specified module.
+ * @param {Module} module - The Emscripten module instance.
+ * @param {string|null} resourcePath - The URL for the FFL resource.
  * @returns {Promise<void>} Resolves when the fetch and initializeFFL are finished.
  * @throws {Error} resourcePath must be a URL string, or, an HTML element with FFL resource must exist and have content.
  */
-async function initializeFFLWithResource(resourcePath = null, module = window.Module) {
+async function initializeFFLWithResource(module, resourcePath) {
 	// Query selector string for element with "content" attribute for path to the resource.
 	const querySelectorResourcePath = 'meta[itemprop=ffl-js-resource-fetch-path]';
 
@@ -1568,9 +1572,6 @@ async function initializeFFLWithResource(resourcePath = null, module = window.Mo
 		const response = await fetch(resourcePath); // Fetch resource.
 		// Initialize FFL using the resource from fetch response.
 		await initializeFFL(response, module);
-		// TextureManager must be initialized after FFL.
-		/** @global */
-		window.FFLTextures = new TextureManager(module);
 		console.debug('initializeFFLWithResource: FFLiManager and TextureManager initialized, exiting');
 	} catch (error) {
 		if (typeof alert !== 'undefined') {
@@ -2004,7 +2005,6 @@ class CharModel {
 	 * such as eyes, mouth, etc. which is the mask.
 	 * The faceline texture may not exist if it is not needed, in which
 	 * case the faceline color is used directly, see property {@link facelineColor}.
-	 //* @not-returns {THREE.Texture|null} The faceline texture, or null if it does not exist, in which case {@link facelineColor} should be used. It becomes invalid if the CharModel is disposed.
 	 * @returns {THREE.RenderTarget|null} The faceline render target, or null if it does not exist, in which case {@link facelineColor} should be used. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
 	 */
 	getFaceline() { // getFaceTexture / "FFLiGetFaceTextureFromCharModel"
@@ -2020,8 +2020,7 @@ class CharModel {
 	 * features such as eyes, mouth, eyebrows, etc. This is wrapped
 	 * around the mask shape, which is a transparent shape
 	 * placed in front of the head model.
-	 * @param {FFLExpression} [expression=this.expression] expression - The desired expression, or the current expression.
-	 //* @not-returns {THREE.Texture|null} The mask texture for the given expression, or null if the CharModel was not initialized with that expression. It becomes invalid if the CharModel is disposed.
+	 * @param {FFLExpression} [expression=this.expression] - The desired expression, or the current expression.
 	 * @returns {THREE.RenderTarget|null} The mask render target for the given expression, or null if the CharModel was not initialized with that expression. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
 	 */
 	getMask(expression = this.expression) { // getMaskTexture
@@ -2379,13 +2378,17 @@ function makeExpressionFlag(expressions) {
  *
  * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
  * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
- * @param {function(new: THREE.Material, ...*): THREE.Material} [materialClass=window.FFLShaderMaterial] - Class for the material (constructor), e.g.: FFLShaderMaterial
- * @param {Module} [module=window.Module] - The Emscripten module.
+ * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
+ * @param {Module} module - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
  */
-function createCharModel(data, modelDesc, materialClass = window.FFLShaderMaterial, module = window.Module, verify = true) {
+function createCharModel(data, modelDesc, materialClass, module, verify = true) {
 	modelDesc = modelDesc || FFLCharModelDescDefault;
+
+	if (!module && !(/** @type {Object<string, never>} */ (module)._malloc)) {
+		throw new Error('createCharModel: module is null or does not have ._malloc.');
+	}
 	// Allocate memory for model source, description, char model, and char info.
 	const modelSourcePtr = module._malloc(FFLCharModelSource.size);
 	const modelDescPtr = module._malloc(FFLCharModelDesc.size);
@@ -2511,7 +2514,7 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, ver
  * and disposing shapes from `src`, effectively transferring.
  * @param {CharModel} src - The source {@link CharModel} from which to copy textures from and dispose shapes.
  * @param {CharModel} dst - The destination {@link CharModel} receiving the textures.
- * @returns {CharModel} - The final CharModel.
+ * @returns {CharModel} The final CharModel.
  * @todo TODO: Completely untested.
  */
 function transferCharModelTex(src, dst) {
@@ -2617,9 +2620,9 @@ function _bindDrawParamGeometry(drawParam, module) {
 	}
 
 	// To use half float resources, set this, use Three.js >=160 and comment out `_FFLSetNormalIsSnorm8_8_8_8`call
-	const halfFloatTest = false; // TODO: Temporary until FFL itself picks this up automatically
+	const forceHalfFloat = false; // TODO: Temporary until FFL itself picks this up automatically
 	// faceline/mask are never half float, they have cull mode set to 3
-	if (halfFloatTest && (drawParam.cullMode !== FFLCullMode.MAX)) { // cullMode === 3
+	if (forceHalfFloat && (drawParam.cullMode !== FFLCullMode.MAX)) { // cullMode === 3
 		attributes[FFLAttributeBufferType.POSITION].stride = 6;
 		attributes[FFLAttributeBufferType.TEXCOORD].stride = 4;
 	}
@@ -2720,11 +2723,14 @@ function _bindDrawParamGeometry(drawParam, module) {
  * Does not assign texture for faceline or mask types.
  *
  * @param {FFLModulateParam} modulateParam - drawParam.modulateParam.
- * @param {TextureManager} [textureManager=window.FFLTextures] - The TextureManager instance for which to look for the texture referenced.
+ * @param {TextureManager|null} [textureManager=_textureManager] - The TextureManager instance for which to look for the texture referenced.
  * @returns {THREE.Texture|null} The texture if found.
- * @throws {Error} Throws if pTexture2D refers to a texture that was not found in the TextureManager.
+ * @throws {Error} Throws if pTexture2D refers to a texture that was not found in the TextureManager, or the TextureManager is invalid.
  */
-function _getTextureFromModulateParam(modulateParam, textureManager = window.FFLTextures) {
+function _getTextureFromModulateParam(modulateParam, textureManager = _textureManager) {
+	if (!textureManager) {
+		throw new Error('_getTextureFromModulateParam: Passed in textureManager is null or undefined, is it constructed?');
+	}
 	// Only assign texture if pTexture2D is not null.
 	if (!modulateParam.pTexture2D ||
 		// Ignore faceline and mask.
