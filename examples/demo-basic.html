@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<!-- path to FFL resource file (FFLResHigh.dat, AFLResHigh_2_3.dat, etc.) -->
+	<meta itemprop="ffl-js-resource-fetch-path" content="../AFLResHigh_2_3.dat">
+
+	<script async>
+		// Begin fetching resource early.
+		const path = document.querySelector('meta[itemprop=ffl-js-resource-fetch-path]').getAttribute('content');
+		// Define fetch promise to be resolved when ffl.js loads.
+		/** @global */
+		window.ffljsResourceFetchResponse = fetch(path);
+	</script>
+	<!-- emscripten module (not modularized)/ffl-emscripten.js -->
+	<script src="../ffl-emscripten.js"></script>
+
+	<!-- three.js 0.137.5 from 2022 -->
+	<script src="https://unpkg.com/three@0.137.5/build/three.min.js"></script>
+	<!-- OrbitControls -->
+	<script src="https://unpkg.com/three@0.137.5/examples/js/controls/OrbitControls.js"></script>
+
+	<!-- helper -->
+	<script src="../struct-fu.js"></script>
+	<!-- shader materials -->
+	<script src="../FFLShaderMaterial.js"></script>
+	<script src="../LUTShaderMaterial.js"></script>
+
+
+	<!-- Include ffl.js after three.js and FFLShaderMaterial.js. -->
+	<script src="../ffl.js"></script>
+
+	<!-- Styling. -->
+	<style>
+		body {
+			/* Use native system font. */
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+			font-size: 16px;
+		}
+		input[type=text] {
+			width: 100%;
+			max-width: 600px;
+		}
+
+		/* Limit image resolution and make texture area scrollable. */
+		#ffl-js-display-render-textures {
+			height: 256px;
+			overflow-y: scroll;
+		}
+		/* Limit height and give margin and border to textures. */
+		#ffl-js-display-render-textures img {
+			height: 100px;
+			margin: 5px;
+			border: 1px dotted #808080;
+		}
+
+		.preset-character-selection {
+			height: 150px; /* Use static height. */
+			display: flex;
+			gap: 6px;
+		}
+		/* Make items in the details above everything. */
+		.preset-character-dropdown {
+			z-index: 10;
+		}
+		/* Options container box. */
+		.options-container {
+			display: flex;
+			width: fit-content;
+			margin-top: 10px;
+			padding: 8px;
+
+			/* Styling of the options container. */
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			background: #f8f8f8;
+			gap: 15px;
+		}
+		/* Items in the option container in rows. */
+		.options-content {
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between; /* Distributes space evenly. */
+		}
+		/* A row of controls. */
+		.controls-row {
+			display: flex;
+			gap: 10px;
+			flex-wrap: wrap;
+			flex-grow: 1;
+		}
+		/* Row of CharModel information. */
+		.info-row {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			font-size: 14px;
+			flex-grow: 1;
+			border-bottom: 1px solid #ddd;
+			padding-bottom: 5px;
+			margin-bottom: 5px;
+		}
+		.info-item {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+		}
+		/* Name is using fixed width. */
+		.info-item-name {
+			width: 180px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.color-block {
+			width: 20px;
+			height: 20px;
+			border: 1px solid #000;
+			display: inline-block;
+		}
+
+		/* Light direction summary and details. */
+		.light-direction {
+			position: relative;
+			display: inline-block;
+			margin-top: 0px;
+		}
+		.light-direction-controls {
+			position: absolute;
+			left: 0;
+			background: white;
+			box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+			padding: 10px;
+			border-radius: 5px;
+			z-index: 1;
+			width: 220px;
+		}
+
+		.options-container > img {
+			border: 1px dotted #808080;
+			width: 128px;
+			aspect-ratio: 1 / 1; /* Make image a square. */
+			object-fit: cover; /* Fill in the parent. */
+		}
+
+		details {
+			margin-top: 10px;
+		}
+	</style>
+
+</head>
+<body>
+
+	<!-- Main content. -->
+	<div id="top-content">
+		<h3>ffl.js sample: sandbox</h3>
+
+		<!-- Input form. -->
+		<form id="charForm">
+			<label for="charData">Enter FFLStoreData or Studio Data:</label>
+			<!-- Value: soyun -->
+			<input type="text" id="charData" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" placeholder="Base64 or Hex">
+			<br>
+			<button type="submit">Create CharModel</button>
+		</form>
+
+		<!-- Character selection buttons. -->
+		<i>or, choose you're fighter...</i>
+		<div class="preset-character-selection">
+			<!-- Template for buttons here: vv -->
+			<div id="btn-template" style="display: none;"><button disabled style="display: inline-block; margin-right: 10px;"><img data-src="https://mii-unsecure.ariankordi.net/miis/image.png?shaderType=switch&amp;type=variableiconbody&amp;width=96&amp;texResolution=128&amp;resourceType=low&amp;scale=1&amp;data=" style="width: 128px; height: 128px;"><div>template</div></button></div>
+
+			<!-- Actual buttons defined below: -->
+			<meta data-name="jasmine" data-data="AwAAQKBBOMSghAAA27iHMb5gKyoqQgAAWS1KAGEAcwBtAGkAbgBlAAAAAAAAABw3EhB7ASFuQxwNZMcYAAgegg0AMEGzW4JtAABvAHMAaQBnAG8AbgBhAGwAAAAAAJA6">
+			<meta data-name="soyun" data-data="000f160e146467674d564d551b1f1e1326293037454c565e212e3144070e7279848b908b8fa3aac4d0d7dee5ecf3ff">
+			<meta data-name="charline" data-data="AwAFMG0rAiKJRLe1nDWwN5i26X5uuAAAY0FjAGgAYQByAGwAaQBuAGUAAAAAAEwmApBlBttoRBggNEYUgRITYg0AACkAUkhQYwBoAGEAcgBsAGkAbgBlAAAAAAAAAHLb">
+			<meta data-name="bro mole high" data-data="0402400431040402020b030a0604060208070906020100140402080200394004010c160213040d0f03020a060d09">
+			<!-- Characters with all/most attributes enabled. -->
+			<details class="preset-character-dropdown"><summary>ugly only for test</summary>
+				<meta data-name="Aiueome" data-data="AwEAMAAAAAAAAAAA2sZrOqTA4fgk3wAAABBBAGkAdQBlAG8AbQBlAAAAAAAAAH9/JwAuCXPOgxfsCIUfDyUY0GUAO0K2oxFSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGUq">
+				<meta data-name="Zluuuue" data-data="32037f040d0507060c0003620a08120903000301040500320711096100227f05010818031308080e050300000200">
+			</details>
+		</div>
+
+		<!-- Options container. -->
+		<div class="options-container">
+			<div class="options-content">
+				<!-- CharModel information row. -->
+				<div class="info-row">
+					<span class="info-item-name">Name: <span id="charModelName">(Not Loaded)</span></span>
+					<span class="info-item">Favorite Color: <span class="color-block" id="charModelFavoriteColor"></span></span>
+					<span class="info-item">View in Console: <code>> currentCharModel</code></span>
+				</div>
+
+				<!-- First controls row. -->
+				<div class="controls-row">
+					<label>
+						<input type="checkbox" id="toggleRotation"> Rotate
+					</label>
+					<label>
+						Speed:
+						<input type="range" id="rotationSpeed" min="2" max="30" step="0.5" value="8">
+					</label>
+					<details class="light-direction">
+						<summary>Light Direction</summary>
+						<div class="light-direction-controls">
+							<label for="lightDirX">X</label>
+							<input type="range" id="lightDirX" min="-1" max="1" step="0.01" value="-0.453">
+							<br>
+							<label for="lightDirY">Y</label>
+							<input type="range" id="lightDirY" min="-1" max="1" step="0.01" value="0.423">
+							<br>
+							<label for="lightDirZ">Z</label>
+							<input type="range" id="lightDirZ" min="-1" max="1" step="0.01" value="0.785">
+							<br>
+							<button id="resetLightButton">Reset</button>
+						</div>
+					</details>
+				</div>
+				<!-- Second controls row. -->
+				<div class="controls-row">
+					<label>Expression:
+						<!-- Not all AFL expressions are here. -->
+						<select id="expressionSelect">
+							<option value="-1" selected>Normal + Blink + Wink</option>
+							<option disabled>- FFL Expressions -</option>
+							<option value="0">Normal</option>
+							<option value="1">Smile</option>
+							<option value="2">Anger</option>
+							<option value="3">Sorrow</option>
+							<option value="4">Surprise</option>
+							<option value="5">Blink</option>
+							<option value="6">Open Mouth</option>
+							<option value="7">Smile Open Mouth</option>
+							<option value="8">Anger Open Mouth</option>
+							<option value="9">Sorrow Open Mouth</option>
+							<option value="10">Surprise Open Mouth</option>
+							<option value="11">Blink Open Mouth</option>
+							<option value="12">Wink Left</option>
+							<option value="13">Wink Right</option>
+							<option value="14">Wink Left Open Mouth</option>
+							<option value="15">Wink Right Open Mouth</option>
+							<option value="16">Like Wink Left</option>
+							<option value="17">Like Wink Right</option>
+							<option value="18">Frustrated</option>
+							<option disabled>- AFL Expressions -</option>
+							<option value="25">Love</option>
+							<option value="33">Cheeky</option>
+							<option value="39">Resolve</option>
+							<option value="45">Raspberry</option>
+							<option value="51">Dog</option>
+							<option value="56">Money</option>
+							<option value="58">Confused</option>
+							<option value="69">Stunned</option>
+						</select>
+					</label>
+
+					<label>
+						Shader:
+						<select id="shaderMaterialSelect"></select>
+					</label>
+				</div>
+			</div>
+			<!-- Icon for current CharModel. -->
+			<img id="modelIcon" src="" alt="CharModel Icon">
+		</div>
+
+		<!-- Hidden Debug Option (inside details) -->
+		<details id="renderTexturesDisplay">
+			<summary>View Faceline and Mask Textures - Only Updates After Opened</summary>
+			<!-- Intentionally not a label to make hitbox small. -->
+			<span>
+				<input type="checkbox" id="reinitTextures">
+				Reinitialize Textures Every Frame (Abuses CPU And Leaks Memory Do Not Enable Please)
+			</span>
+			<div id="ffl-js-display-render-textures"></div>
+		</details>
+	</div>
+
+
+	</div> <!-- top-content -->
+
+	<!-- End main content. -->
+    <script src="demo-basic.js"></script>
+</body>
+</html>

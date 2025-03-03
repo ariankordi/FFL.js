@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<!-- path to FFL resource file (FFLResHigh.dat, AFLResHigh_2_3.dat, etc.) -->
+	<meta itemprop="ffl-js-resource-fetch-path" content="../AFLResHigh_2_3.dat">
+	<!-- emscripten module (not modularized)/ffl-emscripten.js -->
+	<script src="../ffl-emscripten.js"></script>
+
+	<!-- three.js 0.137.5 from 2022 -->
+	<script src="https://unpkg.com/three@0.137.5/build/three.min.js"></script>
+
+	<!-- helper -->
+	<script src="../struct-fu.js"></script>
+	<!-- shader materials -->
+	<script src="../FFLShaderMaterial.js"></script>
+
+	<!-- Include ffl.js after three.js and FFLShaderMaterial.js. -->
+	<script src="../ffl.js"></script>
+
+</head>
+<body>
+
+	<div id="top-content">
+		<h3>ffl.js sample: minimal</h3>
+		<div style="font-size: 12px;">minimal code HERE that is... not the library is minimal at all..................</div>
+
+		<!-- Input form. -->
+		<form id="charForm">
+			<label for="charData">Enter FFLStoreData or Studio Data:</label>
+			<!-- Value: soyun -->
+			<input type="text" id="charData" value="AAAAAAkAAAAAAAAAAAAAAAAAAABlAAAARAAAgAAAAAAhAAAASQAAgAcAAAADAAAABAAAAAIAAAAQAAAAEgAAAEEAAIAIAAAAAwAAAAMAAAAMAAAABAAAAAAAAAAAAAAACwAAABcAAAATAACAAAAAAAMAAAANAAAAAAAAAAAAAAAIAACABAAAAAoAAAAEAAAARAAAgAYAAAAMAAAAAAAAAAQAAAACAAAAFAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" placeholder="Base64 or Hex">
+			<br>
+			<button type="submit">Create CharModel</button>
+		</form>
+
+	</div> <!-- top-content -->
+
+	<!-- End main content. -->
+	<script src="demo-minimal.js"></script>
+</body>
+</html>
