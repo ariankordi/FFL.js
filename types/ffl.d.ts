@@ -368,16 +368,6 @@ export type FFLTextureInfo = {
     mipPtr: number;
     mipLevelOffset: Array<number>;
 };
-/**
- * Generates JSDoc, calling {@link generateJSDoc}, from the name
- * of a type defined as a struct-fu struct.
- * The result will be logged to console.
- * @param {_.StructInstance<*>} structInstance - Result of _.struct for the type.
- * @param {string} [typeName='type'] - Name of the type.
- * @returns {string} The JSDoc typedef with type name set to just "type".
- * @throws {Error} typeName must be a string
- */
-export function generateJSDocStructFu(structInstance: _.StructInstance<any>, typeName?: string): string;
 export type FFLModulateMode = number;
 export namespace FFLModulateMode {
     let CONSTANT: number;
@@ -596,18 +586,22 @@ export namespace FFLRace {
  * Fetches the FFL resource from the specified path or the "content"
  * attribute of this HTML element: meta[itemprop=ffl-js-resource-fetch-path]
  * It then calls {@link initializeFFL} on the specified module.
- * @param {Module} module - The Emscripten module instance.
+ * @param {Module|Promise<Module>|function(): Promise<Module>} module - The Emscripten module by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1), or as a function returning a promise (window.Module when MODULARIZE=1).
  * @param {string|null} resourcePath - The URL for the FFL resource.
- * @returns {Promise<void>} Resolves when the fetch and initializeFFL are finished.
+ * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when fetch is finished and initializeFFL returns, returning the final Emscripten {@link Module} instance and the {@link FFLResourceDesc} object that can later be passed into {@link exitFFL}.
  * @throws {Error} resourcePath must be a URL string, or, an HTML element with FFL resource must exist and have content.
  */
-export function initializeFFLWithResource(module: Module, resourcePath: string | null): Promise<void>;
+export function initializeFFLWithResource(module: Module | Promise<Module> | (() => Promise<Module>), resourcePath: string | null): Promise<{
+    module: Module;
+    resourceDesc: FFLResourceDesc;
+}>;
 /**
  * @param {Module} module - Emscripten module.
+ * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
  * @public
- * @todo TODO: Untested, need to destroy Emscripten instance.
+ * @todo TODO: Needs to somehow destroy Emscripten instance.
  */
-export function exitFFL(module: Module): void;
+export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
 /**
  * Represents an FFLCharModel, which is the head model.
  * Encapsulates a pointer to the underlying instance and provides helper methods.
@@ -629,13 +623,13 @@ export class CharModel {
      * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
      * @param {Module} module - The Emscripten module.
      * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - The material class (e.g., FFLShaderMaterial).
+     * @param {TextureManager|null} texManager - The {@link TextureManager} instance for this CharModel.
      */
-    constructor(ptr: number, module: Module, materialClass: new (...args: any[]) => THREE.Material);
+    constructor(ptr: number, module: Module, materialClass: new (...args: any[]) => THREE.Material, texManager: TextureManager | null);
     /** @package */
     _module: Module;
     /**
-     * The data used to construct the CharModel, set in {@link createCharModel}.
-     * This is used when reconstructing the CharModel in {@link updateCharModel}.
+     * The data used to construct the CharModel, set in {@link createCharModel} and used in {@link updateCharModel}.
      * @type {*}
      * @package
      */
@@ -645,6 +639,8 @@ export class CharModel {
      * @public
      */
     public _materialClass: new (...args: any[]) => THREE.Material;
+    /** @package */
+    _textureManager: TextureManager | null;
     /**
      * Pointer to the FFLiCharModel in memory, set to null when deleted.
      * @package
@@ -748,7 +744,9 @@ export class CharModel {
      */
     _getExpressionFlagPtr(): number;
     /**
+     * Either gets the boundingBox in the CharModel or calculates it from the meshes.
      * @returns {THREE.Box3} The bounding box.
+     * @throws {Error} Throws if this.meshes is null.
      * @private
      */
     private _getBoundingBox;
@@ -769,14 +767,14 @@ export class CharModel {
      * Disposes RenderTargets for textures created by the CharModel.
      * @public
      */
-    public _disposeTextures(): void;
+    public disposeTextures(): void;
     /**
      * Disposes the CharModel and removes all associated resources.
      * - Disposes materials and geometries.
      * - Deletes faceline texture if it exists.
      * - Deletes all mask textures.
      * - Removes all meshes from the scene.
-     * @param {boolean} [disposeTextures=true] - Whether or not to dispose of mask and faceline render targets.
+     * @param {boolean} disposeTextures - Whether or not to dispose of mask and faceline render targets.
      * @public
      */
     public dispose(disposeTextures?: boolean): void;
@@ -809,7 +807,7 @@ export class CharModel {
      * features such as eyes, mouth, eyebrows, etc. This is wrapped
      * around the mask shape, which is a transparent shape
      * placed in front of the head model.
-     * @param {FFLExpression} [expression=this.expression] - The desired expression, or the current expression.
+     * @param {FFLExpression} expression - The desired expression, or the current expression.
      * @returns {THREE.RenderTarget|null} The mask render target for the given expression, or null if the CharModel was not initialized with that expression. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
      */
     getMask(expression?: FFLExpression): THREE.RenderTarget | null;
@@ -865,7 +863,7 @@ export class CharModel {
     private _boundingBox;
     /**
      * Gets a vector in which to scale the body model for this CharModel.
-     * @param {BodyScaleMode} [scaleMode=CharModel.BodyScaleMode.Apply] - Mode in which to create the scale vector.
+     * @param {BodyScaleMode} scaleMode - Mode in which to create the scale vector.
      * @returns {THREE.Vector3} Scale vector for the body model.
      * @throws {Error} Unexpected value for scaleMode
      * @public
@@ -886,9 +884,9 @@ export function verifyCharInfo(data: Uint8Array | number, module: Module, verify
 /**
  * Generates a random FFLiCharInfo instance calling FFLiGetRandomCharInfo.
  * @param {Module} module - The Emscripten module.
- * @param {FFLGender} [gender=FFLGender.ALL] - Gender of the character.
- * @param {FFLAge} [age=FFLAge.ALL] - Age of the character.
- * @param {FFLRace} [race=FFLRace.ALL] - Race of the character.
+ * @param {FFLGender} gender - Gender of the character.
+ * @param {FFLAge} age - Age of the character.
+ * @param {FFLRace} race - Race of the character.
  * @returns {Uint8Array} The random FFLiCharInfo.
  * @todo TODO: Should this return FFLiCharInfo object?
  */
@@ -932,7 +930,7 @@ export function _allocateModelSource(data: Uint8Array | FFLiCharInfo, module: Mo
  * @param {Module} module - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
- * @throws {FFLResultException|BrokenInitModel|FFLiVerifyReasonException|Error} Throws if `module` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
+ * @throws {FFLResultException|BrokenInitModel|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc` or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
  */
 export function createCharModel(data: Uint8Array | FFLiCharInfo, modelDesc: FFLCharModelDesc | null, materialClass: new (...args: any[]) => THREE.Material, module: Module, verify?: boolean): CharModel;
 /**
@@ -959,10 +957,10 @@ export function updateCharModel(charModel: CharModel, newData: Uint8Array | null
  */
 export function initCharModelTextures(charModel: CharModel, renderer: THREE.WebGLRenderer): void;
 /**
- * Gets a data URL for a render target's texture using the same renderer.
+ * Exports a render target's texture to a blob.
  * @param {THREE.RenderTarget} renderTarget - The render target.
  * @param {THREE.WebGLRenderer} renderer - The renderer (MUST be the same renderer used for the target).
- * @param {boolean} [flipY=false] - Flip the Y axis. Default is oriented for OpenGL.
+ * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {string} The data URL representing the RenderTarget's texture contents.
  */
 export function renderTargetToDataURL(renderTarget: THREE.RenderTarget, renderer: THREE.WebGLRenderer, flipY?: boolean): string;
@@ -987,9 +985,9 @@ export namespace ViewType {
  * using a render target and reading its pixels into a data URL.
  * @param {CharModel} charModel - The CharModel instance.
  * @param {THREE.WebGLRenderer} renderer - The renderer.
- * @param {ViewType} [viewType=ViewType.IconFovy45] - The view type.
- * @param {number} [width=256] - Desired icon width.
- * @param {number} [height=256] - Desired icon height.
+ * @param {ViewType} viewType - The view type.
+ * @param {number} width - Desired icon width.
+ * @param {number} height - Desired icon height.
  * @returns {string} A data URL of the icon image.
  * @throws {Error} CharModel.meshes is null or undefined, it may have been disposed.
  */
@@ -1085,4 +1083,112 @@ declare namespace FFLTextureFormat {
     export { MAX_2 as MAX };
 }
 import * as _ from './struct-fu';
+/**
+ * Manages THREE.Texture objects created via FFL.
+ * Must be instantiated after FFL is fully initialized.
+ */
+declare class TextureManager {
+    /**
+     * Creates and allocates an {@link FFLTextureCallback} instance from callback function pointers.
+     * @param {Module} module - The Emscripten module.
+     * @param {number} createCallback - Function pointer for the create callback.
+     * @param {number} deleteCallback - Function pointer for the delete callback.
+     * @returns {number} Pointer to the {@link FFLTextureCallback}.
+     * Note that you MUST free this after using it (done in {@link TextureManager.disposeCallback}).
+     * @private
+     */
+    private static _allocateTextureCallback;
+    /**
+     * Constructs the TextureManager. This MUST be created after initializing FFL.
+     * @param {Module} module - The Emscripten module.
+     * @param {boolean} [setToFFLGlobal] - Whether or not to call FFLSetTextureCallback on the constructed callback.
+     */
+    constructor(module: Module, setToFFLGlobal?: boolean);
+    /**
+     * @type {Module}
+     * @private
+     */
+    private _module;
+    /**
+     * @type {Map<number, THREE.Texture>}
+     * @private
+     */
+    private _textures;
+    /** @package */
+    _textureCallbackPtr: number;
+    /**
+     * Controls whether or not the TextureManager
+     * will log creations and deletions of textures
+     * in order to better track memory allocations.
+     * @public
+     */
+    public logging: boolean;
+    /**
+     * Creates the create/delete functions in Emscripten and allocates and sets
+     * the {@link FFLTextureCallback} object as {@link TextureManager._textureCallbackPtr}.
+     * @param {boolean} addDeleteCallback - Whether or not to bind the delete function to the texture callback.
+     */
+    _setTextureCallback(addDeleteCallback?: boolean): void;
+    /** @private */
+    private _createCallback;
+    /** @private */
+    private _deleteCallback;
+    /**
+     * @param {number} format - Enum value for FFLTextureFormat.
+     * @returns {THREE.PixelFormat} Three.js texture format constant.
+     * @throws {Error} Unexpected FFLTextureFormat value
+     * Note that this function won't work on WebGL1Renderer in Three.js r137-r162 since R and RG textures need to use Luminance(Alpha)Format
+     * (you'd somehow need to detect which renderer is used)
+     * @private
+     */
+    private _getTextureFormat;
+    /**
+     * @param {number} _ - Originally pObj, unused here.
+     * @param {number} textureInfoPtr - Pointer to {@link FFLTextureInfo}.
+     * @param {number} texturePtrPtr - Pointer to the texture handle (pTexture2D).
+     * @private
+     */
+    private _textureCreateFunc;
+    /**
+     * @param {THREE.Texture} texture - Texture to upload mipmaps into.
+     * @param {FFLTextureInfo} textureInfo - FFLTextureInfo object representing this texture.
+     * @throws {Error} Throws if mipPtr is null.
+     * @private
+     */
+    private _addMipmaps;
+    /**
+     * @param {number} _ - Originally pObj, unused here.
+     * @param {number} texturePtrPtr - Pointer to the texture handle (pTexture2D).
+     * @private
+     */
+    private _textureDeleteFunc;
+    /**
+     * @param {number} id - ID assigned to the texture.
+     * @returns {THREE.Texture|null|undefined} Returns the texture if it is found.
+     * @public
+     */
+    public get(id: number): THREE.Texture | null | undefined;
+    /**
+     * @param {number} id - ID assigned to the texture.
+     * @param {THREE.Texture} texture - Texture to add.
+     * @public
+     */
+    public set(id: number, texture: THREE.Texture): void;
+    /**
+     * @param {number} id - ID assigned to the texture.
+     * @public
+     */
+    public delete(id: number): void;
+    /**
+     * Disposes/frees the {@link FFLTextureCallback} along with
+     * removing the created Emscripten functions.
+     * @public
+     */
+    public disposeCallback(): void;
+    /**
+     * Disposes of all textures and frees the {@link FFLTextureCallback}.
+     * @public
+     */
+    public dispose(): void;
+}
 export {};

@@ -1,17 +1,20 @@
+// @ts-check
+// import * as THREE from 'three';
+// import { initializeFFLWithResource, createCharModel, initCharModelTextures, updateCharModel, parseHexOrB64ToUint8Array, FFLCharModelDescDefault, FFLCharModelDesc, CharModel, Module } from './ffl';
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
-let scene = null;
+let scene;
 /** @type {THREE.WebGLRenderer} */
-let renderer = null;
+let renderer;
 /** @type {THREE.Camera} */
-let camera = null;
+let camera;
 /** @type {CharModel} */
 let currentCharModel;
 
-/** @type {THREE.Box3Helper} */
+/** @type {THREE.Box3Helper|null} */
 let boxHelper;
 
 let isInitialized = false;
@@ -54,12 +57,13 @@ function startAnimationLoop() {
 	} // Prevent multiple loops.
 	isAnimating = true;
 
+	/** Main animation loop. */
 	function animate() {
 		requestAnimationFrame(animate);
 
 		// Rotate CharModel.
 		scene.traverse((node) => {
-			if (node.isObject3D && !node.isMesh) {
+			if (node.isObject3D && !(node instanceof THREE.Mesh)) {
 				node.rotation.y += 0.01;
 			}
 		});
@@ -71,13 +75,13 @@ function startAnimationLoop() {
 
 /**
  * Adds or updates the BoxHelper in the scene to the CharModel bounding box.
- * @param {CharModel} charModel
+ * @param {CharModel} charModel - CharModel to get bounding box from.
  */
 function updateBoxHelper(charModel) {
 	if (boxHelper) {
 		scene.remove(boxHelper);
 		boxHelper.geometry.dispose();
-		boxHelper.material.dispose();
+		/** @type {THREE.Material} */ (boxHelper.material).dispose();
 		boxHelper = null;
 	}
 	// boxHelper = new THREE.BoxHelper(charModel.meshes);
@@ -87,8 +91,9 @@ function updateBoxHelper(charModel) {
 
 /**
  * Either creates or updates CharModel and adds it to the scene.
- * @param {Uint8Array|string} data
- * @param {Object|null} [modelDesc=null]
+ * @param {Uint8Array|string} data - Data as Uint8Array or hex or Base64 string.
+ * @param {FFLCharModelDesc|null} [modelDesc] - CharModelDesc object to update CharModel with.
+ * @throws {Error} cannot exclude modelDesc if no model was initialized yet
  */
 function updateCharModelInScene(data, modelDesc = null) {
 	// Decode data.
@@ -123,7 +128,7 @@ function updateCharModelInScene(data, modelDesc = null) {
 // Assume a form with id "charform" exists in the HTML.
 const charFormElement = document.getElementById('charForm');
 /** @type {HTMLInputElement | null} */
-const charDataInputElement = document.getElementById('charData');
+const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
 
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
@@ -133,6 +138,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 	// Create renderer now.
 	renderer = new THREE.WebGLRenderer();
 
+	if (!charFormElement) {
+		throw new Error('element #charForm not found');
+	}
 	charFormElement.addEventListener('submit', function (event) {
 		event.preventDefault();
 

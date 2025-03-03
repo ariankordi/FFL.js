@@ -1,12 +1,16 @@
+// @ts-check
+// import * as THREE from 'three';
+// import { initializeFFL, createCharModel, initCharModelTextures, updateCharModel, makeExpressionFlag, parseHexOrB64ToUint8Array, FFLExpression, FFLCharModelDescDefault, FFLCharModelDesc, CharModel, Module } from './ffl';
+
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
-let scene = null;
+let scene;
 /** @type {THREE.WebGLRenderer} */
-let renderer = null;
+let renderer;
 /** @type {THREE.Camera} */
-let camera = null;
+let camera;
 /** @type {THREE.OrbitControls|Object} */
 let controls = {}; // Initialize to empty so properties can be set.
 /** @type {CharModel} */
@@ -20,10 +24,11 @@ const availableMaterialClasses = ['FFLShaderMaterial', 'LUTShaderMaterial'];
 // Expression flag with default expression, blink, FFL_EXPRESSION_LIKE_WINK_LEFT
 const expressionFlagBlinking = makeExpressionFlag([FFLExpression.NORMAL, 5, 16]);
 
+// For debugging.
+let reinitModelEveryFrame = false;
+let displayRenderTexturesElement = null;
 // Global options.
-let reinitTexturesEveryFrame = false; // For debugging.
-// Set default shader to the first one.
-let activeMaterialClassName = availableMaterialClasses[0];
+let activeMaterialClassName = availableMaterialClasses[0]; // Default shader as first.
 let currentExpressionFlag = expressionFlagBlinking; // Expression.
 let canBlink = false; // Controls if the animation sets blinking. updateCanBlink()
 
@@ -98,6 +103,7 @@ function startAnimationLoop() {
 	const blinkInterval = 1500; // 1.5s
 	const blinkDuration = 100; // 100ms
 
+	/** Main animation loop. */
 	function animate() {
 		requestAnimationFrame(animate);
 
@@ -106,10 +112,9 @@ function startAnimationLoop() {
 			controls.update();
 		}
 
-		// Reinitialize textures every frame for debugging if enabled.
-		if (reinitTexturesEveryFrame) {
-			currentCharModel._disposeTextures();
-			initCharModelTextures(currentCharModel, renderer);
+		// Reinitialize CharModel every frame for debugging if enabled.
+		if (reinitModelEveryFrame) {
+			updateCharModelInScene(null, currentExpressionFlag);
 		}
 
 		// Update blink state.
@@ -146,9 +151,42 @@ function startAnimationLoop() {
 }
 
 /**
+ * Displays CharModel render textures, appending their images to `element` for debugging.
+ * @param {CharModel} model - The CharModel whose textures to display.
+ * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {HTMLElement} element - The HTML list to append the images inside of.
+ */
+function displayCharModelTexturesDebug(model, renderer, element) {
+	const maximum = 30; // Limit before older textures are removed.
+	/**
+	 * Displays and appends an image of a render target.
+	 * @param {THREE.WebGLRenderTarget} target - The render target.
+	 */
+	function displayTarget(target) {
+		const dataURL = renderTargetToDataURL(target, renderer, true);
+		const img = new Image();
+		img.src = dataURL;
+		if (element.firstChild) {
+			// Prepend instead of appending if available.
+			element.insertBefore(img, element.firstChild);
+		} else {
+			element.appendChild(img);
+		}
+		// Remove excess images in the list.
+		while (element.children.length > maximum) {
+			element.removeChild(element.lastChild);
+		}
+	}
+	const faceTarget = model.getFaceline();
+	faceTarget && displayTarget(faceTarget);
+	model._maskTargets.forEach(tgt => tgt !== null && displayTarget(tgt));
+}
+
+/**
  * Either creates or updates CharModel and adds it to the scene.
- * @param {Uint8Array|string|null} data - Will be decoded if string.
+ * @param {Uint8Array|string} data - Data as Uint8Array or hex or Base64 string.
  * @param {Object|Array|null} descOrExpFlag - Either a new FFLCharModelDesc object or an array of expressions.
+ * @throws {Error} cannot exclude modelDesc if no model was initialized yet
  */
 function updateCharModelInScene(data, descOrExpFlag = null) {
 	// Decode data.
@@ -178,6 +216,10 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 		alert(`Error creating/updating CharModel: ${err}`);
 		console.error('Error creating/updating CharModel:', err);
 		throw err;
+	}
+	// Display CharModel render textures if the element is non-null.
+	if (displayRenderTexturesElement) {
+		displayCharModelTexturesDebug(currentCharModel, renderer, displayRenderTexturesElement);
 	}
 	// Add CharModel meshes to scene.
 	scene.add(currentCharModel.meshes);
@@ -377,32 +419,29 @@ function updateExpression() {
 
 const renderTexturesDisplayElement = document.getElementById('renderTexturesDisplay');
 const renderTexturesContainerElement = document.getElementById('ffl-js-display-render-textures');
-const reinitTexturesElement = document.getElementById('reinitTextures');
+const reinitModelElement = document.getElementById('reinitModel');
 
+/** Toggle display of render textures for newly created CharModels. */
 function toggleRenderTexturesDisplay() {
 	if (renderTexturesDisplayElement.open) {
-		// When opened, enable render texture display
-		_displayRenderTexturesElement = renderTexturesContainerElement;
+		// When opened, enable render texture display.
+		displayRenderTexturesElement = renderTexturesContainerElement;
 		console.log('Render texture view enabled.');
 	} else {
 		// When closed, disable render texture display and reinit checkbox
-		_displayRenderTexturesElement = null;
-		reinitTexturesElement.checked = false;
-		toggleReinitTextures();
+		displayRenderTexturesElement = null;
+		reinitModelElement.checked = false;
+		toggleReinitModel();
 		// Clear the contents.
 		renderTexturesContainerElement.innerHTML = '';
 		console.log('Render texture view disabled.');
 	}
 }
 
-function toggleReinitTextures() {
-	reinitTexturesEveryFrame = reinitTexturesElement.checked;
-	_noCharModelCleanupDebug = reinitTexturesEveryFrame;
-	// Remake the same CharModel if it exists.
-	if (currentCharModel) {
-		updateCharModelInScene(null, currentExpressionFlag);
-	}
-	console.log(`Reinitialize textures every frame: ${reinitTexturesElement.checked}`);
+/** Toggle the option to reinitialize the current CharModel every frame. */
+function toggleReinitModel() {
+	reinitModelEveryFrame = reinitModelElement.checked;
+	console.log(`Reinitialize CharModel every frame: ${reinitModelElement.checked}`);
 }
 
 // // ---------------------------------------------------------------------
@@ -420,11 +459,16 @@ function updateCharModelIcon() {
 		return;
 	}
 
+	/**
+	 * Asynchronously makes a CharModel icon.
+	 * @param {HTMLImageElement} img - The image to set `src` of.
+	 * @param {ViewType} viewType - The view type for the icon.
+	 */
 	async function makeIcon(img, viewType = ViewType.MakeIcon) {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
 		const dataURL = createCharModelIcon(currentCharModel, renderer, viewType, 256, 256);
-		img.setAttribute('src', dataURL);
+		img.src = dataURL;
 	}
 
 	makeIcon(modelIconElement);
@@ -482,10 +526,8 @@ function addUIControls() {
 	// Expression select list.
 	expressionSelectElement.addEventListener('change', updateExpression);
 
-	// Set global render textures element to null after FFL initialization
-	_displayRenderTexturesElement = null;
 	renderTexturesDisplayElement.addEventListener('toggle', toggleRenderTexturesDisplay);
-	reinitTexturesElement.addEventListener('change', toggleReinitTextures);
+	reinitModelElement.addEventListener('change', toggleReinitModel);
 }
 
 // // ---------------------------------------------------------------------
@@ -551,14 +593,23 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 		initAndUpdateScene(charDataInputElement.value);
 	});
-
 });
 
 // // ---------------------------------------------------------------------
 // //  Preset Character Button Handling
 // // ---------------------------------------------------------------------
 
+/**
+ * Creates buttons and icons for the `preset-character-selection` list.
+ * @param {boolean} useLocalIcon - Whether or not to create the icon locally with createCharModelIcon.
+ */
 function loadCharacterButtons(useLocalIcon = true) {
+	/**
+	 * Asynchronously makes a CharModel icon.
+	 * @param {HTMLImageElement} img - The image to set `src` of.
+	 * @param {string} data - Data for the CharModel in a hex or Base64 string.
+	 * @param {ViewType} viewType - The view type for the icon.
+	 */
 	async function setIcon(img, data, viewType = ViewType.IconFovy45) {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
@@ -570,14 +621,14 @@ function loadCharacterButtons(useLocalIcon = true) {
 				model = createCharModel(dataU8, null, window[activeMaterialClassName], window.Module);
 				initCharModelTextures(model, renderer);
 				const dataURL = createCharModelIcon(model, renderer, viewType);
-				img.setAttribute('src', dataURL);
+				img.src = dataURL;
 			} catch (e) {
 				console.error(`loadCharacterButtons: Could not make icon for ${data}: ${e}`);
 			} finally {
 				model.dispose();
 			}
 		} else {
-			img.setAttribute('src', img.getAttribute('data-src') + encodeURIComponent(data));
+			img.src = img.getAttribute('data-src') + encodeURIComponent(data);
 		}
 	}
 
@@ -603,10 +654,98 @@ function loadCharacterButtons(useLocalIcon = true) {
 	});
 }
 
+/**
+ * Event listener for clicking a preset character button.
+ * @param {Event} event - The click event.
+ */
 function onPresetCharacterClick(event) {
 	event.preventDefault();
 	const data = event.currentTarget.getAttribute('data-data');
 	console.log('Preset character data clicked: ', data);
 
 	initAndUpdateScene(data);
+}
+
+// // ---------------------------------------------------------------------
+// //  JSDoc Generation Functions for ffl.js Structures
+// // ---------------------------------------------------------------------
+
+/**
+ * Generate JSDoc typedef from an object, supporting nested types up to depth 5.
+ * Ignores keys starting with "_".
+ * @param {Object<string, *>} obj - The object to analyze.
+ * @param {string} [typeName] - The name of the type.
+ * @param {number} [depth] - Current recursion depth (default: 0).
+ * @param {Set<string>} [definedTypes] - Tracks already defined types to avoid duplicates.
+ * @returns {string} JSDoc typedef output.
+ */
+function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0, definedTypes = new Set()) {
+	// Stop at max depth 5.
+	if (depth > 5) {
+		return '';
+	}
+
+	let text = `/**\n * @typedef {Object} ${typeName}\n`;
+	let nestedDefinitions = '';
+
+	Object.keys(obj).forEach((key) => {
+		// Ignore private keys beginning with underscore.
+		if (key.startsWith('_')) {
+			// Ignore private keys beginning with underscore.
+			return;
+		}
+
+		const value = obj[key];
+		const valueType = typeof value;
+		let propType;
+
+		if (value === null) {
+			propType = 'null';
+		} else if (Array.isArray(value)) {
+			let arrayType = '*'; // Assume first element type.
+			if (value.length > 0) {
+				const firstElem = value[0];
+				if (typeof firstElem === 'object' && firstElem !== null) {
+					const subType = `${typeName}_${key}_Item`;
+					if (!definedTypes.has(subType)) {
+						nestedDefinitions += generateJSDoc(firstElem, subType, depth + 1, definedTypes) + '\n';
+						definedTypes.add(subType);
+					}
+					arrayType = subType;
+				} else {
+					arrayType = typeof firstElem;
+				}
+			}
+			propType = `Array<${arrayType}>`;
+		} else if (valueType === 'object') {
+			const subType = `${typeName}_${key}`;
+			if (!definedTypes.has(subType)) {
+				nestedDefinitions += generateJSDoc(value, subType, depth + 1, definedTypes) + '\n';
+				definedTypes.add(subType);
+			}
+			propType = subType;
+		} else {
+			propType = valueType;
+		}
+
+		text += ` * @property {${propType}} ${key}\n`;
+	});
+
+	text += ' */';
+	return nestedDefinitions + text;
+}
+
+/**
+ * Generates JSDoc, calling {@link generateJSDoc}, from the name
+ * of a type defined as a struct-fu struct.
+ * The result will be logged to console.
+ * @param {_.StructInstance<*>} structInstance - Result of _.struct for the type.
+ * @param {string} [typeName] - Name of the type.
+ * @returns {string} The JSDoc typedef with type name set to just "type".
+ * @throws {Error} typeName must be a string
+ */
+function generateJSDocStructFu(structInstance, typeName = 'type') {
+	const empty = new Uint8Array(structInstance.size);
+	const obj = structInstance.unpack(empty); // Object containing all struct fields.
+	return generateJSDoc(obj, typeName);
 }
