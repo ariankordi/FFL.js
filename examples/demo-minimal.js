@@ -4,6 +4,12 @@
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
+/**
+ * Emscripten module instance returned after initialization.
+ * @type {Module}
+ */
+let moduleFFL;
+
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
 let scene;
@@ -112,7 +118,7 @@ function updateCharModelInScene(data, modelDesc = null) {
 			throw new Error('cannot exclude modelDesc if no model was initialized yet');
 		}
 		// Create a new CharModel.
-		currentCharModel = createCharModel(data, modelDesc, window.FFLShaderMaterial, window.Module);
+		currentCharModel = createCharModel(data, modelDesc, window.FFLShaderMaterial, moduleFFL);
 		// Initialize textures for the new CharModel.
 		initCharModelTextures(currentCharModel, renderer);
 	}
@@ -132,8 +138,13 @@ const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getE
 
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
-	// Initialize FFL and TextureManager.
-	await initializeFFLWithResource(window.Module);
+	// Initialize FFL.
+	const initResult = await initializeFFLWithResource(window.ModuleFFL);
+	if (!initResult || !initResult.module) {
+		throw new Error(`initializeFFLWithResource returned unexpected result: ${initResult}`);
+	}
+	// Set moduleFFL global from initialization result.
+	moduleFFL = initResult.module;
 
 	// Create renderer now.
 	renderer = new THREE.WebGLRenderer();

@@ -4,6 +4,12 @@
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
+/**
+ * Emscripten module instance returned after initialization.
+ * @type {Module}
+ */
+let moduleFFL;
+
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
 let scene;
@@ -207,7 +213,7 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 			if (!descOrExpFlag) {
 				throw new Error('cannot exclude modelDesc if no model was initialized yet');
 			}
-			currentCharModel = createCharModel(data, descOrExpFlag, window[activeMaterialClassName], window.Module);
+			currentCharModel = createCharModel(data, descOrExpFlag, window[activeMaterialClassName], moduleFFL);
 			// Initialize textures for the new CharModel.
 			initCharModelTextures(currentCharModel, renderer);
 		}
@@ -566,9 +572,15 @@ const charDataInputElement = document.getElementById('charData');
 
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
-	await initializeFFL(window.ffljsResourceFetchResponse, window.Module);
+	// Initialize FFL.
+	const initResult = await initializeFFL(window.ffljsResourceFetchResponse, window.ModuleFFL);
+	if (!initResult || !initResult.module) {
+		throw new Error(`initializeFFLWithResource returned unexpected result: ${initResult}`);
+	}
+	// Set moduleFFL global from initialization result.
+	moduleFFL = initResult.module;
 
-	// Initialize FFL and TextureManager.
+	// Initialize FFL.
 	// await initializeFFLWithResource(window.Module);
 	// window.Module._FFLSetLinearGammaMode(1);
 
@@ -618,7 +630,7 @@ function loadCharacterButtons(useLocalIcon = true) {
 			let model;
 			try {
 				const dataU8 = parseHexOrB64ToUint8Array(data);
-				model = createCharModel(dataU8, null, window[activeMaterialClassName], window.Module);
+				model = createCharModel(dataU8, null, window[activeMaterialClassName], moduleFFL);
 				initCharModelTextures(model, renderer);
 				const dataURL = createCharModelIcon(model, renderer, viewType);
 				img.src = dataURL;
