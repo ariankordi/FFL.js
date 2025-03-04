@@ -1,5 +1,3 @@
-// TODO: npm install eslint @eslint/js @eslint-community/eslint-plugin-eslint-comments @stylistic/eslint-plugin eslint-plugin-import globals eslint-plugin-jsdoc
-
 import eslint from '@eslint/js';
 import eslintCommentPlugin from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import stylisticPlugin from '@stylistic/eslint-plugin';
@@ -68,7 +66,11 @@ export default [
 				multiline: true,
 				consistent: true
 			}],
-			'@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: false }]
+			'@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: false }],
+			'@stylistic/indent': ['error', 'tab', {
+				SwitchCase: 1,
+				ignoredNodes: ['Program > ExpressionStatement > CallExpression > :last-child > *']
+			}]
 		}
 	},
 

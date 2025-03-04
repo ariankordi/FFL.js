@@ -1,9 +1,36 @@
 // @ts-check
+
+/**
+ * @typedef {number} FFLModulateMode
+ * @typedef {number} FFLModulateType
+ * @typedef {import('three')} THREE
+ */
+
+/* global define, require, module -- UMD globals. */
+(function (root, factory) {
+	// @ts-ignore - cannot find name define
+	if (typeof define === 'function' && define.amd) {
+		// AMD. Register as an anonymous module.
+		// @ts-ignore
+		define(['three'], factory);
+	} else if (typeof module === 'object' && module.exports) {
+		// Node.js/CommonJS
+		module.exports = factory(require('three'));
+	} else {
+		// Browser globals
+
+		// Assume THREE is defined in window.
+		/** @type {*} */ (root).FFLShaderMaterial = factory(/** @type {*} */ (root).THREE);
+	}
+}(typeof self !== 'undefined' ? self : this,
+	/* eslint-disable jsdoc/require-returns-type -- Allow TS to predict return type. */
+	/**
+	 * @param {THREE} THREE - Three.js namespace.
+	 * @returns Returns the exported namespace.
+	 */
+	function (THREE) {
+/* eslint-enable jsdoc/require-returns-type -- Allow TS to predict return type. */
 'use strict';
-/*
-import * as THREE from 'three';
-import { FFLModulateMode, FFLModulateType } from './ffl.js';
-*/
 // // ---------------------------------------------------------------------
 // //  Vertex Shader for FFLShaderMaterial
 // //  Derived from MiiDefaultShader.vsh found in Miitomo.
@@ -426,27 +453,27 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Default ambient light color.
-	 * @type {THREE.Color}
+	 * @type {import('three').Color}
 	 */
 	static defaultLightAmbient = new THREE.Color(0.73, 0.73, 0.73)/* .convertSRGBToLinear() */;
 	/**
 	 * Default diffuse light color.
-	 * @type {THREE.Color}
+	 * @type {import('three').Color}
 	 */
 	static defaultLightDiffuse = new THREE.Color(0.6, 0.6, 0.6)/* .convertSRGBToLinear() */;
 	/**
 	 * Default specular light color.
-	 * @type {THREE.Color}
+	 * @type {import('three').Color}
 	 */
 	static defaultLightSpecular = new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */;
 	/**
 	 * Default light direction.
-	 * @type {THREE.Vector3}
+	 * @type {import('three').Vector3}
 	 */
 	static defaultLightDir = new THREE.Vector3(-0.4531539381, 0.4226179123, 0.7848858833);
 	/**
 	 * Default rim color.
-	 * @type {THREE.Color}
+	 * @type {import('three').Color}
 	 */
 	static defaultRimColor = new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */;
 	/**
@@ -457,7 +484,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Alias for default light direction.
-	 * @type {THREE.Vector3}
+	 * @type {import('three').Vector3}
 	 */
 	static defaultLightDirection = this.defaultLightDir;
 
@@ -465,7 +492,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	// Reference: https://github.com/aboood40091/FFL-Testing/blob/master/src/Shader.cpp
 	/**
 	 * Material uniform table mapping to FFLModulateType.
-	 * @private
+	 * @package
 	 */
 	static materialParams = [
 		{
@@ -564,7 +591,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {FFLModulateType} modulateType - The modulate type.
 	 * @returns {Object} An object containing blending parameters for the material constructor.
 	 * @throws {Error} Unknown modulate type
-	 * @private
+	 * @package
 	 */
 	static getBlendOptionsFromModulateType(modulateType) {
 		if (modulateType >= 0 && modulateType <= 5) {
@@ -606,20 +633,20 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Constructs an FFLShaderMaterial instance.
-	 * @param {Object} [options={}] - Options for the material.
-	 * @param {FFLModulateMode} [options.modulateMode=0] - Modulate mode.
-	 * @param {FFLModulateType} [options.modulateType=0] - Modulate type.
-	 * @param {THREE.Vector4 | Array<THREE.Vector4>} [options.modulateColor] - Constant color assigned to u_const1/2/3 depending on single or array.
-	 * @param {boolean} [options.lightEnable=true] - Enable lighting. Needs to be off when drawing faceline/mask textures.
-	 * @param {THREE.Vector3} [options.lightDirection] - Light direction.
-	 * @param {THREE.Color} [options.lightAmbient] - Ambient light color.
-	 * @param {THREE.Color} [options.lightDiffuse] - Diffuse light color.
-	 * @param {THREE.Color} [options.lightSpecular] - Specular light color.
+	 * @param {Object} [options] - Options for the material.
+	 * @param {FFLModulateMode} [options.modulateMode] - Modulate mode.
+	 * @param {FFLModulateType} [options.modulateType] - Modulate type.
+	 * @param {import('three').Vector4 | Array<import('three').Vector4>} [options.modulateColor] - Constant color assigned to u_const1/2/3 depending on single or array.
+	 * @param {boolean} [options.lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
+	 * @param {import('three').Vector3} [options.lightDirection] - Light direction.
+	 * @param {import('three').Color} [options.lightAmbient] - Ambient light color.
+	 * @param {import('three').Color} [options.lightDiffuse] - Diffuse light color.
+	 * @param {import('three').Color} [options.lightSpecular] - Specular light color.
 	 * @param {boolean} [options.useSpecularModeBlinn] - Whether to override specular mode on all materials with 0 (Blinn-Phong specular).
-	 * @param {THREE.Texture} [options.map=null] - Texture map.
+	 * @param {import('three').Texture} [options.map] - Texture map.
 	 * @param {string} [options.vertexShader] - Vertex shader source.
 	 * @param {string} [options.fragmentShader] - Fragment shader source.
-	 * @param {THREE.Side} [options.side=THREE.FrontSide] - Side.
+	 * @param {import('three').Side} [options.side] - Side.
 	 */
 	constructor(options = {}) {
 		const modulateMode = options.modulateMode ?? 0;
@@ -692,7 +719,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		/** @type {FFLModulateType} */
 		this.modulateType = modulateType;
 		// Set alias for modulateColor as strictly a single color.
-		/** @private */
+		/** @package */
 		this._modulateColor = Array.isArray(options.modulateColor) ? null : options.modulateColor;
 		/** @type {boolean} */
 		this.lightEnable = lightEnable;
@@ -700,7 +727,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the texture map.
-	 * @returns {THREE.Texture} The texture map.
+	 * @returns {import('three').Texture} The texture map.
 	 */
 	get map() {
 		return this.uniforms.s_texture.value; // Expose as 'map'
@@ -708,7 +735,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the texture map.
-	 * @param {THREE.Texture} value - The new texture map.
+	 * @param {import('three').Texture} value - The new texture map.
 	 */
 	set map(value) {
 		this.uniforms.s_texture.value = value;
@@ -716,7 +743,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the first/primary constant color.
-	 * @returns {THREE.Vector4} The color as Vector4.
+	 * @returns {import('three').Vector4} The color as Vector4.
 	 */
 	get modulateColor() {
 		// Use alias for modulateColor if it is set.
@@ -728,7 +755,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the primary constant color. Will not set any other colors (u_const2/3).
-	 * @param {THREE.Vector4} value - The new color as Vector4.
+	 * @param {import('three').Vector4} value - The new color as Vector4.
 	 */
 	set modulateColor(value) {
 		this._modulateColor = null; // Clear alias for modulateColor.
@@ -737,7 +764,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the light direction.
-	 * @returns {THREE.Vector3} The light direction.
+	 * @returns {import('three').Vector3} The light direction.
 	 */
 	get lightDirection() {
 		return this.uniforms.u_light_dir.value;
@@ -745,7 +772,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the light direction.
-	 * @param {THREE.Vector3} value - The new light direction.
+	 * @param {import('three').Vector3} value - The new light direction.
 	 */
 	set lightDirection(value) {
 		this.uniforms.u_light_dir.value = value;
@@ -753,5 +780,8 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 }
 
 /** @global */
-window.FFLShaderMaterial = FFLShaderMaterial;
+// window.FFLShaderMaterial = FFLShaderMaterial;
 // export { FFLShaderMaterial };
+
+return FFLShaderMaterial;
+}));
