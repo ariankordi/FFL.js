@@ -13,7 +13,18 @@ import * as THREE from 'three';
 // import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.167.0/+esm';
 import * as _ from './struct-fu';
 */
-/* globals _ THREE -- Global dependencies: struct-fu, Three.js */
+
+// Hack to get library globals recognized throughout the file (uncomment for ESM).
+/**
+ * @typedef {import('./struct-fu')} _
+ * @typedef {import('three')} THREE
+ */
+/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
+globalThis._ = /** @type {_} */ (/** @type {*} */ (globalThis)._);
+globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
+/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
+
+/* globals _ THREE -- Global dependencies. */
 // // ---------------------------------------------------------------------
 // //  Emscripten Types
 // // ---------------------------------------------------------------------
@@ -222,7 +233,7 @@ const _uintptr = _.uint32le;
  * @property {number} stride
  * @property {number} ptr
  */
-/** @type {_.StructInstance<FFLAttributeBuffer>} */
+/** @type {import('./struct-fu').StructInstance<FFLAttributeBuffer>} */
 const FFLAttributeBuffer = _.struct([
 	_.uint32le('size'),
 	_.uint32le('stride'),
@@ -233,7 +244,7 @@ const FFLAttributeBuffer = _.struct([
  * @typedef {Object} FFLAttributeBufferParam
  * @property {Array<FFLAttributeBuffer>} attributeBuffers
  */
-/** @type {_.StructInstance<FFLAttributeBufferParam>} */
+/** @type {import('./struct-fu').StructInstance<FFLAttributeBufferParam>} */
 const FFLAttributeBufferParam = _.struct([
 	_.struct('attributeBuffers', [FFLAttributeBuffer], 5)
 ]);
@@ -245,7 +256,7 @@ const FFLAttributeBufferParam = _.struct([
  * @property {number} pAdjustMatrix
  * @property {number} pIndexBuffer
  */
-/** @type {_.StructInstance<FFLPrimitiveParam>} */
+/** @type {import('./struct-fu').StructInstance<FFLPrimitiveParam>} */
 const FFLPrimitiveParam = _.struct([
 	_.uint32le('primitiveType'),
 	_.uint32le('indexCount'),
@@ -260,7 +271,7 @@ const FFLPrimitiveParam = _.struct([
  * @property {number} b
  * @property {number} a
  */
-/** @type {_.StructInstance<FFLColor>} */
+/** @type {import('./struct-fu').StructInstance<FFLColor>} */
 const FFLColor = _.struct([
 	_.float32le('r'),
 	_.float32le('g'),
@@ -274,7 +285,7 @@ const FFLColor = _.struct([
  * @property {number} y
  * @property {number} z
  */
-/** @type {_.StructInstance<FFLVec3>} */
+/** @type {import('./struct-fu').StructInstance<FFLVec3>} */
 const FFLVec3 = _.struct([
 	_.float32le('x'),
 	_.float32le('y'),
@@ -290,7 +301,7 @@ const FFLVec3 = _.struct([
  * @property {number} pColorB - Pointer to FFLColor
  * @property {number} pTexture2D
  */
-/** @type {_.StructInstance<FFLModulateParam>} */
+/** @type {import('./struct-fu').StructInstance<FFLModulateParam>} */
 const FFLModulateParam = _.struct([
 	_.uint32le('mode'), // enum FFLModulateMode
 	_.uint32le('type'), // enum FFLModulateType
@@ -307,7 +318,7 @@ const FFLModulateParam = _.struct([
  * @property {FFLCullMode} cullMode
  * @property {FFLPrimitiveParam} primitiveParam
  */
-/** @type {_.StructInstance<FFLDrawParam>} */
+/** @type {import('./struct-fu').StructInstance<FFLDrawParam>} */
 const FFLDrawParam = _.struct([
 	_.struct('attributeBufferParam', [FFLAttributeBufferParam]),
 	_.struct('modulateParam', [FFLModulateParam]),
@@ -321,7 +332,7 @@ const FFLDrawParam = _.struct([
  * @typedef {Object} FFLCreateID
  * @property {Array<number>} data
  */
-/** @type {_.StructInstance<FFLCreateID>} */
+/** @type {import('./struct-fu').StructInstance<FFLCreateID>} */
 const FFLCreateID = _.struct([
 	_.uint8('data', 10)
 ]);
@@ -437,7 +448,7 @@ const FFLCreateID = _.struct([
  * @property {number} authorType
  * @property {Array<number>} authorID
  */
-/** @type {_.StructInstance<FFLiCharInfo>} */
+/** @type {import('./struct-fu').StructInstance<FFLiCharInfo>} */
 const FFLiCharInfo = _.struct([
 	_.int32le('miiVersion'),
 	_.struct('faceline', [_.int32le('type'), _.int32le('color'),
@@ -528,7 +539,7 @@ const commonColorUnmask = color => (color & ~commonColorEnableMask) === 0
  * @property {number} facelineType
  * @property {number} hairType
  */
-/** @type {_.StructInstance<FFLAdditionalInfo>} */
+/** @type {import('./struct-fu').StructInstance<FFLAdditionalInfo>} */
 const FFLAdditionalInfo = _.struct([
 	_.char16le('name', 22),
 	_.char16le('creator', 22),
@@ -565,7 +576,7 @@ const FFLiRenderTexture = _.struct([
  * @property {FFLDrawParam} drawParamFaceBeard
  * @property {Array<number>} pRenderTextureCompressorParam
  */
-/** @type {_.StructInstance<FFLiFacelineTextureTempObject>} */
+/** @type {import('./struct-fu').StructInstance<FFLiFacelineTextureTempObject>} */
 const FFLiFacelineTextureTempObject = _.struct([
 	_uintptr('pTextureFaceLine'),
 	_.struct('drawParamFaceLine', [FFLDrawParam]),
@@ -585,7 +596,7 @@ const FFLiFacelineTextureTempObject = _.struct([
  * @property {FFLDrawParam} drawParamRawMaskPartsMole
  * @property {FFLDrawParam} drawParamRawMaskPartsFill
  */
-/** @type {_.StructInstance<FFLiRawMaskDrawParam>} */
+/** @type {import('./struct-fu').StructInstance<FFLiRawMaskDrawParam>} */
 const FFLiRawMaskDrawParam = _.struct([
 	_.struct('drawParamRawMaskPartsEye', [FFLDrawParam], 2),
 	_.struct('drawParamRawMaskPartsEyebrow', [FFLDrawParam], 2),
@@ -601,7 +612,7 @@ const FFLiRawMaskDrawParam = _.struct([
  * @property {Array<number>} pRawMaskDrawParam
  * @property {Uint8Array} _remaining
  */
-/** @type {_.StructInstance<FFLiMaskTexturesTempObject>} */
+/** @type {import('./struct-fu').StructInstance<FFLiMaskTexturesTempObject>} */
 const FFLiMaskTexturesTempObject = _.struct([
 	_.uint8('partsTextures', 0x154),
 	_uintptr('pRawMaskDrawParam', FFLExpression.MAX),
@@ -613,7 +624,7 @@ const FFLiMaskTexturesTempObject = _.struct([
  * @property {FFLiMaskTexturesTempObject} maskTextures
  * @property {FFLiFacelineTextureTempObject} facelineTexture
  */
-/** @type {_.StructInstance<FFLiTextureTempObject>} */
+/** @type {import('./struct-fu').StructInstance<FFLiTextureTempObject>} */
 const FFLiTextureTempObject = _.struct([
 	_.struct('maskTextures', [FFLiMaskTexturesTempObject]),
 	_.struct('facelineTexture', [FFLiFacelineTextureTempObject])
@@ -623,7 +634,7 @@ const FFLiTextureTempObject = _.struct([
  * @typedef {Object} FFLiMaskTextures
  * @property {Array<number>} pRenderTextures
  */
-/** @type {_.StructInstance<FFLiMaskTextures>} */
+/** @type {import('./struct-fu').StructInstance<FFLiMaskTextures>} */
 const FFLiMaskTextures = _.struct([
 	_uintptr('pRenderTextures', FFLExpression.MAX)
 ]);
@@ -638,7 +649,7 @@ const FFL_RESOLUTION_MASK = 0x3fffffff;
  * @property {number} modelFlag
  * @property {number} resourceType
  */
-/** @type {_.StructInstance<FFLCharModelDesc>} */
+/** @type {import('./struct-fu').StructInstance<FFLCharModelDesc>} */
 const FFLCharModelDesc = _.struct([
 	_.uint32le('resolution'),
 	_.uint32le('allExpressionFlag', 3),
@@ -663,7 +674,7 @@ const FFLCharModelDescDefault = {
  * @property {FFLVec3} min
  * @property {FFLVec3} max
  */
-/** @type {_.StructInstance<FFLBoundingBox>} */
+/** @type {import('./struct-fu').StructInstance<FFLBoundingBox>} */
 const FFLBoundingBox = _.struct([
 	_.struct('min', [FFLVec3]),
 	_.struct('max', [FFLVec3])
@@ -679,7 +690,7 @@ const FFLBoundingBox = _.struct([
  * @property {FFLVec3} headTopRotate
  * @property {FFLVec3} headTopTranslate
  */
-/** @type {_.StructInstance<FFLPartsTransform>} */
+/** @type {import('./struct-fu').StructInstance<FFLPartsTransform>} */
 const FFLPartsTransform = _.struct([
 	_.struct('hatTranslate', [FFLVec3]),
 	_.struct('headFrontRotate', [FFLVec3]),
@@ -691,14 +702,14 @@ const FFLPartsTransform = _.struct([
 ]);
 /**
  * PartsTransform with THREE.Vector3 type.
- * @typedef {Object<string, THREE.Vector3>} PartsTransform
- * @property {THREE.Vector3} hatTranslate
- * @property {THREE.Vector3} headFrontRotate
- * @property {THREE.Vector3} headFrontTranslate
- * @property {THREE.Vector3} headSideRotate
- * @property {THREE.Vector3} headSideTranslate
- * @property {THREE.Vector3} headTopRotate
- * @property {THREE.Vector3} headTopTranslate
+ * @typedef {Object<string, import('three').Vector3>} PartsTransform
+ * @property {import('three').Vector3} hatTranslate
+ * @property {import('three').Vector3} headFrontRotate
+ * @property {import('three').Vector3} headFrontTranslate
+ * @property {import('three').Vector3} headSideRotate
+ * @property {import('three').Vector3} headSideTranslate
+ * @property {import('three').Vector3} headTopRotate
+ * @property {import('three').Vector3} headTopTranslate
  */
 
 /**
@@ -717,7 +728,7 @@ const FFLPartsTransform = _.struct([
  * @property {number} modelType
  * @property {Array<FFLBoundingBox>} boundingBox
  */
-/** @type {_.StructInstance<FFLiCharModel>} */
+/** @type {import('./struct-fu').StructInstance<FFLiCharModel>} */
 const FFLiCharModel = _.struct([
 	_.struct('charInfo', [FFLiCharInfo]),
 	_.struct('charModelDesc', [FFLCharModelDesc]),
@@ -754,7 +765,7 @@ const FFLDataSource = {
  * @property {number} pBuffer
  * @property {number} index
  */
-/** @type {_.StructInstance<FFLCharModelSource>} */
+/** @type {import('./struct-fu').StructInstance<FFLCharModelSource>} */
 const FFLCharModelSource = _.struct([
 	_.uint32le('dataSource'),
 	_uintptr('pBuffer'),
@@ -799,7 +810,7 @@ const FFLRace = {
  * @property {Array<number>} size
  */
 /**
- * @type {_.StructInstance<FFLResourceDesc>}
+ * @type {import('./struct-fu').StructInstance<FFLResourceDesc>}
  */
 const FFLResourceDesc = _.struct([
 	_uintptr('pData', FFLResourceType.MAX),
@@ -835,7 +846,7 @@ const FFLTextureFormat = {
  * @property {Array<number>} mipLevelOffset
  */
 /**
- * @type {_.StructInstance<FFLTextureInfo>}
+ * @type {import('./struct-fu').StructInstance<FFLTextureInfo>}
  */
 const FFLTextureInfo = _.struct([
 	_.uint16le('width'),
@@ -877,7 +888,7 @@ class TextureManager {
 		 */
 		this._module = module;
 		/**
-		 * @type {Map<number, THREE.Texture>}
+		 * @type {Map<number, import('three').Texture>}
 		 * @private
 		 */
 		this._textures = new Map(); // Internal map of texture id -> THREE.Texture.
@@ -943,7 +954,7 @@ class TextureManager {
 
 	/**
 	 * @param {number} format - Enum value for FFLTextureFormat.
-	 * @returns {THREE.PixelFormat} Three.js texture format constant.
+	 * @returns {import('three').PixelFormat} Three.js texture format constant.
 	 * @throws {Error} Unexpected FFLTextureFormat value
 	 * Note that this function won't work on WebGL1Renderer in Three.js r137-r162 since R and RG textures need to use Luminance(Alpha)Format
 	 * (you'd somehow need to detect which renderer is used)
@@ -1030,7 +1041,7 @@ class TextureManager {
 	}
 
 	/**
-	 * @param {THREE.Texture} texture - Texture to upload mipmaps into.
+	 * @param {import('three').Texture} texture - Texture to upload mipmaps into.
 	 * @param {FFLTextureInfo} textureInfo - FFLTextureInfo object representing this texture.
 	 * @throws {Error} Throws if mipPtr is null.
 	 * @private
@@ -1093,7 +1104,7 @@ class TextureManager {
 
 	/**
 	 * @param {number} id - ID assigned to the texture.
-	 * @returns {THREE.Texture|null|undefined} Returns the texture if it is found.
+	 * @returns {import('three').Texture|null|undefined} Returns the texture if it is found.
 	 * @public
 	 */
 	get(id) {
@@ -1106,7 +1117,7 @@ class TextureManager {
 
 	/**
 	 * @param {number} id - ID assigned to the texture.
-	 * @param {THREE.Texture} texture - Texture to add.
+	 * @param {import('three').Texture} texture - Texture to add.
 	 * @public
 	 */
 	set(id, texture) {
@@ -1640,7 +1651,7 @@ class CharModel {
 	/**
 	 * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
 	 * @param {Module} module - The Emscripten module.
-	 * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - The material class (e.g., FFLShaderMaterial).
+	 * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
 	 * @param {TextureManager|null} texManager - The {@link TextureManager} instance for this CharModel.
 	 */
 	constructor(ptr, module, materialClass, texManager) {
@@ -1653,7 +1664,7 @@ class CharModel {
 		 */
 		this._data = null;
 		/**
-		 * @type {function(new: THREE.Material, ...*): THREE.Material}
+		 * @type {function(new: import('three').Material, ...*): import('three').Material}
 		 * @public
 		 */
 		this._materialClass = materialClass; // Store the material class.
@@ -1684,19 +1695,19 @@ class CharModel {
 
 		// Add RenderTargets for faceline and mask.
 		/**
-		 * @type {THREE.RenderTarget|null}
+		 * @type {import('three').RenderTarget|null}
 		 * @package
 		 */
 		this._facelineTarget = null;
 		/**
-		 * @type {Array<THREE.RenderTarget|null>}
+		 * @type {Array<import('three').RenderTarget|null>}
 		 * @package
 		 */
 		this._maskTargets = new Array(FFLExpression.MAX).fill(null);
 
 		/**
 		 * Group of THREE.Mesh objects representing the CharModel.
-		 * @type {THREE.Group|null}
+		 * @type {import('three').Group|null}
 		 * @public
 		 */
 		this.meshes = new THREE.Group();
@@ -1807,7 +1818,7 @@ class CharModel {
 	}
 
 	/**
-	 * @returns {THREE.Color} The faceline color as THREE.Color.
+	 * @returns {import('three').Color} The faceline color as THREE.Color.
 	 * @private
 	 */
 	_getFacelineColor() {
@@ -1824,7 +1835,7 @@ class CharModel {
 	}
 
 	/**
-	 * @returns {THREE.Color} The favorite color as THREE.Color.
+	 * @returns {import('three').Color} The favorite color as THREE.Color.
 	 * @private
 	 */
 	_getFavoriteColor() {
@@ -1879,7 +1890,7 @@ class CharModel {
 
 	/**
 	 * Either gets the boundingBox in the CharModel or calculates it from the meshes.
-	 * @returns {THREE.Box3} The bounding box.
+	 * @returns {import('three').Box3} The bounding box.
 	 * @throws {Error} Throws if this.meshes is null.
 	 * @private
 	 */
@@ -2051,8 +2062,8 @@ class CharModel {
 			throw new Error('setExpression: mask mesh does not exist, cannot set expression on it');
 		}
 		// Update texture and material.
-		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = target.texture;
-		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
+		/** @type {import('three').MeshBasicMaterial} */ (mesh.material).map = target.texture;
+		/** @type {import('three').MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
 	}
 
 	/**
@@ -2062,7 +2073,7 @@ class CharModel {
 	 * such as eyes, mouth, etc. which is the mask.
 	 * The faceline texture may not exist if it is not needed, in which
 	 * case the faceline color is used directly, see property {@link facelineColor}.
-	 * @returns {THREE.RenderTarget|null} The faceline render target, or null if it does not exist, in which case {@link facelineColor} should be used. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
+	 * @returns {import('three').RenderTarget|null} The faceline render target, or null if it does not exist, in which case {@link facelineColor} should be used. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
 	 */
 	getFaceline() { // getFaceTexture / "FFLiGetFaceTextureFromCharModel"
 		// Return the render target if it exists.
@@ -2078,7 +2089,7 @@ class CharModel {
 	 * around the mask shape, which is a transparent shape
 	 * placed in front of the head model.
 	 * @param {FFLExpression} expression - The desired expression, or the current expression.
-	 * @returns {THREE.RenderTarget|null} The mask render target for the given expression, or null if the CharModel was not initialized with that expression. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
+	 * @returns {import('three').RenderTarget|null} The mask render target for the given expression, or null if the CharModel was not initialized with that expression. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
 	 */
 	getMask(expression = this.expression) { // getMaskTexture
 		// Return the render target if it exists.
@@ -2112,7 +2123,7 @@ class CharModel {
 
 	/**
 	 * The faceline color for this CharModel.
-	 * @returns {THREE.Color} The faceline color.
+	 * @returns {import('three').Color} The faceline color.
 	 * @public
 	 */
 	get facelineColor() {
@@ -2125,7 +2136,7 @@ class CharModel {
 
 	/**
 	 * The favorite color for this CharModel.
-	 * @returns {THREE.Color} The favorite color.
+	 * @returns {import('three').Color} The favorite color.
 	 * @public
 	 */
 	get favoriteColor() {
@@ -2159,7 +2170,7 @@ class CharModel {
 	}
 
 	/**
-	 * @returns {THREE.Box3} The bounding box.
+	 * @returns {import('three').Box3} The bounding box.
 	 * @public
 	 */
 	get boundingBox() {
@@ -2185,7 +2196,7 @@ class CharModel {
 	/**
 	 * Gets a vector in which to scale the body model for this CharModel.
 	 * @param {BodyScaleMode} scaleMode - Mode in which to create the scale vector.
-	 * @returns {THREE.Vector3} Scale vector for the body model.
+	 * @returns {import('three').Vector3} Scale vector for the body model.
 	 * @throws {Error} Unexpected value for scaleMode
 	 * @public
 	 */
@@ -2240,7 +2251,7 @@ const PantsColor = {
 };
 
 /**
- * @type {Object<PantsColor, THREE.Color>}
+ * @type {Object<PantsColor, import('three').Color>}
  */
 const pantsColors = {
 	[PantsColor.GrayNormal]: new THREE.Color(0x40474E),
@@ -2445,7 +2456,7 @@ function makeExpressionFlag(expressions) {
  * Don't forget to call dispose() on the CharModel when you are done.
  * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
  * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
- * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
  * @param {Module} module - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
@@ -2538,7 +2549,7 @@ function createCharModel(data, modelDesc, materialClass, module, verify = true) 
  * of the ModelDesc from the existing CharModel.
  * @param {CharModel} charModel - The existing CharModel instance.
  * @param {Uint8Array|null} newData - The new raw charInfo data, or null to use the original.
- * @param {THREE.WebGLRenderer} renderer - The Three.js renderer.
+ * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
  * @param {FFLCharModelDesc|Array<number>|Uint32Array|null} descOrExpFlag - Either a new {@link FFLCharModelDesc}, an array of expressions, a single expression, or an expression flag (Uint32Array).
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The updated CharModel instance.
@@ -2618,10 +2629,10 @@ function transferCharModelTex(src, dst) {
  * Converts FFLDrawParam into a THREE.Mesh.
  * Binds geometry, texture, and material parameters.
  * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
- * @param {function(new: THREE.Material, ...*): THREE.Material} materialClass - Class for the material (constructor).
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - Class for the material (constructor).
  * @param {Module} module - The Emscripten module.
  * @param {TextureManager|null} texManager - The {@link TextureManager} instance for which to look for textures referenced by the DrawParam.
- * @returns {THREE.Mesh|null} The THREE.Mesh instance, or null if the index count is 0 indicating no shape data.
+ * @returns {import('three').Mesh|null} The THREE.Mesh instance, or null if the index count is 0 indicating no shape data.
  * @throws {Error} drawParam may be null, Unexpected value for FFLCullMode, Passed in TextureManager is invalid
  */
 function drawParamToMesh(drawParam, materialClass, module, texManager) {
@@ -2639,7 +2650,7 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 	// Bind geometry data.
 	const geometry = _bindDrawParamGeometry(drawParam, module);
 	// Determine cull mode by mapping FFLCullMode to THREE.Side.
-	/** @type {Object<FFLCullMode, THREE.Side>} */
+	/** @type {Object<FFLCullMode, import('three').Side>} */
 	const cullModeToThreeSide = {
 		[FFLCullMode.NONE]: THREE.DoubleSide,
 		[FFLCullMode.BACK]: THREE.FrontSide,
@@ -2685,7 +2696,7 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
  * Binds geometry attributes from drawParam into a THREE.BufferGeometry.
  * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
  * @param {Module} module - The Emscripten module from which to read the heap.
- * @returns {THREE.BufferGeometry} The geometry.
+ * @returns {import('three').BufferGeometry} The geometry.
  * @throws {Error} Position buffer must not have size of 0
  * @package
  * @todo Does not yet handle color stride = 0
@@ -2804,7 +2815,7 @@ function _bindDrawParamGeometry(drawParam, module) {
  * Does not assign texture for faceline or mask types.
  * @param {FFLModulateParam} modulateParam - drawParam.modulateParam.
  * @param {TextureManager} textureManager - The {@link TextureManager} instance for which to look for the texture referenced.
- * @returns {THREE.Texture|null} The texture if found.
+ * @returns {import('three').Texture|null} The texture if found.
  * @throws {Error} Throws if pTexture2D refers to a texture that was not found in the TextureManager
  * @package
  */
@@ -2841,8 +2852,8 @@ function _getTextureFromModulateParam(modulateParam, textureManager) {
  */
 function _applyModulateParam(modulateParam, module) {
 	// Default modulate color is a Vector4; if provided, extract it.
-	/** @type {THREE.Vector4 | Array<THREE.Vector4>} */
-	let modulateColor = new THREE.Vector4(0, 0, 0, 0);
+	/** @type {import('three').Vector4|Array<import('three').Vector4>|null} */
+	let modulateColor = null;
 	if (modulateParam.pColorR !== 0) {
 		const colorPtr = modulateParam.pColorR / 4;
 		const colorData = module.HEAPF32.subarray(colorPtr, colorPtr + 4);
@@ -2873,7 +2884,7 @@ function _applyModulateParam(modulateParam, module) {
  * Converts a pointer to FFLColor into a THREE.Vector4.
  * @param {number} colorPtr - The pointer to the color.
  * @param {Module} module - The Emscripten module.
- * @returns {THREE.Vector4} The converted Vector4.
+ * @returns {import('three').Vector4} The converted Vector4.
  */
 function _getVector4FromFFLColorPtr(colorPtr, module) {
 	if (!colorPtr) {
@@ -2887,7 +2898,7 @@ function _getVector4FromFFLColorPtr(colorPtr, module) {
 /**
  * Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
  * @param {number} pMtx - Pointer to rio::Matrix34f.
- * @param {THREE.Object3D} mesh - The mesh to apply transformations to.
+ * @param {import('three').Object3D} mesh - The mesh to apply transformations to.
  * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
  * @package
  */
@@ -2899,7 +2910,7 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
 	/**
 	 * Creates a THREE.Matrix4 from a 3x4 row-major matrix array.
 	 * @param {Array<number>|Float32Array} m - The array that makes up the 3x4 matrix, expected to have 12 elements.
-	 * @returns {THREE.Matrix4} The converted matrix.
+	 * @returns {import('three').Matrix4} The converted matrix.
 	 */
 	function matrixFromRowMajor3x4(m) {
 		const matrix = new THREE.Matrix4();
@@ -2930,7 +2941,7 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
  * Calls private functions to draw faceline and mask textures.
  * At the end, calls setExpression to update the mask texture.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {THREE.WebGLRenderer} renderer - The Three.js renderer.
+ * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
  * @todo Should this just be called in createCharModel() or something? But it's the only function requiring renderer. Maybe if you pass in renderer to that?
  */
 function initCharModelTextures(charModel, renderer) {
@@ -2962,7 +2973,7 @@ function initCharModelTextures(charModel, renderer) {
  * Draws and applies the faceline texture for the CharModel.
  * @param {CharModel} charModel - The CharModel.
  * @param {FFLiTextureTempObject} textureTempObject - The FFLiTextureTempObject containing faceline DrawParams.
- * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  * @package
  */
@@ -3015,7 +3026,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
  * Iterates through mask textures and draws each mask texture.
  * @param {CharModel} charModel - The CharModel.
  * @param {FFLiTextureTempObject} textureTempObject - The temporary texture object.
- * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  * @package
  */
@@ -3024,7 +3035,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
 	const expressionFlagPtr = charModel._getExpressionFlagPtr();
 
 	// Collect all scenes and only dispose them at the end.
-	/** @type {Array<THREE.Scene>} */
+	/** @type {Array<import('three').Scene>} */
 	const scenes = [];
 
 	// Iterate through pRenderTextures to find out which masks are needed.
@@ -3060,9 +3071,9 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
  * Note that the caller needs to dispose meshes within the returned scene.
  * @param {CharModel} charModel - The CharModel.
  * @param {FFLiRawMaskDrawParam} rawMaskParam - The RawMaskDrawParam.
- * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
- * @returns {{target: THREE.RenderTarget, scene: THREE.Scene}} The RenderTarget and scene of this mask texture.
+ * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}} The RenderTarget and scene of this mask texture.
  * @throws {Error} All DrawParams are empty.
  * @package
  */
@@ -3099,7 +3110,7 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, module) {
 /**
  * Sets the faceline texture of the given CharModel from the RenderTarget.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {THREE.RenderTarget} target - RenderTarget for the faceline texture.
+ * @param {import('three').RenderTarget} target - RenderTarget for the faceline texture.
  * @throws {Error} target must be a valid THREE.RenderTarget with "texture" property and CharModel must be initialized with OPA_FACELINE in meshes.
  * @package
  */
@@ -3113,8 +3124,8 @@ function _setFaceline(charModel, target) {
 		throw new Error('setFaceline: faceline shape does not exist');
 	}
 	// Update texture and material.
-	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = target.texture;
-	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
+	/** @type {import('three').MeshBasicMaterial} */ (mesh.material).map = target.texture;
+	/** @type {import('three').MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
 }
 
 // // ---------------------------------------------------------------------
@@ -3127,16 +3138,16 @@ function _setFaceline(charModel, target) {
  * Creates an THREE.Scene from an array of drawParams, converting each
  * to a new mesh. Used for one-time rendering of faceline/mask 2D planes.
  * @param {Array<FFLDrawParam>} drawParams - Array of FFLDrawParam.
- * @param {THREE.Color|null} bgColor - Optional background color.
- * @param {[function(new: THREE.Material, ...*): THREE.Material, Module, TextureManager|null]} drawParamArgs - Arguments to pass to drawParamToMesh.
- * @returns {{scene: THREE.Scene, meshes: Array<THREE.Mesh|null>}} An object containing the created scene and an array of meshes.
+ * @param {import('three').Color|null} bgColor - Optional background color.
+ * @param {[function(new: import('three').Material, ...*): import('three').Material, Module, TextureManager|null]} drawParamArgs - Arguments to pass to drawParamToMesh.
+ * @returns {{scene: import('three').Scene, meshes: Array<import('three').Mesh|null>}} An object containing the created scene and an array of meshes.
  */
 function createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) {
 	const scene = new THREE.Scene();
 	// For 2D plane rendering, set the background if provided.
 	scene.background = bgColor || null;
 	// TODO: use THREE.Group?
-	/** @type {Array<THREE.Mesh|null>} */
+	/** @type {Array<import('three').Mesh|null>} */
 	const meshes = [];
 	drawParams.forEach((param) => {
 		const mesh = drawParamToMesh(param, ...drawParamArgs);
@@ -3154,7 +3165,7 @@ function createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) {
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
  * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
- * @returns {THREE.OrthographicCamera} The orthographic camera.
+ * @returns {import('three').OrthographicCamera} The orthographic camera.
  */
 function getIdentCamera(flipY = false) {
 	// Create an orthographic camera with bounds [-1, 1] in x and y.
@@ -3169,13 +3180,13 @@ function getIdentCamera(flipY = false) {
 /**
  * Creates a Three.js RenderTarget, renders the scene with
  * the given camera, and returns the render target.
- * @param {THREE.Scene} scene - The scene to render.
- * @param {THREE.Camera} camera - The camera to use.
- * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {import('three').Scene} scene - The scene to render.
+ * @param {import('three').Camera} camera - The camera to use.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {number} width - Desired width of the target.
  * @param {number} height - Desired height of the target.
  * @param {Object} [targetOptions] - Optional options for the render target.
- * @returns {THREE.RenderTarget} The render target (which contains .texture).
+ * @returns {import('three').RenderTarget} The render target (which contains .texture).
  */
 function createAndRenderToTarget(scene, camera, renderer, width, height, targetOptions = {}) {
 	// Set default options for the RenderTarget.
@@ -3197,8 +3208,8 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
 // -------------------------- disposeMeshes(target) --------------------------
 /**
  * Disposes meshes in a {@link THREE.Object3D} and removes them from the {@link THREE.Scene} specified.
- * @param {THREE.Scene|THREE.Object3D} group - The scene or group to dispose meshes from.
- * @param {THREE.Scene} [scene] - The scene to remove the meshes from, if provided.
+ * @param {import('three').Scene|import('three').Object3D} group - The scene or group to dispose meshes from.
+ * @param {import('three').Scene} [scene] - The scene to remove the meshes from, if provided.
  * @todo TODO: Rename to disposeGroup/Scene or something
  */
 function disposeMeshes(group, scene) {
@@ -3206,7 +3217,7 @@ function disposeMeshes(group, scene) {
 
 	/**
 	 * Disposes a single material along with its texture map.
-	 * @param {THREE.MeshBasicMaterial} material - The material with `map` property to dispose.
+	 * @param {import('three').MeshBasicMaterial} material - The material with `map` property to dispose.
 	 */
 	function disposeMaterial(material) {
 		// Dispose texture in material.
@@ -3236,9 +3247,9 @@ function disposeMeshes(group, scene) {
 			Array.isArray(child.material)
 				// Assume that materials are compatible with THREE.MeshBasicMaterial for .map.
 				? child.material.forEach((material) => {
-					disposeMaterial(/** @type {THREE.MeshBasicMaterial} */ (material));
+					disposeMaterial(/** @type {import('three').MeshBasicMaterial} */ (material));
 				})
-				: disposeMaterial(/** @type {THREE.MeshBasicMaterial} */(child.material));
+				: disposeMaterial(/** @type {import('three').MeshBasicMaterial} */(child.material));
 		}
 	});
 
@@ -3258,8 +3269,8 @@ function disposeMeshes(group, scene) {
 // ----------- renderTargetToDataURL(renderTarget, renderer, flipY) -----------
 /**
  * Gets a data URL for a render target's texture using the same renderer.
- * @param {THREE.RenderTarget} renderTarget - The render target.
- * @param {THREE.WebGLRenderer} renderer - The renderer (MUST be the same renderer used for the target).
+ * @param {import('three').RenderTarget} renderTarget - The render target.
+ * @param {import('three').WebGLRenderer} renderer - The renderer (MUST be the same renderer used for the target).
  * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {string} The data URL representing the RenderTarget's texture contents.
  */
@@ -3332,7 +3343,7 @@ const ViewType = {
  * @param {ViewType} viewType - The {@link ViewType} enum value.
  * @param {number} width - Width of the view.
  * @param {number} height - Height of the view.
- * @returns {THREE.PerspectiveCamera} The camera representing the view type specified.
+ * @returns {import('three').PerspectiveCamera} The camera representing the view type specified.
  * @throws {Error}
  */
 function getCameraForViewType(viewType, width = 1, height = 1) {
@@ -3361,7 +3372,7 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
  * Creates an icon representing the CharModel's head,
  * using a render target and reading its pixels into a data URL.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {ViewType} viewType - The view type.
  * @param {number} width - Desired icon width.
  * @param {number} height - Desired icon height.
@@ -3448,7 +3459,7 @@ function createCharModelIcon(charModel, renderer, viewType = ViewType.MakeIcon, 
 
 /**
  * Structure representing data from the studio.mii.nintendo.com site and API.
- * @type {_.StructInstance<StudioCharInfo>}
+ * @type {import('./struct-fu').StructInstance<StudioCharInfo>}
  */
 const StudioCharInfo = _.struct([
 	// Fields are named according to nn::mii::CharInfo.
