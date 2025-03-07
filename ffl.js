@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import * as _ from './struct-fu';
 */
 
-// Hack to get library globals recognized throughout the file (uncomment for ESM).
+// Hack to get library globals recognized throughout the file (remove for ESM).
 /**
  * @typedef {import('./struct-fu')} _
  * @typedef {import('three')} THREE
@@ -23,8 +23,8 @@ import * as _ from './struct-fu';
 globalThis._ = /** @type {_} */ (/** @type {*} */ (globalThis)._);
 globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
-
 /* globals _ THREE -- Global dependencies. */
+
 // // ---------------------------------------------------------------------
 // //  Emscripten Types
 // // ---------------------------------------------------------------------
@@ -964,7 +964,7 @@ class TextureManager {
 		// Map FFLTextureFormat to Three.js texture formats.
 
 		// THREE.RGFormat did not work for me on Three.js r136/older.
-		const useGLES2Formats = Number(THREE.REVISION) < 137;
+		const useGLES2Formats = Number(THREE.REVISION) <= 136;
 		const r8 = useGLES2Formats
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
@@ -1668,6 +1668,12 @@ class CharModel {
 		 * @public
 		 */
 		this._materialClass = materialClass; // Store the material class.
+		/**
+		 * Material class used to initialize textures specifically.
+		 * @type {function(new: import('three').Material, ...*): import('three').Material}
+		 * @public
+		 */
+		this._materialTextureClass = materialClass;
 
 		/** @package */
 		this._textureManager = texManager;
@@ -1784,6 +1790,7 @@ class CharModel {
 	 * @returns {FFLAdditionalInfo} The FFLAdditionalInfo object.
 	 * @private
 	 */
+	/*
 	_getAdditionalInfo() {
 		const mod = this._module;
 		const addInfoPtr = mod._malloc(FFLAdditionalInfo.size);
@@ -1793,6 +1800,7 @@ class CharModel {
 		mod._free(addInfoPtr);
 		return info;
 	}
+	*/
 
 	/**
 	 * Accesses partsTransform in FFLiCharModel,
@@ -1828,9 +1836,9 @@ class CharModel {
 		const facelineColor = this._model.charInfo.faceline.color;
 		const colorPtr = mod._malloc(FFLColor.size); // Allocate return pointer.
 		mod._FFLGetFacelineColor(colorPtr, facelineColor);
-		const color = _getVector4FromFFLColorPtr(colorPtr, mod);
+		const color = _getFFLColor3(_getFFLColor(colorPtr, mod.HEAPF32));
 		mod._free(colorPtr);
-		return new THREE.Color().setRGB(color.x, color.y, color.z);// , THREE.SRGBColorSpace); // No alpha component.
+		return color;
 		// Assume this is in working color space because it is used for clear color.
 	}
 
@@ -1843,9 +1851,9 @@ class CharModel {
 		const favoriteColor = this._model.charInfo.personal.favoriteColor;
 		const colorPtr = mod._malloc(FFLColor.size); // Allocate return pointer.
 		mod._FFLGetFavoriteColor(colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
-		const color = _getVector4FromFFLColorPtr(colorPtr, mod);
+		const color = _getFFLColor3(_getFFLColor(colorPtr, mod.HEAPF32));
 		mod._free(colorPtr);
-		return new THREE.Color().setRGB(color.x, color.y, color.z, THREE.SRGBColorSpace);
+		return color;
 	}
 
 	/**
@@ -2591,7 +2599,7 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, ver
 	// Create a new CharModel with the new data and ModelDesc.
 	const newCharModel = createCharModel(newData, newModelDesc, charModel._materialClass, charModel._module, verify);
 	// Initialize its textures.
-	initCharModelTextures(newCharModel, renderer);
+	initCharModelTextures(newCharModel, renderer, charModel._materialTextureClass);
 	return newCharModel;
 }
 
@@ -2665,13 +2673,14 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 	// Get texture.
 	const texture = _getTextureFromModulateParam(drawParam.modulateParam, texManager);
 
+	// Apply modulateParam material parameters.
+	const params = _applyModulateParam(drawParam.modulateParam, module);
 	// Create object for material parameters.
 	const materialParam = {
 		side: side,
 		// Apply texture.
 		map: texture,
-		// Apply modulateParam material parameters.
-		..._applyModulateParam(drawParam.modulateParam, module)
+		...params
 	};
 	// Create material using the provided materialClass.
 	const material = new materialClass(materialParam);
@@ -2822,9 +2831,10 @@ function _bindDrawParamGeometry(drawParam, module) {
 function _getTextureFromModulateParam(modulateParam, textureManager) {
 	// Only assign texture if pTexture2D is not null.
 	if (!modulateParam.pTexture2D ||
-		// Ignore faceline and mask.
-		modulateParam.type === FFLModulateType.SHAPE_FACELINE ||
-		modulateParam.type === FFLModulateType.SHAPE_MASK) {
+		// The pointer will be set to just "1" for
+		// faceline and mask textures that are supposed
+		// to be targets (FFL_TEXTURE_PLACEHOLDER, FFLI_RENDER_TEXTURE_PLACEHOLDER)
+		modulateParam.pTexture2D === 1) {
 		return null; // No texture to bind.
 	}
 	const texturePtr = modulateParam.pTexture2D;
@@ -2832,7 +2842,7 @@ function _getTextureFromModulateParam(modulateParam, textureManager) {
 	if (!texture) {
 		throw new Error(`_getTextureFromModulateParam: Texture not found for ${texturePtr}.`);
 	}
-	// Selective apply mirrored repeat.
+	// Selective apply mirrored repeat (not supported on NPOT/mipmap textures for WebGL 1.0)
 	const applyMirrorTypes = [FFLModulateType.SHAPE_FACELINE, FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_GLASS];
 	// ^^ Faceline, cap, and glass. NOTE that faceline texture won't go through here
 	if (applyMirrorTypes.indexOf(modulateParam.type) !== -1) {
@@ -2844,55 +2854,149 @@ function _getTextureFromModulateParam(modulateParam, textureManager) {
 }
 
 /**
- * Returns an object of material parameters based on ModulateParam.
- * @param {FFLModulateParam} modulateParam - drawParam.modulateParam
- * @param {Module} module - The Emscripten module for accessing color pointers via heap.
- * @returns {Object} Parameters for material creation.
+ * Retrieves blending parameters based on the FFLModulateType.
+ * Will only actually return anything for mask and faceline shapes.
+ * @param {FFLModulateType} modulateType - The modulate type.
+ * @param {FFLModulateMode} [modulateMode] - The modulate mode, used to differentiate body/pants modulate types from mask modulate types.
+ * @returns {Object} An object containing blending parameters for the Three.js material constructor, or an empty object.
+ * @throws {Error} Unknown modulate type
  * @package
  */
-function _applyModulateParam(modulateParam, module) {
-	// Default modulate color is a Vector4; if provided, extract it.
-	/** @type {import('three').Vector4|Array<import('three').Vector4>|null} */
-	let modulateColor = null;
-	if (modulateParam.pColorR !== 0) {
-		const colorPtr = modulateParam.pColorR / 4;
-		const colorData = module.HEAPF32.subarray(colorPtr, colorPtr + 4);
-		modulateColor = new THREE.Vector4(colorData[0], colorData[1], colorData[2], colorData[3]);
+function _getBlendOptionsFromModulateType(modulateType, modulateMode) {
+	/*
+	if (modulateType >= FFLModulateType.SHAPE_FACELINE &&
+		modulateType <= FFLModulateType.SHAPE_CAP) {
+		// Opaque (DrawOpa)
+		// glTF alphaMode: OPAQUE
+		return {
+			// blending: THREE.CustomBlending,
+			// blendSrcAlpha: THREE.SrcAlphaFactor,
+			// blendDstAlpha: THREE.OneFactor
+			transparent: false
+		};
+	} else if (modulateType >= FFLModulateType.SHAPE_MASK &&
+		modulateType <= FFLModulateType.SHAPE_GLASS) {
+		// Translucent (DrawXlu)
+		// glTF alphaMode: MASK (TEXTURE_DIRECT), or BLEND (LUMINANCE_ALPHA)?
+		return {
+			// blending: THREE.CustomBlending,
+			// blendSrc: THREE.SrcAlphaFactor,
+			// blendDst: THREE.OneMinusSrcAlphaFactor,
+			// blendDstAlpha: THREE.OneFactor,
+			transparent: true
+			// depthWrite: false // for glass?
+		};
+	} else
+	*/
+	if (modulateMode !== 0 && modulateType >= FFLModulateType.SHAPE_MAX &&
+		modulateType <= FFLModulateType.MOLE) {
+		// Mask Textures
+		return {
+			blending: THREE.CustomBlending,
+			blendSrc: THREE.OneMinusDstAlphaFactor,
+			blendSrcAlpha: THREE.SrcAlphaFactor,
+			blendDst: THREE.DstAlphaFactor
+		};
+	} else if (modulateMode !== 0 && modulateType >= FFLModulateType.FACE_MAKE &&
+		modulateType <= FFLModulateType.FILL) {
+		// Faceline Texture
+		return {
+			blending: THREE.CustomBlending,
+			blendSrc: THREE.SrcAlphaFactor,
+			blendDst: THREE.OneMinusSrcAlphaFactor,
+			blendSrcAlpha: THREE.OneFactor,
+			blendDstAlpha: THREE.OneFactor
+		};
 	}
-	// If both pColorG and pColorB are provided, combine them into an array.
-	if (modulateParam.pColorG !== 0 && modulateParam.pColorB !== 0) {
-		modulateColor = [
-			_getVector4FromFFLColorPtr(modulateParam.pColorR, module),
-			_getVector4FromFFLColorPtr(modulateParam.pColorG, module),
-			_getVector4FromFFLColorPtr(modulateParam.pColorB, module)
-		];
-	}
-	// Determine whether to enable lighting.
-	const lightEnable = !(modulateParam.mode !== FFLModulateMode.CONSTANT &&
-		modulateParam.type >= FFLModulateType.SHAPE_MAX);
-
-	// Not applying map here.
-	return {
-		modulateMode: modulateParam.mode,
-		modulateType: modulateParam.type,
-		modulateColor: modulateColor,
-		lightEnable: lightEnable
-	};
+	return {};
+	// No blending options needed.
+	// else {
+	// 	throw new Error(`_getBlendOptionsFromModulateType: Unknown modulate type: ${modulateType}`);
+	// }
 }
 
 /**
- * Converts a pointer to FFLColor into a THREE.Vector4.
- * @param {number} colorPtr - The pointer to the color.
- * @param {Module} module - The Emscripten module.
- * @returns {import('three').Vector4} The converted Vector4.
+ * Returns an object of parameters for a Three.js material constructor, based on {@link FFLModulateParam}.
+ * @param {FFLModulateParam} modulateParam - Property `modulateParam` of {@link FFLDrawParam}.
+ * @param {Module} module - The Emscripten module for accessing color pointers in heap.
+ * @returns {Object} Parameters for creating a Three.js material.
+ * @package
  */
-function _getVector4FromFFLColorPtr(colorPtr, module) {
-	if (!colorPtr) {
-		console.error('getVector4FromFFLColorPtr: Received null pointer');
-		return new THREE.Vector4(0, 0, 0, 0);
+function _applyModulateParam(modulateParam, module) {
+	// Apply constant colors.
+	/** @type {import('three').Color|Array<import('three').Color>|null} */
+	let color = null;
+
+	/** @type {FFLColor|null} */
+	let color4 = null; // Single constant color.
+	const f32 = module.HEAPF32;
+	// If both pColorG and pColorB are provided, combine them into an array.
+	if (modulateParam.pColorG !== 0 && modulateParam.pColorB !== 0) {
+		color = [
+			_getFFLColor3(_getFFLColor(modulateParam.pColorR, f32)),
+			_getFFLColor3(_getFFLColor(modulateParam.pColorG, f32)),
+			_getFFLColor3(_getFFLColor(modulateParam.pColorB, f32))
+		];
+	} else if (modulateParam.pColorR !== 0) {
+		// Otherwise, set it as a single color.
+		color4 = _getFFLColor(modulateParam.pColorR, f32);
+		color = _getFFLColor3(color4);
 	}
-	const colorData = module.HEAPF32.subarray(colorPtr / 4, colorPtr / 4 + 4);
-	return new THREE.Vector4(colorData[0], colorData[1], colorData[2], colorData[3]);
+
+	// Use opacity from single pColorR (it's only 0 for "fill" 2D plane)
+	const opacity = color4 ? color4.a : 1.0;
+	// Otherwise use 1.0, which is the opacity used pretty much everywhere.
+
+	// Set transparent property for Xlu/mask and higher.
+	const transparent = modulateParam.type >= FFLModulateType.SHAPE_MASK;
+
+	// Disable lighting if this is a 2D plane (mask/faceline) and not opaque (body/pants).
+	const lightEnable = !(modulateParam.type >= FFLModulateType.SHAPE_MAX &&
+		modulateParam.mode !== FFLModulateMode.CONSTANT);
+
+	// Not applying map here, that happens in _getTextureFromModulateParam.
+	const param = {
+		modulateMode: modulateParam.mode,
+		modulateType: modulateParam.type, // LUTShaderMaterial needs this set before color.
+
+		// Common Three.js material parameters.
+		color: color,
+		opacity: opacity,
+		transparent: transparent,
+
+		// Apply blending options (for mask/faceline) based on modulateType.
+		..._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
+	};
+	if (!lightEnable) {
+		// Only set lightEnable if it is not default.
+		/** @type {Object<string, *>} */ (param).lightEnable = lightEnable;
+	}
+	return param;
+}
+
+/**
+ * Dereferences a pointer to FFLColor.
+ * @param {number} colorPtr - The pointer to the color.
+ * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
+ * @returns {FFLColor} The converted Vector4.
+ * @throws {Error} Received null pointer
+ */
+function _getFFLColor(colorPtr, heapf32) {
+	if (!colorPtr) {
+		throw new Error('_getFFLColor: Received null pointer');
+	}
+	// Assign directly from HEAPF32.
+	const colorData = heapf32.subarray(colorPtr / 4, colorPtr / 4 + 4);
+	return { r: colorData[0], g: colorData[1], b: colorData[2], a: colorData[3] };
+}
+
+/**
+ * Creates a {@link THREE.Color3} from {@link FFLColor}.
+ * @param {FFLColor} color - The {@link FFLColor} object..
+ * @returns {import('three').Color} The converted color.
+ */
+function _getFFLColor3(color) {
+	return new THREE.Color(color.r, color.g, color.b);
 }
 
 /**
@@ -2940,15 +3044,23 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
  * Initializes textures (faceline and mask) for a CharModel.
  * Calls private functions to draw faceline and mask textures.
  * At the end, calls setExpression to update the mask texture.
+ * Note that this is a separate function due to needing renderer parameter.
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
- * @todo Should this just be called in createCharModel() or something? But it's the only function requiring renderer. Maybe if you pass in renderer to that?
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  */
-function initCharModelTextures(charModel, renderer) {
+function initCharModelTextures(charModel, renderer, materialClass = charModel._materialClass) {
 	const module = charModel._module;
+	/**
+	 * Material class used to initialize textures specifically.
+	 * @type {function(new: import('three').Material, ...*): import('three').Material}
+	 * @public
+	 */
+	charModel._materialTextureClass = materialClass;
+
 	const textureTempObject = charModel._getTextureTempObject();
 	// Draw faceline texture if applicable.
-	_drawFacelineTexture(charModel, textureTempObject, renderer, module);
+	_drawFacelineTexture(charModel, textureTempObject, renderer, module, materialClass);
 
 	// Warn if renderer.alpha is not set to true.
 	const clearAlpha = renderer.getClearAlpha();
@@ -2958,7 +3070,7 @@ function initCharModelTextures(charModel, renderer) {
 	}
 
 	// Draw mask textures for all expressions.
-	_drawMaskTextures(charModel, textureTempObject, renderer, module);
+	_drawMaskTextures(charModel, textureTempObject, renderer, module, materialClass);
 	// Finalize CharModel, deleting and freeing it.
 	charModel._finalizeCharModel();
 	// Update the expression to refresh the mask texture.
@@ -2975,9 +3087,10 @@ function initCharModelTextures(charModel, renderer) {
  * @param {FFLiTextureTempObject} textureTempObject - The FFLiTextureTempObject containing faceline DrawParams.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
  */
-function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
+function _drawFacelineTexture(charModel, textureTempObject, renderer, module, materialClass) {
 	// Invalidate faceline texture before drawing (ensures correctness)
 	const facelineTempObjectPtr = charModel._getFacelineTempObjectPtr();
 	module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
@@ -2998,7 +3111,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
 	// Get the faceline color from CharModel.
 	const bgColor = charModel.facelineColor;
 	// Create an offscreen scene.
-	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, bgColor, charModel._materialClass, charModel._module, charModel._textureManager);
+	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, bgColor, materialClass, charModel._module, charModel._textureManager);
 	// Render scene to texture.
 	const width = charModel._getResolution() / 2;
 	const height = charModel._getResolution();
@@ -3028,9 +3141,10 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module) {
  * @param {FFLiTextureTempObject} textureTempObject - The temporary texture object.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
  */
-function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
+function _drawMaskTextures(charModel, textureTempObject, renderer, module, materialClass) {
 	const maskTempObjectPtr = charModel._getMaskTempObjectPtr();
 	const expressionFlagPtr = charModel._getExpressionFlagPtr();
 
@@ -3048,7 +3162,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
 		const rawMaskDrawParam = FFLiRawMaskDrawParam.unpack(module.HEAPU8.subarray(rawMaskDrawParamPtr, rawMaskDrawParamPtr + FFLiRawMaskDrawParam.size));
 		module._FFLiInvalidateRawMask(rawMaskDrawParamPtr);
 
-		const { target, scene } = _drawMaskTexture(charModel, rawMaskDrawParam, renderer, module);
+		const { target, scene } = _drawMaskTexture(charModel, rawMaskDrawParam, renderer, module, materialClass);
 		console.debug(`Creating target ${target.texture.id} for mask ${i}`);
 		charModel._maskTargets[i] = target;
 
@@ -3073,11 +3187,12 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module) {
  * @param {FFLiRawMaskDrawParam} rawMaskParam - The RawMaskDrawParam.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}} The RenderTarget and scene of this mask texture.
  * @throws {Error} All DrawParams are empty.
  * @package
  */
-function _drawMaskTexture(charModel, rawMaskParam, renderer, module) {
+function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialClass) {
 	const drawParams = [
 		rawMaskParam.drawParamRawMaskPartsMustache[0],
 		rawMaskParam.drawParamRawMaskPartsMustache[1],
@@ -3097,7 +3212,7 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, module) {
 		stencilBuffer: false
 	};
 	// Create an offscreen scene with no background (for 2D mask rendering).
-	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, null, charModel._materialClass, module, charModel._textureManager);
+	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, null, materialClass, module, charModel._textureManager);
 	const width = charModel._getResolution();
 
 	const target = createAndRenderToTarget(offscreenScene,
@@ -3344,13 +3459,13 @@ const ViewType = {
  * @param {number} width - Width of the view.
  * @param {number} height - Height of the view.
  * @returns {import('three').PerspectiveCamera} The camera representing the view type specified.
- * @throws {Error}
+ * @throws {Error} not implemented (ViewType.Face)
  */
 function getCameraForViewType(viewType, width = 1, height = 1) {
 	const aspect = width / height;
 	switch (viewType) {
 		case ViewType.MakeIcon: {
-			const fovy = 10; // Math.atan2(43.2 / aspect, 500) / 0.5;
+			const fovy = 9.8762; // rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5);
 			const camera = new THREE.PerspectiveCamera(fovy, aspect, 500, 1000);
 			camera.position.set(0, 34.5, 600);
 			camera.lookAt(0, 34.5, 0.0);

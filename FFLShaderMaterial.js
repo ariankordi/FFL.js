@@ -351,34 +351,36 @@ void main()
     {
         color = u_const1;
     }
+    // modified to handle u_const1 alpha:
 //#elif defined(FFL_MODULATE_MODE_TEXTURE_DIRECT)
     else if(u_mode == FFL_MODULATE_MODE_TEXTURE_DIRECT)
     {
-        color = texture2D(s_texture, v_texCoord);
+        mediump vec4 texel = texture2D(s_texture, v_texCoord);
+        color = vec4(texel.rgb, u_const1.a * texel.a);
     }
 //#elif defined(FFL_MODULATE_MODE_RGB_LAYERED)
     else if(u_mode == FFL_MODULATE_MODE_RGB_LAYERED)
     {
-        color = texture2D(s_texture, v_texCoord);
-        color = vec4(color.r * u_const1.rgb + color.g * u_const2.rgb + color.b * u_const3.rgb, color.a);
+        mediump vec4 texel = texture2D(s_texture, v_texCoord);
+        color = vec4(texel.r * u_const1.rgb + texel.g * u_const2.rgb + texel.b * u_const3.rgb, u_const1.a * texel.a);
     }
 //#elif defined(FFL_MODULATE_MODE_ALPHA)
     else if(u_mode == FFL_MODULATE_MODE_ALPHA)
     {
-        color = texture2D(s_texture, v_texCoord);
-        color = vec4(u_const1.rgb, color.r);
+        mediump vec4 texel = texture2D(s_texture, v_texCoord);
+        color = vec4(u_const1.rgb, u_const1.a * texel.r);
     }
 //#elif defined(FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     else if(u_mode == FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     {
-        color = texture2D(s_texture, v_texCoord);
-        color = vec4(color.g * u_const1.rgb, color.r);
+        mediump vec4 texel = texture2D(s_texture, v_texCoord);
+        color = vec4(texel.g * u_const1.rgb, u_const1.a * texel.r);
     }
 //#elif defined(FFL_MODULATE_MODE_ALPHA_OPA)
     else if(u_mode == FFL_MODULATE_MODE_ALPHA_OPA)
     {
-        color = texture2D(s_texture, v_texCoord);
-        color = vec4(color.r * u_const1.rgb, 1.0);
+        mediump vec4 texel = texture2D(s_texture, v_texCoord);
+        color = vec4(texel.r * u_const1.rgb, u_const1.a);
     }
 //#endif
 
@@ -488,10 +490,9 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	static defaultLightDirection = this.defaultLightDir;
 
-	// Material table for FFLDefaultShader mapping to FFLModulateType
-	// Reference: https://github.com/aboood40091/FFL-Testing/blob/master/src/Shader.cpp
 	/**
 	 * Material uniform table mapping to FFLModulateType.
+	 * Reference: https://github.com/aboood40091/FFL-Testing/blob/master/src/Shader.cpp
 	 * @package
 	 */
 	static materialParams = [
@@ -586,180 +587,224 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		}
 	];
 
+	/** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
+
 	/**
-	 * Retrieves blending parameters based on the FFLModulateType.
-	 * @param {FFLModulateType} modulateType - The modulate type.
-	 * @returns {Object} An object containing blending parameters for the material constructor.
-	 * @throws {Error} Unknown modulate type
-	 * @package
+	 * @typedef {Object} FFLShaderMaterialParameters
+	 * @property {FFLModulateMode} [modulateMode] - Modulate mode.
+	 * @property {FFLModulateType} [modulateType] - Modulate type.
+	 * @property {import('three').Color|Array<import('three').Color>} [color] - Constant color assigned to u_const1/2/3 depending on single or array.
+	 * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
+	 * @property {import('three').Vector3} [lightDirection] - Light direction.
+	 * @property {boolean} [useSpecularModeBlinn] - Whether to override specular mode on all materials with 0 (Blinn-Phong specular).
 	 */
-	static getBlendOptionsFromModulateType(modulateType) {
-		if (modulateType >= 0 && modulateType <= 5) {
-			// Opaque (DrawOpa)
-			return {
-				blending: THREE.CustomBlending,
-				blendSrcAlpha: THREE.SrcAlphaFactor,
-				blendDstAlpha: THREE.OneFactor
-			};
-		} else if (modulateType >= 6 && modulateType <= 8) {
-			// Translucent (DrawXlu)
-			return {
-				blending: THREE.CustomBlending,
-				blendSrc: THREE.SrcAlphaFactor,
-				blendDst: THREE.OneMinusSrcAlphaFactor,
-				blendDstAlpha: THREE.OneFactor
-			};
-		} else if (modulateType >= 9 && modulateType <= 13) {
-			// Mask Textures
-			return {
-				blending: THREE.CustomBlending,
-				blendSrc: THREE.OneMinusDstAlphaFactor,
-				blendSrcAlpha: THREE.SrcAlphaFactor,
-				blendDst: THREE.DstAlphaFactor
-			};
-		} else if (modulateType >= 14 && modulateType <= 17) {
-			// Faceline Texture
-			return {
-				blending: THREE.CustomBlending,
-				blendSrc: THREE.SrcAlphaFactor,
-				blendDst: THREE.OneMinusSrcAlphaFactor,
-				blendSrcAlpha: THREE.OneFactor,
-				blendDstAlpha: THREE.OneFactor
-			};
-		} else {
-			throw new Error(`getBlendOptionsFromModulateType: Unknown modulate type: ${modulateType}`);
-		}
-	}
 
 	/**
 	 * Constructs an FFLShaderMaterial instance.
-	 * @param {Object} [options] - Options for the material.
-	 * @param {FFLModulateMode} [options.modulateMode] - Modulate mode.
-	 * @param {FFLModulateType} [options.modulateType] - Modulate type.
-	 * @param {import('three').Vector4 | Array<import('three').Vector4>} [options.modulateColor] - Constant color assigned to u_const1/2/3 depending on single or array.
-	 * @param {boolean} [options.lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
-	 * @param {import('three').Vector3} [options.lightDirection] - Light direction.
-	 * @param {import('three').Color} [options.lightAmbient] - Ambient light color.
-	 * @param {import('three').Color} [options.lightDiffuse] - Diffuse light color.
-	 * @param {import('three').Color} [options.lightSpecular] - Specular light color.
-	 * @param {boolean} [options.useSpecularModeBlinn] - Whether to override specular mode on all materials with 0 (Blinn-Phong specular).
-	 * @param {import('three').Texture} [options.map] - Texture map.
-	 * @param {string} [options.vertexShader] - Vertex shader source.
-	 * @param {string} [options.fragmentShader] - Fragment shader source.
-	 * @param {import('three').Side} [options.side] - Side.
+	 * @param {import('three').ShaderMaterialParameters & FFLShaderMaterialParameters} [options] - Parameters for the material.
 	 */
 	constructor(options = {}) {
-		const modulateMode = options.modulateMode ?? 0;
-		const modulateType = options.modulateType ?? 0;
-		const lightEnable = options.lightEnable ?? true;
-		const lightDir = options.lightDirection ?? FFLShaderMaterial.defaultLightDir.clone();
-		const texture = options.map || null;
-
-		// Process modulateColor input.
-		let colorUniforms = {};
-		if (Array.isArray(options.modulateColor) && options.modulateColor.length === 3) {
-			colorUniforms = {
-				// Assign multiple modulateColor elements to constant color uniforms.
-				u_const1: { value: options.modulateColor[0] },
-				u_const2: { value: options.modulateColor[1] },
-				u_const3: { value: options.modulateColor[2] }
-			};
-		} else {
-			colorUniforms = {
-				// Assign single color with white as a placeholder.
-				u_const1: { value: options.modulateColor || new THREE.Vector4(1, 1, 1, 1) }
-			};
-		}
-
-		const matParam =
-      FFLShaderMaterial.materialParams[modulateType] ||
-      FFLShaderMaterial.materialParams[0];
-
-		const uniforms = Object.assign({}, colorUniforms, {
+		// Set default uniforms.
+		/** @type {Object<string, import('three').IUniform>} */
+		const uniforms = {
 			u_light_ambient: {
-				value: options.lightAmbient || FFLShaderMaterial.defaultLightAmbient
+				value: FFLShaderMaterial.defaultLightAmbient
 			},
 			u_light_diffuse: {
-				value: options.lightDiffuse || FFLShaderMaterial.defaultLightDiffuse
+				value: FFLShaderMaterial.defaultLightDiffuse
 			},
 			u_light_specular: {
-				value: options.lightSpecular || FFLShaderMaterial.defaultLightSpecular
+				value: FFLShaderMaterial.defaultLightSpecular
 			},
-			u_light_dir: { value: lightDir },
-			u_light_enable: { value: lightEnable },
-			u_material_ambient: { value: matParam.ambient },
-			u_material_diffuse: { value: matParam.diffuse },
-			u_material_specular: { value: matParam.specular },
-			u_material_specular_mode: {
-				value: options.useSpecularModeBlinn ? 0 : matParam.specularMode
-			},
-			u_material_specular_power: { value: matParam.specularPower },
-			u_mode: { value: modulateMode },
+			u_light_dir: { value: FFLShaderMaterial.defaultLightDir.clone() },
+			u_light_enable: { value: true }, // Default to true.
 			u_rim_color: { value: FFLShaderMaterial.defaultRimColor },
-			u_rim_power: { value: FFLShaderMaterial.defaultRimPower },
-			s_texture: { value: texture }
+			u_rim_power: { value: FFLShaderMaterial.defaultRimPower }
+		};
+
+		// Construct the ShaderMaterial using the shader source.
+		super({
+			vertexShader: _FFLShader_vert,
+			fragmentShader: _FFLShader_frag,
+			uniforms: uniforms
 		});
 
-		super({
-			vertexShader:
-        options.vertexShader ||
-        _FFLShader_vert,
-			fragmentShader:
-        options.fragmentShader ||
-        _FFLShader_frag,
-			uniforms: uniforms,
-			side: options.side || THREE.FrontSide,
-			// skinning: options.skinning || false, // Not needed with newer Three.js.
-			// Merge blend options, only if modulateMode is not 0/opqaue.
-			...modulateMode !== 0 ? FFLShaderMaterial.getBlendOptionsFromModulateType(modulateType) : {}
-		});
-		// Expose these properties.
-		/** @type {FFLModulateMode} */
-		this.modulateMode = modulateMode;
+		// Initialize default values.
 		/** @type {FFLModulateType} */
-		this.modulateType = modulateType;
-		// Set alias for modulateColor as strictly a single color.
-		/** @package */
-		this._modulateColor = Array.isArray(options.modulateColor) ? null : options.modulateColor;
-		/** @type {boolean} */
-		this.lightEnable = lightEnable;
+		this._modulateType = 0;
+		this.useSpecularModeBlinn = false;
+
+		// Use the setters to set the rest of the uniforms.
+		this.setValues(options);
 	}
 
 	/**
-	 * Gets the texture map.
-	 * @returns {import('three').Texture} The texture map.
+	 * Gets the constant color (u_const1) uniform as THREE.Color.
+	 * @returns {import('three').Color|null} The constant color, or null if it is not set.
+	 */
+	get color() {
+		if (!this.uniforms.u_const1) {
+			// If color is not set, return null.
+			return null;
+		} else if (this._color3) {
+			// Use cached THREE.Color instance if it is set.
+			return this._color3;
+		}
+		// Get THREE.Color from u_const1 (Vector4).
+		const color4 = /** @type {IUniformVector4} */ (this.uniforms.u_const1).value;
+		const color3 = new THREE.Color(color4.x, color4.y, color4.z);
+		this._color3 = color3; // Cache the THREE.Color instance.
+		return color3;
+	}
+
+	/**
+	 * Sets the constant color uniforms from THREE.Color.
+	 * @param {import('three').Color|Array<import('three').Color>} value - The constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
+	 */
+	set color(value) {
+		/**
+		 * @param {import('three').Color} color - THREE.Color instance.
+		 * @param {number} opacity - Opacity mapped to .a.
+		 * @returns {import('three').Vector4} Vector4 containing color and opacity.
+		 */
+		function toColor4(color, opacity = 1.0) {
+			return new THREE.Vector4(color.r, color.g, color.b, opacity);
+		}
+		// Set an array of colors, assumed to have 3 elements.
+		if (Array.isArray(value)) {
+			// Assign multiple color instances to u_const1/2/3.
+			/** @type {IUniformVector4} */ (this.uniforms.u_const1) =
+				{ value: toColor4(value[0]) };
+			/** @type {IUniformVector4} */ (this.uniforms.u_const2) =
+				{ value: toColor4(value[1]) };
+			/** @type {IUniformVector4} */ (this.uniforms.u_const3) =
+				{ value: toColor4(value[2]) };
+			return;
+		}
+		// Set single color as THREE.Color, defaulting to white.
+		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
+		/** @type {import('three').Color} */
+		this._color3 = color3;
+		// Assign single color with white as a placeholder.
+		const opacity = this.opacity;
+		if (this._opacity) {
+			// if _opacity is set then the above returned it, delete when done
+			delete this._opacity;
+		}
+		/** @type {IUniformVector4} */ (this.uniforms.u_const1) =
+			{ value: toColor4(color3, opacity) };
+	}
+
+	/**
+	 * Gets the opacity of the constant color.
+	 * @returns {number|undefined} The new opacity value.
+	 */
+	// @ts-ignore - Already defined on parent class.
+	get opacity() {
+		if (!this.uniforms.u_const1) {
+			// Get from _opacity if it is set before constant color.
+			return this._opacity;
+		}
+		// Return w (alpha) of the constant color uniform.
+		return /** @type {IUniformVector4} */ (this.uniforms.u_const1).value.w;
+	}
+
+	/**
+	 * Sets the opacity of the constant color.
+	 * NOTE: that this is actually set in the constructor
+	 * of Material, meaning it is the only one set BEFORE uniforms are
+	 * @param {number} value - The new opacity value.
+	 */
+	// @ts-ignore - Already defined on parent class.
+	set opacity(value) {
+		if (!this.uniforms || !this.uniforms.u_const1) {
+			// Store here for later when color is set.
+			this._opacity = 1;
+			return;
+		}
+		/** @type {IUniformVector4} */ (this.uniforms.u_const1).value.w = value;
+	}
+
+	/**
+	 * Gets the value of the modulateMode uniform.
+	 * @returns {FFLModulateMode|null} The modulateMode value, or null if it is unset.
+	 */
+	get modulateMode() {
+		return this.uniforms.u_mode ? this.uniforms.u_mode.value : null;
+	}
+
+	/**
+	 * Sets the value of the modulateMode uniform.
+	 * @param {FFLModulateMode} value - The new modulateMode value.
+	 */
+	set modulateMode(value) {
+		this.uniforms.u_mode = { value: value };
+	}
+
+	/**
+	 * Sets the value determining whether lighting is enabled or not.
+	 * @returns {boolean|null} The lightEnable value, or null if it is unset.
+	 */
+	get lightEnable() {
+		return this.uniforms.u_light_enable ? this.uniforms.u_light_enable.value : null;
+	}
+
+	/**
+	 * Sets the value determining whether lighting is enabled or not.
+	 * @param {boolean} value - The lightEnable value.
+	 */
+	set lightEnable(value) {
+		this.uniforms.u_light_enable = { value: value };
+	}
+
+	/**
+	 * Gets the modulateType value.
+	 * @returns {FFLModulateType|undefined} The modulateType value if it is set.
+	 */
+	get modulateType() {
+		// This isn't actually a uniform so this is a private property.
+		return this._modulateType;
+	}
+
+	/**
+	 * Sets the material uniforms based on the modulate type value.
+	 * @param {FFLModulateType} value - The new modulateType value.
+	 */
+	set modulateType(value) {
+		// Get material uniforms for modulate type from materialParams table.
+		const matParam = FFLShaderMaterial.materialParams[value];
+		if (!matParam) {
+			// Out of bounds modulateType that don't have materials
+			// are usually for mask/faceline textures, so don't throw error
+			return;
+		}
+		this._modulateType = value;
+
+		// Set material uniforms from matParam object.
+		this.uniforms.u_material_ambient = { value: matParam.ambient };
+		this.uniforms.u_material_diffuse = { value: matParam.diffuse };
+		this.uniforms.u_material_specular = { value: matParam.specular };
+		this.uniforms.u_material_specular_mode = {
+			// Force value of 0 if useSpecularModeBlinn is set.
+			value: this.useSpecularModeBlinn ? 0 : matParam.specularMode
+		};
+		this.uniforms.u_material_specular_power = { value: matParam.specularPower };
+	}
+
+	/**
+	 * Gets the texture map if it is set.
+	 * @returns {import('three').Texture|null} The texture map, or null if it is unset.
 	 */
 	get map() {
-		return this.uniforms.s_texture.value; // Expose as 'map'
+		return this.uniforms.s_texture ? this.uniforms.s_texture.value : null;
 	}
 
 	/**
-	 * Sets the texture map.
+	 * Sets the texture map (s_texture uniform).
 	 * @param {import('three').Texture} value - The new texture map.
 	 */
 	set map(value) {
-		this.uniforms.s_texture.value = value;
-	}
-
-	/**
-	 * Gets the first/primary constant color.
-	 * @returns {import('three').Vector4} The color as Vector4.
-	 */
-	get modulateColor() {
-		// Use alias for modulateColor if it is set.
-		if (this._modulateColor) {
-			return this._modulateColor;
-		}
-		return this.uniforms.u_const1.value;
-	}
-
-	/**
-	 * Sets the primary constant color. Will not set any other colors (u_const2/3).
-	 * @param {import('three').Vector4} value - The new color as Vector4.
-	 */
-	set modulateColor(value) {
-		this._modulateColor = null; // Clear alias for modulateColor.
-		this.uniforms.u_const1.value = value;
+		this.uniforms.s_texture = { value: value };
 	}
 
 	/**
@@ -767,6 +812,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * @returns {import('three').Vector3} The light direction.
 	 */
 	get lightDirection() {
+		// Should always be set as long as this is constructed.
 		return this.uniforms.u_light_dir.value;
 	}
 
@@ -775,7 +821,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {import('three').Vector3} value - The new light direction.
 	 */
 	set lightDirection(value) {
-		this.uniforms.u_light_dir.value = value;
+		this.uniforms.u_light_dir = { value: value };
 	}
 }
 

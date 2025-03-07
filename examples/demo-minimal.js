@@ -132,8 +132,7 @@ function updateCharModelInScene(data, modelDesc = null) {
 // // ---------------------------------------------------------------------
 
 // Assume a form with id "charform" exists in the HTML.
-const charFormElement = document.getElementById('charForm');
-/** @type {HTMLInputElement | null} */
+const charFormElement = /** @type {HTMLFormElement|null} */ (document.getElementById('charForm'));
 const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
 
 // -------------- Form Submission Handler ------------------

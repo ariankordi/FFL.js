@@ -62,7 +62,7 @@ function initializeScene() {
 	// Note that faceline and mask are close, and
 	// often you may run into Z-fighting if you
 	// don't set near/far plane with care.
-	camera.position.set(0, 50, 500);
+	camera.position.set(0, 10, 500);
 
 	// Set up OrbitControls if it is loaded.
 	if (THREE.OrbitControls !== undefined) {
@@ -199,6 +199,7 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	if (typeof data === 'string') {
 		data = parseHexOrB64ToUint8Array(data);
 	}
+	const mat = window[activeMaterialClassName];
 	// Continue assuming it is Uint8Array.
 	// If an existing CharModel exists, update it.
 	try {
@@ -213,7 +214,7 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 			if (!descOrExpFlag) {
 				throw new Error('cannot exclude modelDesc if no model was initialized yet');
 			}
-			currentCharModel = createCharModel(data, descOrExpFlag, window[activeMaterialClassName], moduleFFL);
+			currentCharModel = createCharModel(data, descOrExpFlag, mat, moduleFFL);
 			// Initialize textures for the new CharModel.
 			initCharModelTextures(currentCharModel, renderer);
 		}
@@ -246,21 +247,27 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 // //  Light Direction
 // // ---------------------------------------------------------------------
 
-const lightDirXElement = document.getElementById('lightDirX');
-const lightDirYElement = document.getElementById('lightDirY');
-const lightDirZElement = document.getElementById('lightDirZ');
+const lightDirXElement = /** @type {HTMLInputElement|null} */ (document.getElementById('lightDirX'));
+const lightDirYElement = /** @type {HTMLInputElement|null} */ (document.getElementById('lightDirY'));
+const lightDirZElement = /** @type {HTMLInputElement|null} */ (document.getElementById('lightDirZ'));
 
 /**
  * Updates the light direction for all ShaderMaterials in the current CharModel.
  * Reads X, Y, Z values from range inputs and updates each material's lightDirection.
+ * @param {boolean} [normalize] - Whether or not to normalize the light direction vector.
+ * Sometimes the default light direction (like in LUTShaderMaterial) is not normalized
+ * so when resetting, don't normalize, only normalize when setting from user input.
  */
-function updateLightDirection() {
+function updateLightDirection(normalize = true) {
 	// Get values from the three sliders.
 	const x = parseFloat(lightDirXElement.value);
 	const y = parseFloat(lightDirYElement.value);
 	const z = parseFloat(lightDirZElement.value);
 	// Normalize the user-provided light direction.
-	const newDir = new THREE.Vector3(x, y, z).normalize();
+	let newDir = new THREE.Vector3(x, y, z);
+	if (normalize) {
+		newDir = newDir.normalize();
+	}
 
 	// Update lightDirection on each mesh that uses our shader.
 	if (!currentCharModel || !currentCharModel.meshes) {
@@ -269,7 +276,7 @@ function updateLightDirection() {
 	// currentCharModel.meshes.forEach((mesh) => {
 	currentCharModel.meshes.traverse((mesh) => {
 		// Make sure this mesh is non-null and has a compatible ShaderMaterial.
-		if (mesh && mesh.material && mesh.material.lightDirection) {
+		if (mesh instanceof THREE.Mesh && mesh.material.lightDirection) {
 			// Set the lightDirection on the material.
 			mesh.material.lightDirection = newDir.clone();
 		}
@@ -286,11 +293,16 @@ function resetLightDirection() {
 	if (!currentCharModel || !currentCharModel.meshes) {
 		return;
 	}
-	const defDir = window[activeMaterialClassName].defaultLightDirection.clone();
-	document.getElementById('lightDirX').value = defDir.x;
-	document.getElementById('lightDirY').value = defDir.y;
-	document.getElementById('lightDirZ').value = defDir.z;
-	updateLightDirection();
+	const mat = window[activeMaterialClassName];
+	// Make sure that the material has light direction before continuing.
+	if (!mat.defaultLightDirection) {
+		return;
+	}
+	const defDir = mat.defaultLightDirection.clone();
+	lightDirXElement.value = defDir.x;
+	lightDirYElement.value = defDir.y;
+	lightDirZElement.value = defDir.z;
+	updateLightDirection(false); // Do not normalize default light direction.
 	console.log('Light direction reset to default:', defDir);
 }
 
@@ -298,7 +310,7 @@ function resetLightDirection() {
 // //  Shader Material Selection
 // // ---------------------------------------------------------------------
 
-const shaderMaterialSelectElement = document.getElementById('shaderMaterialSelect');
+const shaderMaterialSelectElement = /** @type {HTMLInputElement|null} */ (document.getElementById('shaderMaterialSelect'));
 
 /**
  * Populates the shader selector (a <select> element)
@@ -329,34 +341,35 @@ function onShaderMaterialChange() {
 	activeMaterialClassName = shaderMaterialSelectElement.value;
 	console.log(`Material class changed to: ${activeMaterialClassName}`);
 	// For each mesh in the current CharModel, update its material:
-	if (currentCharModel && currentCharModel.meshes) {
-		// Update _materialClass property that updating CharModels will use.
-		currentCharModel._materialClass = window[activeMaterialClassName];
-		currentCharModel.meshes.traverse((mesh) => {
-			if (!mesh.isMesh) {
-				return;
-			}
-			// Recreate material with same parameters but using the new shader class.
-			const oldMat = mesh.material;
-			// Create new material (assumes the new shader is accessible via window).
-			const NewShader = window[activeMaterialClassName];
-
-			const params = {
-				modulateMode: oldMat.modulateMode,
-				modulateType: oldMat.modulateType,
-				modulateColor: oldMat.modulateColor,
-				// _side = original side from LUTShaderMaterial
-				side: (oldMat._side !== undefined) ? oldMat._side : oldMat.side,
-				lightEnable: oldMat.lightEnable,
-				map: oldMat.map
-			};
-			mesh.material = new NewShader(params);
-		});
-
-		resetLightDirection(); // There is now a new light direction.
-		// Update the icon to reflect the shader.
-		updateCharModelIcon();
+	if (!currentCharModel || !currentCharModel.meshes) {
+		return;
 	}
+	// Update _materialClass property that updating CharModels will use.
+	currentCharModel._materialClass = window[activeMaterialClassName];
+	currentCharModel.meshes.traverse((mesh) => {
+		if (!(mesh instanceof THREE.Mesh)) {
+			return;
+		}
+		// Recreate material with same parameters but using the new shader class.
+		const oldMat = mesh.material;
+		const userData = mesh.geometry.userData; // Get modulateMode/Type
+		// Create new material (assumes the new shader is accessible via window).
+
+		const params = {
+			// _side = original side from LUTShaderMaterial, must be set first
+			side: (oldMat._side !== undefined) ? oldMat._side : oldMat.side,
+			modulateMode: userData.modulateMode,
+			modulateType: userData.modulateType, // this setter sets side too
+			color: oldMat.color, // should be after modulateType
+			map: oldMat.map,
+			transparent: oldMat.transparent
+		};
+		mesh.material = new window[activeMaterialClassName](params);
+	});
+
+	resetLightDirection(); // There is now a new light direction.
+	// Update the icon to reflect the shader.
+	updateCharModelIcon();
 }
 
 // // ---------------------------------------------------------------------
@@ -365,13 +378,13 @@ function onShaderMaterialChange() {
 
 let rotationEnabled = false;
 
-const rotationSpeedElement = document.getElementById('rotationSpeed');
+const rotationSpeedElement = /** @type {HTMLInputElement|null} */ (document.getElementById)('rotationSpeed');
 
 /**
  * Updates the global rotation speed from the range input with id "rotationSpeed".
  */
 function updateRotationSpeed() {
-	controls.autoRotateSpeed = parseFloat(document.getElementById('rotationSpeed').value);
+	controls.autoRotateSpeed = parseFloat(rotationSpeedElement.value);
 }
 
 const toggleRotationElement = document.getElementById('toggleRotation');
@@ -396,15 +409,14 @@ function updateCanBlink() {
 	canBlink = expressionFlagBlinking.every((val, i) => val === flag[i]);
 }
 
-const expressionSelectElement = document.getElementById('expressionSelect');
+const expressionSelectElement = /** @type {HTMLInputElement|null} */ (document.getElementById('expressionSelect'));
 
 /**
  * Updates the current expression on the CharModel based on the select element value.
  * If the selected value is -1, blinking mode is enabled; otherwise, blinking is disabled.
  */
 function updateExpression() {
-	const exprSelect = document.getElementById('expressionSelect');
-	const val = parseInt(exprSelect.value, 10);
+	const val = parseInt(expressionSelectElement.value, 10);
 	// Set currentExpressionFlag global.
 	if (val === -1) {
 		// For value of -1, set as expressionFlagBlinking.
@@ -423,9 +435,9 @@ function updateExpression() {
 // //  CharModel Render Textures Control
 // // ---------------------------------------------------------------------
 
-const renderTexturesDisplayElement = document.getElementById('renderTexturesDisplay');
+const renderTexturesDisplayElement = /** @type {HTMLDetailsElement|null} */ (document.getElementById('renderTexturesDisplay'));
 const renderTexturesContainerElement = document.getElementById('ffl-js-display-render-textures');
-const reinitModelElement = document.getElementById('reinitModel');
+const reinitModelElement = /** @type {HTMLInputElement|null} */ (document.getElementById('reinitModel'));
 
 /** Toggle display of render textures for newly created CharModels. */
 function toggleRenderTexturesDisplay() {
@@ -454,7 +466,7 @@ function toggleReinitModel() {
 // //  CharModel Icon and Info Updates
 // // ---------------------------------------------------------------------
 
-const modelIconElement = document.getElementById('modelIcon');
+const modelIconElement = /** @type {HTMLImageElement|null} */ (document.getElementById('modelIcon'));
 
 /**
  * Updates the icon beside the options for the current CharModel.
@@ -566,9 +578,8 @@ function initAndUpdateScene(charData) {
 }
 
 // Assume a form with id "charform" exists in the HTML.
-const charFormElement = document.getElementById('charForm');
-/** @type {HTMLInputElement | null} */
-const charDataInputElement = document.getElementById('charData');
+const charFormElement = /** @type {HTMLFormElement|null} */ (document.getElementById('charForm'));
+const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
 
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
@@ -582,7 +593,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 	// Initialize FFL.
 	// await initializeFFLWithResource(window.Module);
-	// window.Module._FFLSetLinearGammaMode(1);
+
+	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
 
 	// Create renderer now.
 	renderer = new THREE.WebGLRenderer({
@@ -644,9 +656,10 @@ function loadCharacterButtons(useLocalIcon = true) {
 		}
 	}
 
+	const btnTemplateElement = document.getElementById('btn-template');
 	const elements = document.querySelectorAll('[data-name][data-data]');
 	elements.forEach((el) => {
-		const clone = document.getElementById('btn-template').cloneNode(true);
+		const clone = btnTemplateElement.cloneNode(true);
 		clone.style.display = '';
 		clone.removeAttribute('id');
 
@@ -672,7 +685,7 @@ function loadCharacterButtons(useLocalIcon = true) {
  */
 function onPresetCharacterClick(event) {
 	event.preventDefault();
-	const data = event.currentTarget.getAttribute('data-data');
+	const data = /** @type {HTMLButtonElement} */ (event.currentTarget).getAttribute('data-data');
 	console.log('Preset character data clicked: ', data);
 
 	initAndUpdateScene(data);

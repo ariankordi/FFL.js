@@ -92,7 +92,7 @@ The library is using eslint, so I recommend linting if you ever want to contribu
 
 Install it with `npm install -D` then use `npm run-script lint`. Additionally use `npm run-script check-types` to validate types, and `npm run-script build` to build a `.d.ts` definition for TypeScript.
 
-#### Improvements
+### TODO: Improvements
 
 * **Major**: Decide on whether functions should be exported via UMD or ESM (currently using neither)
 * Include [reverse enum to string tables](https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/include/EnumStrings.h#L8) to resolve result codes to exceptions

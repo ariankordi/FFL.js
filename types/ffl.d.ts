@@ -157,20 +157,37 @@ declare function _bindDrawParamGeometry(drawParam: FFLDrawParam, module: Module)
  */
 declare function _getTextureFromModulateParam(modulateParam: FFLModulateParam, textureManager: TextureManager): import("three").Texture | null;
 /**
- * Returns an object of material parameters based on ModulateParam.
- * @param {FFLModulateParam} modulateParam - drawParam.modulateParam
- * @param {Module} module - The Emscripten module for accessing color pointers via heap.
- * @returns {Object} Parameters for material creation.
+ * Retrieves blending parameters based on the FFLModulateType.
+ * Will only actually return anything for mask and faceline shapes.
+ * @param {FFLModulateType} modulateType - The modulate type.
+ * @param {FFLModulateMode} [modulateMode] - The modulate mode, used to differentiate body/pants modulate types from mask modulate types.
+ * @returns {Object} An object containing blending parameters for the Three.js material constructor, or an empty object.
+ * @throws {Error} Unknown modulate type
+ * @package
+ */
+declare function _getBlendOptionsFromModulateType(modulateType: FFLModulateType, modulateMode?: FFLModulateMode): Object;
+/**
+ * Returns an object of parameters for a Three.js material constructor, based on {@link FFLModulateParam}.
+ * @param {FFLModulateParam} modulateParam - Property `modulateParam` of {@link FFLDrawParam}.
+ * @param {Module} module - The Emscripten module for accessing color pointers in heap.
+ * @returns {Object} Parameters for creating a Three.js material.
  * @package
  */
 declare function _applyModulateParam(modulateParam: FFLModulateParam, module: Module): Object;
 /**
- * Converts a pointer to FFLColor into a THREE.Vector4.
+ * Dereferences a pointer to FFLColor.
  * @param {number} colorPtr - The pointer to the color.
- * @param {Module} module - The Emscripten module.
- * @returns {import('three').Vector4} The converted Vector4.
+ * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
+ * @returns {FFLColor} The converted Vector4.
+ * @throws {Error} Received null pointer
  */
-declare function _getVector4FromFFLColorPtr(colorPtr: number, module: Module): import("three").Vector4;
+declare function _getFFLColor(colorPtr: number, heapf32: Float32Array): FFLColor;
+/**
+ * Creates a {@link THREE.Color3} from {@link FFLColor}.
+ * @param {FFLColor} color - The {@link FFLColor} object..
+ * @returns {import('three').Color} The converted color.
+ */
+declare function _getFFLColor3(color: FFLColor): import("three").Color;
 /**
  * Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
  * @param {number} pMtx - Pointer to rio::Matrix34f.
@@ -183,29 +200,32 @@ declare function _applyAdjustMatrixToMesh(pMtx: number, mesh: import("three").Ob
  * Initializes textures (faceline and mask) for a CharModel.
  * Calls private functions to draw faceline and mask textures.
  * At the end, calls setExpression to update the mask texture.
+ * Note that this is a separate function due to needing renderer parameter.
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
- * @todo Should this just be called in createCharModel() or something? But it's the only function requiring renderer. Maybe if you pass in renderer to that?
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  */
-declare function initCharModelTextures(charModel: CharModel, renderer: import("three").WebGLRenderer): void;
+declare function initCharModelTextures(charModel: CharModel, renderer: import("three").WebGLRenderer, materialClass?: new (...args: any[]) => import("three").Material): void;
 /**
  * Draws and applies the faceline texture for the CharModel.
  * @param {CharModel} charModel - The CharModel.
  * @param {FFLiTextureTempObject} textureTempObject - The FFLiTextureTempObject containing faceline DrawParams.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
  */
-declare function _drawFacelineTexture(charModel: CharModel, textureTempObject: FFLiTextureTempObject, renderer: import("three").WebGLRenderer, module: Module): void;
+declare function _drawFacelineTexture(charModel: CharModel, textureTempObject: FFLiTextureTempObject, renderer: import("three").WebGLRenderer, module: Module, materialClass: new (...args: any[]) => import("three").Material): void;
 /**
  * Iterates through mask textures and draws each mask texture.
  * @param {CharModel} charModel - The CharModel.
  * @param {FFLiTextureTempObject} textureTempObject - The temporary texture object.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
  */
-declare function _drawMaskTextures(charModel: CharModel, textureTempObject: FFLiTextureTempObject, renderer: import("three").WebGLRenderer, module: Module): void;
+declare function _drawMaskTextures(charModel: CharModel, textureTempObject: FFLiTextureTempObject, renderer: import("three").WebGLRenderer, module: Module, materialClass: new (...args: any[]) => import("three").Material): void;
 /**
  * Draws a single mask texture based on a RawMaskDrawParam.
  * Note that the caller needs to dispose meshes within the returned scene.
@@ -213,11 +233,12 @@ declare function _drawMaskTextures(charModel: CharModel, textureTempObject: FFLi
  * @param {FFLiRawMaskDrawParam} rawMaskParam - The RawMaskDrawParam.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
+ * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
  * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}} The RenderTarget and scene of this mask texture.
  * @throws {Error} All DrawParams are empty.
  * @package
  */
-declare function _drawMaskTexture(charModel: CharModel, rawMaskParam: FFLiRawMaskDrawParam, renderer: import("three").WebGLRenderer, module: Module): {
+declare function _drawMaskTexture(charModel: CharModel, rawMaskParam: FFLiRawMaskDrawParam, renderer: import("three").WebGLRenderer, module: Module, materialClass: new (...args: any[]) => import("three").Material): {
     target: import("three").RenderTarget;
     scene: import("three").Scene;
 };
@@ -280,7 +301,7 @@ declare function renderTargetToDataURL(renderTarget: import("three").RenderTarge
  * @param {number} width - Width of the view.
  * @param {number} height - Height of the view.
  * @returns {import('three').PerspectiveCamera} The camera representing the view type specified.
- * @throws {Error}
+ * @throws {Error} not implemented (ViewType.Face)
  */
 declare function getCameraForViewType(viewType: ViewType, width?: number, height?: number): import("three").PerspectiveCamera;
 /**
@@ -291,10 +312,12 @@ declare function getCameraForViewType(viewType: ViewType, width?: number, height
  * @param {ViewType} viewType - The view type.
  * @param {number} width - Desired icon width.
  * @param {number} height - Desired icon height.
+ * @param {import('three').Scene} [iconScene] - Optional scene if you want to provide your own (with background, models, etc.)
+ * @param {import('three').Camera} [iconCamera] - Optional camera to provide.
  * @returns {string} A data URL of the icon image.
  * @throws {Error} CharModel.meshes is null or undefined, it may have been disposed.
  */
-declare function createCharModelIcon(charModel: CharModel, renderer: import("three").WebGLRenderer, viewType?: ViewType, width?: number, height?: number): string;
+declare function createCharModelIcon(charModel: CharModel, renderer: import("three").WebGLRenderer, viewType?: ViewType, width?: number, height?: number, iconScene?: import("three").Scene, iconCamera?: import("three").Camera): string;
 /**
  * Creates an FFLiCharInfo object from StudioCharInfo.
  * @param {StudioCharInfo} src - The StudioCharInfo instance.
@@ -1256,6 +1279,12 @@ declare class CharModel {
      * @public
      */
     public _materialClass: new (...args: any[]) => import("three").Material;
+    /**
+     * Material class used to initialize textures specifically.
+     * @type {function(new: import('three').Material, ...*): import('three').Material}
+     * @public
+     */
+    public _materialTextureClass: new (...args: any[]) => import("three").Material;
     /** @package */
     _textureManager: TextureManager | null;
     /**
@@ -1316,7 +1345,6 @@ declare class CharModel {
      * @returns {FFLAdditionalInfo} The FFLAdditionalInfo object.
      * @private
      */
-    private _getAdditionalInfo;
     /**
      * Accesses partsTransform in FFLiCharModel,
      * converting every FFLVec3 to THREE.Vector3.
@@ -1606,7 +1634,6 @@ type StudioCharInfo = {
  * @type {import('./struct-fu').StructInstance<StudioCharInfo>}
  */
 declare const StudioCharInfo: import("./struct-fu").StructInstance<StudioCharInfo>;
-type THREE = typeof import("three");
 type _ = {
     struct(name: string | Array<Field>, fields?: Array<Field | StructInstance<any>> | number, count?: number): StructInstance<any>;
     padTo(off: number): Field & {
@@ -1637,6 +1664,7 @@ type _ = {
     float64le: (arg0: (string | number), arg1?: number | undefined) => Field;
     derive(orig: Field, pack: (arg0: any) => any, unpack: (arg0: any) => any): (arg0: (string | number) | undefined, arg1: number | undefined) => Field;
 };
+type THREE = typeof import("three");
 /**
  * Emscripten "Module" type.
  * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26

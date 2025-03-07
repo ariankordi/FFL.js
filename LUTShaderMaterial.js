@@ -532,7 +532,7 @@ void main()
    //#if defined(AGX_FEATURE_MII_CONSTANT)
     if(uMode == FFL_MODULATE_MODE_CONSTANT)
     {
-        albedoColor = vec4(uColor0.rgb, 1.0);
+        albedoColor = uColor0;
     }
     //#elif defined(AGX_FEATURE_MII_TEXTURE_DIRECT)
     else if(uMode == FFL_MODULATE_MODE_TEXTURE_DIRECT)
@@ -544,25 +544,25 @@ void main()
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
         albedoColor = vec4(albedoColor.r * uColor0.rgb + albedoColor.g * uColor1.rgb + albedoColor.b * uColor2.rgb,
-                           albedoColor.a);
+                           uColor0.a * albedoColor.a);
     }
     //#elif defined(AGX_FEATURE_MII_ALPHA)
     else if(uMode == FFL_MODULATE_MODE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(uColor0.rgb, albedoColor.r);
+        albedoColor = vec4(uColor0.rgb, uColor0.a * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_LUMINANCE_ALPHA)
     else if(uMode == FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.g * uColor0.rgb, albedoColor.r);
+        albedoColor = vec4(albedoColor.g * uColor0.rgb, uColor0.a * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_ALPHA_OPA)
     else if(uMode == FFL_MODULATE_MODE_ALPHA_OPA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.r * uColor0.rgb, 1.0);
+        albedoColor = vec4(albedoColor.r * uColor0.rgb, uColor0.a);
     }
 //#endif
 
@@ -967,7 +967,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		}
 		const textures = /** @type {LUTTextures} */ ({ specular: {}, fresnel: {} });
 		// Get the texture format dynamically based on Three.js version.
-		const r8 = Number(THREE.REVISION) < 137
+		const r8 = Number(THREE.REVISION) <= 136
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
 
@@ -1030,58 +1030,13 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	static defaultLightDirection = this.defaultDirLightDirAndType0;
 
 	/**
-	 * Retrieves blending parameters based on the FFLModulateType.
-	 * @param {FFLModulateType} modulateType - The modulate type.
-	 * @returns {Object} An object containing blending parameters for the material constructor.
-	 * @throws {Error} Unknown modulate type
-	 * @package
-	 */
-	static getBlendOptionsFromModulateType(modulateType) {
-		if (modulateType >= 0 && modulateType <= 5) {
-			// Opaque (DrawOpa)
-			return {
-				blending: THREE.CustomBlending,
-				blendSrcAlpha: THREE.SrcAlphaFactor,
-				blendDstAlpha: THREE.OneFactor
-			};
-		} else if (modulateType >= 6 && modulateType <= 8) {
-			// Translucent (DrawXlu)
-			return {
-				blending: THREE.CustomBlending,
-				blendSrc: THREE.SrcAlphaFactor,
-				blendDst: THREE.OneMinusSrcAlphaFactor,
-				blendDstAlpha: THREE.OneFactor
-			};
-		} else if (modulateType >= 9 && modulateType <= 13) {
-			// Mask Textures
-			return {
-				blending: THREE.CustomBlending,
-				blendSrc: THREE.OneMinusDstAlphaFactor,
-				blendSrcAlpha: THREE.SrcAlphaFactor,
-				blendDst: THREE.DstAlphaFactor
-			};
-		} else if (modulateType >= 14 && modulateType <= 17) {
-			// Faceline Texture
-			return {
-				blending: THREE.CustomBlending,
-				blendSrc: THREE.SrcAlphaFactor,
-				blendDst: THREE.OneMinusSrcAlphaFactor,
-				blendSrcAlpha: THREE.OneFactor,
-				blendDstAlpha: THREE.OneFactor
-			};
-		} else {
-			throw new Error(`getBlendOptionsFromModulateType: Unknown modulate type: ${modulateType}`);
-		}
-	}
-
-	/**
 	 * Multiplies beard and hair colors by a factor seen
 	 * in libcocos2dcpp.so in order to match its rendering style.
 	 * Refer to: https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/src/ShaderMiitomo.cpp#L587
-	 * @param {import('three').Vector4} color - The original color.
+	 * @param {import('three').Color} color - The original color.
 	 * @param {FFLModulateType} modulateType - The modulate type, or type of shape.
 	 * @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
-	 * @returns {import('three').Vector4} The final color.
+	 * @returns {import('three').Color} The final color.
 	 * @package
 	 */
 	static multiplyColorIfNeeded(color, modulateType, modulateMode) {
@@ -1093,154 +1048,242 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		) {
 			const mul = 0.9019608;
 			// Multiply XYZ (RGB) by mul and not alpha.
-			return new THREE.Vector4(
-				color.x * mul, color.y * mul, color.z * mul, color.w
-			);
+			color.r *= mul;
+			color.g *= mul;
+			color.b *= mul;
 		}
 		return color; // no multiply needed
 	}
 
+	/** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
+
+	/**
+	 * @typedef {Object} LUTShaderMaterialParameters
+	 * @property {FFLModulateMode} [modulateMode] - Modulate mode.
+	 * @property {FFLModulateType} [modulateType] - Modulate type.
+	 * @property {import('three').Color|Array<import('three').Color>} [color] - Constant color assigned to uColor0/1/2 depending on single or array.
+	 * @property {import('three').Vector3} [lightDirection] - Light direction.
+	 * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
+	 */
+
 	/**
 	 * Constructs a LUTShaderMaterial instance.
-	 * @param {Object} [options] - Options for the material.
-	 * @param {FFLModulateMode} [options.modulateMode] - Modulate mode.
-	 * @param {FFLModulateType} [options.modulateType] - Modulate type.
-	 * @param {import('three').Vector4 | Array<import('three').Vector4>} [options.modulateColor] - Constant color assigned to uColor0/1/2 depending on single or array.
-	 * @param {boolean} [options.lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
-	 * @param {import('three').Vector3} [options.lightDirection] - Light direction.
-	 * Uniforms:
-	 * @param {boolean} [options.alphaTest] - Enables alpha testing in the shader.
-	 * @param {import('three').Color} [options.hslightGroundColor] - Ground light color.
-	 * @param {import('three').Color} [options.hslightSkyColor] - Sky light color.
-	 * @param {import('three').Color} [options.dirLightColor0] - Primary directional light color.
-	 * @param {import('three').Color} [options.dirLightColor1] - Secondary directional light color.
-	 * @param {number} [options.dirLightCount] - Number of directional lights.
-	 * @param {import('three').Vector4} [options.dirLightDirAndType0] - Primary directional light vector.
-	 * @param {import('three').Vector4} [options.dirLightDirAndType1] - Secondary directional light vector.
-	 * @param {import('three').Color} [options.lightColor] - Light color.
-	 * General:
-	 * @param {import('three').Texture} [options.map] - Texture map/albedo texture.
-	 * @param {string} [options.vertexShader] - Vertex shader source.
-	 * @param {string} [options.fragmentShader] - Fragment shader source.
-	 * @param {import('three').Side} [options.side] - Side. This is overridden to no culling for mask shape.
+	 * NOTE: Pass parameters in this order: side, modulateType, color
+	 * @param {import('three').ShaderMaterialParameters & LUTShaderMaterialParameters} [options] - Parameters for the material.
 	 */
 	constructor(options = {}) {
-		const modulateMode = options.modulateMode ?? 0;
-		const modulateType = options.modulateType ?? 0;
-		const lightEnable = options.lightEnable ?? true;
-		const texture = options.map || null;
-		// Enable alpha test for DrawXlu stage.
-		const alphaTest = (modulateType >= 6 && modulateType <= 8)
-			? true
-			: options.alphaTest;
-		// Force culling to none for mask.
-		const side = modulateType === 6 ? THREE.DoubleSide : (options.side || THREE.FrontSide);
-
-		// Process modulateColor input.
-		let colorUniforms = {};
-		if (Array.isArray(options.modulateColor) && options.modulateColor.length === 3) {
-			colorUniforms = {
-				// Assign multiple modulateColor elements to constant color uniforms.
-				uColor0: { value: options.modulateColor[0] },
-				uColor1: { value: options.modulateColor[1] },
-				uColor2: { value: options.modulateColor[2] }
-			};
-		} else {
-			// Use multiplyColorIfNeeded method for a single color.
-			const modulateColor = options.modulateColor || new THREE.Vector4(1, 1, 1, 1);
-			const color = LUTShaderMaterial.multiplyColorIfNeeded(
-				Array.isArray(modulateColor) ? modulateColor[0] : modulateColor, modulateType, modulateMode);
-
-			colorUniforms = {
-				// Assign single color with white as a placeholder.
-				uColor0: { value: color }
-			};
-		}
-
-		// Assign LUT texture using modulate type.
-		const lutTextures = LUTShaderMaterial.getLUTTextures();
-		const specType =
-      LUTShaderMaterial.modulateTypeToLUTSpecular[modulateType] ??
-      LUTShaderMaterial.LUTSpecularTextureType.NONE;
-		const fresType =
-      LUTShaderMaterial.modulateTypeToLUTFresnel[modulateType] ??
-      LUTShaderMaterial.LUTFresnelTextureType.NONE;
-		const lutSpecTexture = lutTextures.specular[specType];
-		const lutFresTexture = lutTextures.fresnel[fresType];
-
-		const uniforms = Object.assign({}, colorUniforms, {
+		// Set default uniforms.
+		/** @type {Object<string, import('three').IUniform>} */
+		const uniforms = {
 			uBoneCount: { value: 0 },
 			uAlpha: { value: 1.0 },
 			uHSLightGroundColor: {
-				value:
-          options.hslightGroundColor ||
-          LUTShaderMaterial.defaultHSLightGroundColor
+				value: LUTShaderMaterial.defaultHSLightGroundColor
 			},
 			uHSLightSkyColor: {
-				value: options.hslightSkyColor || LUTShaderMaterial.defaultHSLightSkyColor
+				value: LUTShaderMaterial.defaultHSLightSkyColor
 			},
 			uDirLightColor0: {
-				value: options.dirLightColor0 || LUTShaderMaterial.defaultDirLightColor0
+				value: LUTShaderMaterial.defaultDirLightColor0
 			},
 			uDirLightColor1: {
-				value: options.dirLightColor1 || LUTShaderMaterial.defaultDirLightColor1
+				value: LUTShaderMaterial.defaultDirLightColor1
 			},
 			uDirLightCount: {
-				value: options.dirLightCount || LUTShaderMaterial.defaultDirLightCount
+				value: LUTShaderMaterial.defaultDirLightCount
 			},
 			uDirLightDirAndType0: {
-				value:
-          options.dirLightDirAndType0 ||
-          LUTShaderMaterial.defaultDirLightDirAndType0.clone()
+				value: LUTShaderMaterial.defaultDirLightDirAndType0.clone()
 			},
 			uDirLightDirAndType1: {
-				value:
-          options.dirLightDirAndType1 ||
-          LUTShaderMaterial.defaultDirLightDirAndType1.clone()
+				value: LUTShaderMaterial.defaultDirLightDirAndType1.clone()
 			},
-			uLightEnable: { value: lightEnable },
-			uLightColor: {
-				value: options.lightColor || LUTShaderMaterial.defaultLightColor
-			},
-			uMode: { value: modulateMode },
-			// NOTE about uAlphaTest:
-			// Only real purpose it serves is to discard/
-			// skip writing depth for DrawXlu elements.
-			// Usually (not in Miitomo) all DrawXlu elements have depth writing disabled
-			// but in this case Miitomo has it enabled but discards depth writes here
-			uAlphaTest: { value: alphaTest },
-			uAlbedoTexture: { value: texture },
-			uLUTSpecTexture: { value: lutSpecTexture },
-			uLUTFresTexture: { value: lutFresTexture }
+			uLightEnable: { value: true }, // Default to true.
+			uLightColor: { value: LUTShaderMaterial.defaultLightColor }
+		};
+
+		// Construct the ShaderMaterial using the shader source.
+		super({
+			vertexShader: _LUTShader_vert,
+			fragmentShader: _LUTShader_frag,
+			uniforms: uniforms
 		});
 
-		super({
-			vertexShader:
-        options.vertexShader ||
-        _LUTShader_vert,
-			fragmentShader:
-        options.fragmentShader ||
-        _LUTShader_frag,
-			uniforms: uniforms,
-			side: side,
-			// skinning: options.skinning || false, // Not needed with newer Three.js.
-			// Merge blend options, only if modulateMode is not 0/opqaue.
-			...modulateMode !== 0 ? LUTShaderMaterial.getBlendOptionsFromModulateType(modulateType) : {}
-			// NOTE: ^^ Assumes that default blending is equivalent to constant blending (test faceline make?)
-			// ...getBlendOptionsFromModulateType(modulateType) // Merge blend options
-		});
-		// Expose these properties.
-		/** @type {FFLModulateMode} */
-		this.modulateMode = modulateMode;
 		/** @type {FFLModulateType} */
-		this.modulateType = modulateType;
-		// Set alias for modulateColor as strictly a single color.
-		/** @package */
-		this._modulateColor = Array.isArray(options.modulateColor) ? null : options.modulateColor;
-		/** @type {boolean} */
-		this.lightEnable = lightEnable;
+		this._modulateType = 0; // Initialize default for modulateType field.
+
+		// Use the setters to set the rest of the uniforms.
+		this.setValues(options);
+	}
+
+	/**
+	 * Gets the constant color (uColor0) uniform as THREE.Color.
+	 * @returns {import('three').Color|null} The constant color, or null if it is not set.
+	 */
+	get color() {
+		if (!this.uniforms.uColor0) {
+			// If color is not set, return null.
+			return null;
+		} else if (this._color3) {
+			// Use cached THREE.Color instance if it is set.
+			return this._color3;
+		}
+		// Get THREE.Color from uColor0 (Vector4).
+		const color4 = /** @type {IUniformVector4} */ (this.uniforms.uColor0).value;
+		const color3 = new THREE.Color(color4.x, color4.y, color4.z);
+		this._color3 = color3; // Cache the THREE.Color instance.
+		return color3;
+	}
+
+	/**
+	 * Sets the constant color uniforms from THREE.Color.
+	 * @param {import('three').Color|Array<import('three').Color>} value - The constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
+	 */
+	set color(value) {
+		/**
+		 * @param {import('three').Color} color - THREE.Color instance.
+		 * @param {number} opacity - Opacity mapped to .a.
+		 * @returns {import('three').Vector4} Vector4 containing color and opacity.
+		 */
+		function toColor4(color, opacity = 1.0) {
+			return new THREE.Vector4(color.r, color.g, color.b, opacity);
+		}
+		// Set an array of colors, assumed to have 3 elements.
+		if (Array.isArray(value)) {
+			// Assign multiple color instances to uColor0/1/2.
+			/** @type {IUniformVector4} */ (this.uniforms.uColor0) =
+				{ value: toColor4(value[0]) };
+			/** @type {IUniformVector4} */ (this.uniforms.uColor1) =
+				{ value: toColor4(value[1]) };
+			/** @type {IUniformVector4} */ (this.uniforms.uColor2) =
+				{ value: toColor4(value[2]) };
+			return;
+		}
+		// Set single color as THREE.Color, defaulting to white.
+		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
+		/** @type {import('three').Color} */
+		this._color3 = color3.clone(); // Clone and save the color before modification.
+
+		// Use multiplyColorIfNeeded method for a single color.
+		if (this.modulateType !== undefined && typeof this.modulateMode === 'number') {
+			// console.debug(`multiplyColorIfNeeded(color, this.modulateType=${this.modulateType}, this.modulateMode=${this.modulateMode})`);
+			LUTShaderMaterial.multiplyColorIfNeeded(color3, this.modulateType, this.modulateMode);
+		}
+
+		// Assign single color with white as a placeholder.
+		const opacity = this.opacity;
+		if (this._opacity) {
+			// if _opacity is set then the above returned it, delete when done
+			delete this._opacity;
+		}
+		/** @type {IUniformVector4} */ (this.uniforms.uColor0) =
+			{ value: toColor4(color3, opacity) };
+	}
+
+	/**
+	 * Gets the opacity of the constant color.
+	 * @returns {number|undefined} The new opacity value.
+	 */
+	// @ts-ignore - Already defined on parent class.
+	get opacity() {
+		if (!this.uniforms.uColor0) {
+			// Get from _opacity if it is set before constant color.
+			return this._opacity;
+		}
+		// Return w (alpha) of the constant color uniform.
+		return /** @type {IUniformVector4} */ (this.uniforms.uColor0).value.w;
+	}
+
+	/**
+	 * Sets the opacity of the constant color.
+	 * NOTE: that this is actually set in the constructor
+	 * of Material, meaning it is the only one set BEFORE uniforms are
+	 * @param {number} value - The new opacity value.
+	 */
+	// @ts-ignore - Already defined on parent class.
+	set opacity(value) {
+		if (!this.uniforms || !this.uniforms.uColor0) {
+			// Store here for later when color is set.
+			this._opacity = 1;
+			return;
+		}
+		/** @type {IUniformVector4} */ (this.uniforms.uColor0).value.w = value;
+	}
+
+	/**
+	 * Gets the value of the modulateMode uniform.
+	 * @returns {FFLModulateMode|null} The modulateMode value, or null if it is unset.
+	 */
+	get modulateMode() {
+		return this.uniforms.uMode ? this.uniforms.uMode.value : null;
+	}
+
+	/**
+	 * Sets the value of the modulateMode uniform.
+	 * @param {FFLModulateMode} value - The new modulateMode value.
+	 */
+	set modulateMode(value) {
+		this.uniforms.uMode = { value: value };
+	}
+
+	/**
+	 * Sets the value determining whether lighting is enabled or not.
+	 * @returns {boolean|null} The lightEnable value, or null if it is unset.
+	 */
+	get lightEnable() {
+		return this.uniforms.uLightEnable ? this.uniforms.uLightEnable.value : null;
+	}
+
+	/**
+	 * Sets the value determining whether lighting is enabled or not.
+	 * @param {boolean} value - The lightEnable value.
+	 */
+	set lightEnable(value) {
+		this.uniforms.uLightEnable = { value: value };
+	}
+
+	/**
+	 * Gets the modulateType value.
+	 * @returns {FFLModulateType|undefined} The modulateType value if it is set.
+	 */
+	get modulateType() {
+		// This isn't actually a uniform so this is a private property.
+		return this._modulateType;
+	}
+
+	/**
+	 * Sets the material uniforms based on the modulate type value.
+	 * @param {FFLModulateType} value - The new modulateType value.
+	 */
+	set modulateType(value) {
+		// Assign LUT textures using modulate type.
+		const lutTextures = LUTShaderMaterial.getLUTTextures();
+		const specType =
+      LUTShaderMaterial.modulateTypeToLUTSpecular[value];
+		const fresType =
+      LUTShaderMaterial.modulateTypeToLUTFresnel[value];
+		if (specType === undefined || fresType === undefined) {
+			return;
+		}
+		this._modulateType = value;
+
+		const lutSpecTexture = lutTextures.specular[specType];
+		const lutFresTexture = lutTextures.fresnel[fresType];
+
+		this.uniforms.uLUTSpecTexture = { value: lutSpecTexture };
+		this.uniforms.uLUTFresTexture = { value: lutFresTexture };
+		// Only real purpose of uAlphaTest is to discard/
+		// skip writing depth for DrawXlu stage.
+		// Usually (not in Miitomo) all DrawXlu elements have depth writing disabled
+		// but in this case Miitomo has it enabled but discards depth writes here
+		this.uniforms.uAlphaTest = {
+			value: (value >= 6 && value <= 8)
+		};
+
 		/** @type {number|undefined} */
-		this._side = options.side; // Store original side.
+		this._side = this.side; // Store original side.
+		// Force culling to none for mask.
+		this.side = (value === 6 ? THREE.DoubleSide : this.side);
 	}
 
 	/**
@@ -1248,7 +1291,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @returns {THREE['Texture']} The texture map.
 	 */
 	get map() {
-		return this.uniforms.uAlbedoTexture.value; // Expose as 'map'
+		return this.uniforms.uAlbedoTexture ? this.uniforms.uAlbedoTexture.value : null;
 	}
 
 	/**
@@ -1256,28 +1299,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {import('three').Texture} value - The new texture map.
 	 */
 	set map(value) {
-		this.uniforms.uAlbedoTexture.value = value;
-	}
-
-	/**
-	 * Gets the first/primary constant color.
-	 * @returns {import('three').Vector4} The color as Vector4.
-	 */
-	get modulateColor() {
-		// Use alias for modulateColor if it is set.
-		if (this._modulateColor) {
-			return this._modulateColor;
-		}
-		return this.uniforms.uColor0.value;
-	}
-
-	/**
-	 * Sets the primary constant color. Will not set any other colors (uColor1/2).
-	 * @param {import('three').Vector4} value - The new color as Vector4.
-	 */
-	set modulateColor(value) {
-		this._modulateColor = null; // Clear alias for modulateColor.
-		this.uniforms.uColor0.value = value;
+		this.uniforms.uAlbedoTexture = { value: value };
 	}
 
 	/**
@@ -1293,7 +1315,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {import('three').Vector3} value - The new light direction.
 	 */
 	set lightDirection(value) {
-		this.uniforms.uDirLightDirAndType0.value = value;
+		this.uniforms.uDirLightDirAndType0 = { value: value };
 		this.uniforms.uDirLightDirAndType0.value.w = -1; // Override w
 	}
 	// TODO: normalMap, etc...? see: https://github.com/pixiv/three-vrm/blob/776c2823dcf3453d689a2d56aa82b289fdf963cf/packages/three-vrm-materials-mtoon/src/MToonMaterial.ts#L75
