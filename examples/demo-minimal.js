@@ -98,10 +98,10 @@ function updateBoxHelper(charModel) {
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string} data - Data as Uint8Array or hex or Base64 string.
- * @param {FFLCharModelDesc|null} [modelDesc] - CharModelDesc object to update CharModel with.
+ * @param {FFLCharModelDesc} modelDesc - CharModelDesc object to update CharModel with.
  * @throws {Error} cannot exclude modelDesc if no model was initialized yet
  */
-function updateCharModelInScene(data, modelDesc = null) {
+function updateCharModelInScene(data, modelDesc) {
 	// Decode data.
 	if (typeof data === 'string') {
 		data = parseHexOrB64ToUint8Array(data);
@@ -109,19 +109,16 @@ function updateCharModelInScene(data, modelDesc = null) {
 	// Continue assuming it is Uint8Array.
 	// If an existing CharModel exists, update it.
 	if (currentCharModel) {
-		// Remove current CharModel from the scene.
+		// Remove current CharModel from the scene, then dispose it.
 		scene.remove(currentCharModel.meshes);
-		// Update existing model via updateCharModel method.
-		currentCharModel = updateCharModel(currentCharModel, data, renderer);
-	} else {
-		if (!modelDesc) {
-			throw new Error('cannot exclude modelDesc if no model was initialized yet');
-		}
-		// Create a new CharModel.
-		currentCharModel = createCharModel(data, modelDesc, window.FFLShaderMaterial, moduleFFL);
-		// Initialize textures for the new CharModel.
-		initCharModelTextures(currentCharModel, renderer);
+		currentCharModel.dispose();
 	}
+
+	// Create a new CharModel.
+	currentCharModel = createCharModel(data, modelDesc, window.FFLShaderMaterial, moduleFFL);
+	// Initialize textures for the new CharModel.
+	initCharModelTextures(currentCharModel, renderer);
+
 	// Add CharModel meshes to scene.
 	scene.add(currentCharModel.meshes);
 	updateBoxHelper(currentCharModel); // Update boxHelper.

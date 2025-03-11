@@ -28,6 +28,7 @@ globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 // // ---------------------------------------------------------------------
 // //  Emscripten Types
 // // ---------------------------------------------------------------------
+// TODO PATH: src/ModuleType.js
 
 /**
  * Emscripten "Module" type.
@@ -98,14 +99,35 @@ globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 // // ---------------------------------------------------------------------
 // //  Enum Definitions
 // // ---------------------------------------------------------------------
+// TODO PATH: src/Enums.js
 
 /**
- * enum {number}
+ * Uses FFL decomp enum rather than real FFL enum.
+ * Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/FFLResult.h
+ * @enum {number}
  */
 const FFLResult = {
 	OK: 0,
+	ERROR: 1,
+	HDB_EMPTY: 2,
+	FILE_INVALID: 3,
+	MANAGER_NOT_CONSTRUCT: 4,
+	FILE_LOAD_ERROR: 5,
+	// : 6,
+	FILE_SAVE_ERROR: 7,
+	// : 8,
+	RES_FS_ERROR: 9,
+	ODB_EMPTY: 10,
+	// :  11,
+	OUT_OF_MEMORY: 12,
+	// :  13,
+	// :  14,
+	// :  15,
+	// :  16,
+	UNKNOWN_17: 17,
+	FS_ERROR: 18,
+	FS_NOT_FOUND: 19,
 	MAX: 20
-	// To be completed.
 };
 
 /**
@@ -153,12 +175,18 @@ const FFLCullMode = {
  * @enum {number}
  */
 const FFLModulateMode = {
-	CONSTANT: 0, // No Texture,  Has Color (R)
-	TEXTURE_DIRECT: 1, // Has Texture, No Color
-	RGB_LAYERED: 2, // Has Texture, Has Color (R + G + B)
-	ALPHA: 3, // Has Texture, Has Color (R)
-	LUMINANCE_ALPHA: 4, // Has Texture, Has Color (R)
-	ALPHA_OPA: 5 // Has Texture, Has Color (R)
+	/** No Texture, Has Color (R) */
+	CONSTANT: 0,
+	/** Has Texture, No Color */
+	TEXTURE_DIRECT: 1,
+	/** Has Texture, Has Color (R + G + B) */
+	RGB_LAYERED: 2,
+	/** Has Texture, Has Color (R) */
+	ALPHA: 3,
+	/** Has Texture, Has Color (R) */
+	LUMINANCE_ALPHA: 4,
+	/** Has Texture, Has Color (R) */
+	ALPHA_OPA: 5
 };
 
 /**
@@ -196,35 +224,126 @@ const FFLResourceType = {
 };
 
 /**
+ * Reference: https://github.com/ariankordi/ffl/blob/nsmbu-win-port-linux64/include/nn/ffl/FFLExpression.h
  * @enum {number}
  */
 const FFLExpression = {
 	NORMAL: 0,
+	SMILE: 1,
+	ANGER: 2,
+	/** Primary name for expression 3. */
+	SORROW: 3,
+	PUZZLED: 3,
+	/** Primary name for expression 4. */
+	SURPRISE: 4,
+	SURPRISED: 4,
+	BLINK: 5,
+	OPEN_MOUTH: 6,
+	/** Primary name for expression 7. */
+	SMILE_OPEN_MOUTH: 7,
+	HAPPY: 7,
+	ANGER_OPEN_MOUTH: 8,
+	SORROW_OPEN_MOUTH: 9,
+	SURPRISE_OPEN_MOUTH: 10,
+	BLINK_OPEN_MOUTH: 11,
+	WINK_LEFT: 12,
+	WINK_RIGHT: 13,
+	WINK_LEFT_OPEN_MOUTH: 14,
+	WINK_RIGHT_OPEN_MOUTH: 15,
+	/** Primary name for expression 16. */
+	LIKE_WINK_LEFT: 16,
+	LIKE: 16,
+	LIKE_WINK_RIGHT: 17,
+	FRUSTRATED: 18,
+
+	// Additional expressions from AFL.
+	// Enum names are completely made up.
+	BORED: 19,
+	BORED_OPEN_MOUTH: 20,
+	SIGH_MOUTH_STRAIGHT: 21,
+	SIGH: 22,
+	DISGUSTED_MOUTH_STRAIGHT: 23,
+	DISGUSTED: 24,
+	LOVE: 25,
+	LOVE_OPEN_MOUTH: 26,
+	DETERMINED_MOUTH_STRAIGHT: 27,
+	DETERMINED: 28,
+	CRY_MOUTH_STRAIGHT: 29,
+	CRY: 30,
+	BIG_SMILE_MOUTH_STRAIGHT: 31,
+	BIG_SMILE: 32,
+	CHEEKY: 33,
+	CHEEKY_DUPLICATE: 34,
+	JOJO_EYES_FUNNY_MOUTH: 35,
+	JOJO_EYES_FUNNY_MOUTH_OPEN: 36,
+	SMUG: 37,
+	SMUG_OPEN_MOUTH: 38,
+	RESOLVE: 39,
+	RESOLVE_OPEN_MOUTH: 40,
+	UNBELIEVABLE: 41,
+	UNBELIEVABLE_DUPLICATE: 42,
+	CUNNING: 43,
+	CUNNING_DUPLICATE: 44,
+	RASPBERRY: 45,
+	RASPBERRY_DUPLICATE: 46,
+	INNOCENT: 47,
+	INNOCENT_DUPLICATE: 48,
+	CAT: 49,
+	CAT_DUPLICATE: 50,
+	DOG: 51,
+	DOG_DUPLICATE: 52,
+	TASTY: 53,
+	TASTY_DUPLICATE: 54,
+	MONEY_MOUTH_STRAIGHT: 55,
+	MONEY: 56,
+	SPIRAL_MOUTH_STRAIGHT: 57,
+	CONFUSED: 58,
+	CHEERFUL_MOUTH_STRAIGHT: 59,
+	CHEERFUL: 60,
+	NORMAL_DUPLICATE_1: 61,
+	NORMAL_DUPLICATE_2: 62,
+	GRUMBLE_MOUTH_STRAIGHT: 63,
+	GRUMBLE: 64,
+	MOVED_MOUTH_STRAIGHT: 65,
+	MOVED: 66,
+	SINGING_MOUTH_SMALL: 67,
+	SINGING: 68,
+	STUNNED: 69,
+
 	MAX: 70
 };
 
 /**
+ * Model flags modify how the head model is created. These are
+ * used in the `modelFlag` property of {@link FFLCharModelDesc}.
  * @enum {number}
  */
 const FFLModelFlag = {
+	/** Default model setting. */
 	NORMAL: 1 << 0,
-	HAT: 1 << 1, // Uses a variant of hair designed for hats.
-	FACE_ONLY: 1 << 2, // Discards hair from the model for helmets, etc.
-	FLATTEN_NOSE: 1 << 3, // Limits the Z depth on a nose for helmets, etc.
-	NEW_EXPRESSIONS: 1 << 4, // Enables expression flag to use beyond 32 expressions.
-	// This flag will only make new textures
-	// when initializing a CharModel and not
-	// initialize shapes. Note that this means
-	// you cannot DrawOpa/Xlu when this is set.
+	/** Uses a variant of hair designed for hats. */
+	HAT: 1 << 1,
+	/** Discards hair from the model, used for helmets and similar headwear. */
+	FACE_ONLY: 1 << 2,
+	/** Limits Z depth on the nose, useful for helmets and similar headwear. */
+	FLATTEN_NOSE: 1 << 3,
+	/** Enables the model's expression flag to use expressions beyond 32. */
+	NEW_EXPRESSIONS: 1 << 4,
+	/**
+	 * This flag only generates new textures when initializing a CharModel
+	 * but does not initialize shapes.
+	 * **Note:** This means you cannot use DrawOpa/Xlu when this is set.
+	 */
 	NEW_MASK_ONLY: 1 << 5
 };
 
 // // ---------------------------------------------------------------------
 // //  Struct Definitions (struct-fu)
 // // ---------------------------------------------------------------------
+// TODO PATH: src/Structs.js
 // Mostly leading up to FFLDrawParam.
 
-// Define _uintptr as a mirror for _.uint32le.
+/** Mirror for {@link _.uint32le} to indicate a pointer. */
 const _uintptr = _.uint32le;
 
 /**
@@ -327,6 +446,7 @@ const FFLDrawParam = _.struct([
 ]);
 
 // ---------------------- Begin FFLiCharInfo Definition ----------------------
+// TODO PATH: src/StructFFLiCharModel.js
 
 /**
  * @typedef {Object} FFLCreateID
@@ -644,10 +764,10 @@ const FFL_RESOLUTION_MASK = 0x3fffffff;
 
 /**
  * @typedef {Object} FFLCharModelDesc
- * @property {number} resolution
- * @property {Uint32Array} allExpressionFlag
- * @property {number} modelFlag
- * @property {number} resourceType
+ * @property {number} resolution - Texture resolution for faceline/mask. It's recommended to only use powers of two.
+ * @property {Uint32Array} allExpressionFlag - Expression flag, created by {@link makeExpressionFlag}
+ * @property {FFLModelFlag} modelFlag
+ * @property {FFLResourceType} resourceType
  */
 /** @type {import('./struct-fu').StructInstance<FFLCharModelDesc>} */
 const FFLCharModelDesc = _.struct([
@@ -662,11 +782,13 @@ const FFLCharModelDesc = _.struct([
  * @public
  */
 const FFLCharModelDescDefault = {
-	resolution: 512, // Typical default.
-	// Choose normal expression.
-	allExpressionFlag: new Uint32Array([1, 0, 0]), // Normal expression.
+	/** Typical default. */
+	resolution: 512,
+	/** Normal expression. */
+	allExpressionFlag: new Uint32Array([1, 0, 0]),
 	modelFlag: FFLModelFlag.NORMAL,
-	resourceType: FFLResourceType.HIGH // Default resource type.
+	/** Default resource type. */
+	resourceType: FFLResourceType.HIGH
 };
 
 /**
@@ -713,6 +835,7 @@ const FFLPartsTransform = _.struct([
  */
 
 /**
+ * Internal representation within FFL for the created CharModel.
  * @typedef {Object} FFLiCharModel
  * @property {FFLiCharInfo} charInfo
  * @property {FFLCharModelDesc} charModelDesc
@@ -725,7 +848,7 @@ const FFLPartsTransform = _.struct([
  * @property {FFLiMaskTextures} maskTextures
  * @property {Array<FFLVec3>} beardHairFaceCenterPos
  * @property {FFLPartsTransform} partsTransform
- * @property {number} modelType
+ * @property {number} modelType - FFLModelType
  * @property {Array<FFLBoundingBox>} boundingBox
  */
 /** @type {import('./struct-fu').StructInstance<FFLiCharModel>} */
@@ -761,9 +884,9 @@ const FFLDataSource = {
 
 /**
  * @typedef {Object} FFLCharModelSource
- * @property {number} dataSource
+ * @property {FFLDataSource} dataSource
  * @property {number} pBuffer
- * @property {number} index
+ * @property {number} index - Only for default, official, MiddleDB; unneeded for raw data
  */
 /** @type {import('./struct-fu').StructInstance<FFLCharModelSource>} */
 const FFLCharModelSource = _.struct([
@@ -869,6 +992,8 @@ const FFLTextureCallback = _.struct([
 	_uintptr('pCreateFunc'),
 	_uintptr('pDeleteFunc')
 ]);
+
+// TODO PATH: src/TextureManager.js
 
 // ------------------------ Class: TextureManager -----------------------------
 /**
@@ -1200,6 +1325,7 @@ class TextureManager {
 // // ---------------------------------------------------------------------
 // //  Classes for FFL Exceptions
 // // ---------------------------------------------------------------------
+// TODO PATH: src/Exceptions.js
 
 /**
  * Base exception type for all exceptions based on FFLResult.
@@ -1233,13 +1359,13 @@ class FFLResultException extends Error {
 	 */
 	static handleResult(result, funcName) {
 		switch (result) {
-			case 1: // FFL_RESULT_WRONG_PARAM
+			case FFLResult.ERROR: // FFL_RESULT_WRONG_PARAM
 				throw new FFLResultWrongParam(funcName);
-			case 3: // FFL_RESULT_BROKEN
+			case FFLResult.FILE_INVALID: // FFL_RESULT_BROKEN
 				throw new FFLResultBroken(funcName);
-			case 4: // FFL_RESULT_NOT_AVAILABLE
+			case FFLResult.MANAGER_NOT_CONSTRUCT: // FFL_RESULT_NOT_AVAILABLE
 				throw new FFLResultNotAvailable(funcName);
-			case 5: // FFL_RESULT_FATAL
+			case FFLResult.FILE_LOAD_ERROR: // FFL_RESULT_FATAL
 				throw new FFLResultFatal(funcName);
 			case FFLResult.OK: // FFL_RESULT_OK
 				return; // All is OK.
@@ -1358,6 +1484,7 @@ class ExpressionNotSet extends Error {
 // // ---------------------------------------------------------------------
 // //  FFL Initialization
 // // ---------------------------------------------------------------------
+// TODO PATH: src/Init.js
 
 /**
  * Loads data from TypedArray or fetch response directly into Emscripten heap.
@@ -1518,7 +1645,7 @@ async function initializeFFL(resource, moduleOrPromise) {
 		const result = module._FFLInitRes(0, resourceDescPtr);
 
 		// Handle failed result.
-		if (result === 3) { // FFL_RESULT_BROKEN
+		if (result === FFLResult.FILE_INVALID) { // FFL_RESULT_BROKEN
 			throw new BrokenInitRes();
 		}
 		FFLResultException.handleResult(result, 'FFLInitRes');
@@ -1636,6 +1763,11 @@ function exitFFL(module, resourceDesc) {
 // // ---------------------------------------------------------------------
 // //  CharModel Handling
 // // ---------------------------------------------------------------------
+// TODO PATH: src/CharModel.js
+
+/**
+ * @typedef {function(new: import('three').Material, ...*): import('three').Material} MaterialConstructor
+ */
 
 // --------------------------- Class: CharModel -------------------------------
 /**
@@ -1651,7 +1783,7 @@ class CharModel {
 	/**
 	 * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
 	 * @param {Module} module - The Emscripten module.
-	 * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
+	 * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
 	 * @param {TextureManager|null} texManager - The {@link TextureManager} instance for this CharModel.
 	 */
 	constructor(ptr, module, materialClass, texManager) {
@@ -1664,13 +1796,13 @@ class CharModel {
 		 */
 		this._data = null;
 		/**
-		 * @type {function(new: import('three').Material, ...*): import('three').Material}
+		 * @type {MaterialConstructor}
 		 * @public
 		 */
 		this._materialClass = materialClass; // Store the material class.
 		/**
 		 * Material class used to initialize textures specifically.
-		 * @type {function(new: import('three').Material, ...*): import('three').Material}
+		 * @type {MaterialConstructor}
 		 * @public
 		 */
 		this._materialTextureClass = materialClass;
@@ -1964,7 +2096,7 @@ class CharModel {
 	 * Disposes RenderTargets for textures created by the CharModel.
 	 * @public
 	 */
-	disposeTextures() {
+	disposeTargets() {
 		// Dispose RenderTargets.
 		if (this._facelineTarget) {
 			console.debug(`Disposing target ${this._facelineTarget.texture.id} for faceline`);
@@ -1991,10 +2123,10 @@ class CharModel {
 	 * - Deletes faceline texture if it exists.
 	 * - Deletes all mask textures.
 	 * - Removes all meshes from the scene.
-	 * @param {boolean} disposeTextures - Whether or not to dispose of mask and faceline render targets.
+	 * @param {boolean} disposeTargets - Whether or not to dispose of mask and faceline render targets.
 	 * @public
 	 */
-	dispose(disposeTextures = true) {
+	dispose(disposeTargets = true) {
 		// Print the permanent __ptr rather than _ptr.
 		console.debug('CharModel.dispose: ptr =', this.__ptr);
 		this._finalizeCharModel(); // Should've been called already
@@ -2007,8 +2139,8 @@ class CharModel {
 			this.meshes = null;
 		}
 		// Dispose render textures.
-		if (disposeTextures) {
-			this.disposeTextures();
+		if (disposeTargets) {
+			this.disposeTargets();
 		}
 		if (this._textureManager) {
 			this._textureManager.dispose();
@@ -2070,6 +2202,7 @@ class CharModel {
 			throw new Error('setExpression: mask mesh does not exist, cannot set expression on it');
 		}
 		// Update texture and material.
+		/** @type {import('three').Texture & {_target: import('three').RenderTarget}} */ (target.texture)._target = target;
 		/** @type {import('three').MeshBasicMaterial} */ (mesh.material).map = target.texture;
 		/** @type {import('three').MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
 	}
@@ -2196,8 +2329,10 @@ class CharModel {
 	 * @enum {number}
 	 */
 	static BodyScaleMode = {
-		Apply: 0, // Applies scale like all apps.
-		Limit: 1 // Limits scale so that the pants are not visible.
+		/** Applies scale normally. */
+		Apply: 0,
+		/** Limits scale so that the pants are not visible. */
+		Limit: 1
 	};
 
 	/* eslint-disable jsdoc/no-undefined-types -- BodyScaleMode */
@@ -2248,6 +2383,8 @@ class CharModel {
 	}
 }
 
+// TODO PATH: src/Body.js (move above function, enum into there?)
+
 /**
  * @enum {number}
  */
@@ -2268,6 +2405,8 @@ const pantsColors = {
 	[PantsColor.GoldSpecial]: new THREE.Color(0xC0A030)
 };
 
+// TODO PATH: src/CharInfo.js
+
 /**
  * Converts the input data and allocates it into FFLCharModelSource.
  * Note that this allocates pBuffer so you must free it when you are done.
@@ -2286,7 +2425,7 @@ function _allocateModelSource(data, module) {
 		// FFLDataSource.DIRECT_POINTER = use without verification.
 		dataSource: FFLDataSource.DIRECT_POINTER, // Assumes CharInfo by default.
 		pBuffer: bufferPtr,
-		index: 0 // Only for default, official, MiddleDB; unneeded for raw data
+		index: 0 // unneeded for raw data
 	};
 
 	// module._FFLiGetRandomCharInfo(bufferPtr, FFLGender.FEMALE, FFLAge.ALL, FFLRace.WHITE); return modelSource;
@@ -2456,6 +2595,7 @@ function makeExpressionFlag(expressions) {
 // // ---------------------------------------------------------------------
 // //  CharModel Creation
 // // ---------------------------------------------------------------------
+// TODO PATH: src/CharModelCreation.js
 
 // --------- createCharModel(data, modelDesc, materialClass, module) ---------
 /**
@@ -2464,7 +2604,7 @@ function makeExpressionFlag(expressions) {
  * Don't forget to call dispose() on the CharModel when you are done.
  * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
  * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
- * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
+ * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
  * @param {Module} module - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
@@ -2518,7 +2658,7 @@ function createCharModel(data, modelDesc, materialClass, module, verify = true) 
 		// Call FFLInitCharModelCPUStep and check the result.
 		// const result = module._FFLInitCharModelCPUStep(charModelPtr, modelSourcePtr, modelDescPtr);
 		const result = module._FFLInitCharModelCPUStepWithCallback(charModelPtr, modelSourcePtr, modelDescPtr, textureManager._textureCallbackPtr);
-		if (result === 3) { // FFL_RESULT_BROKEN
+		if (result === FFLResult.FILE_INVALID) { // FFL_RESULT_BROKEN
 			throw new BrokenInitModel();
 		}
 		FFLResultException.handleResult(result, 'FFLInitCharModelCPUStep');
@@ -2614,7 +2754,7 @@ function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, ver
  */
 function transferCharModelTex(src, dst) {
 	// Dispose textures on destination CharModel, they will be replaced.
-	dst.disposeTextures();
+	dst.disposeTargets();
 	// Dispose everything but textures on the source CharModel.
 	src.dispose(false);
 
@@ -2630,6 +2770,8 @@ function transferCharModelTex(src, dst) {
 // // ---------------------------------------------------------------------
 // //  DrawParam Reading
 // // ---------------------------------------------------------------------
+// TODO PATH: src/DrawParam.js
+
 
 // TODO: private?
 // ------ drawParamToMesh(drawParam, materialClass, module, texManager) ------
@@ -2637,7 +2779,7 @@ function transferCharModelTex(src, dst) {
  * Converts FFLDrawParam into a THREE.Mesh.
  * Binds geometry, texture, and material parameters.
  * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
- * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - Class for the material (constructor).
+ * @param {MaterialConstructor} materialClass - Class for the material (constructor).
  * @param {Module} module - The Emscripten module.
  * @param {TextureManager|null} texManager - The {@link TextureManager} instance for which to look for textures referenced by the DrawParam.
  * @returns {import('three').Mesh|null} The THREE.Mesh instance, or null if the index count is 0 indicating no shape data.
@@ -2869,22 +3011,21 @@ function _getBlendOptionsFromModulateType(modulateType, modulateMode) {
 		// Opaque (DrawOpa)
 		// glTF alphaMode: OPAQUE
 		return {
-			// blending: THREE.CustomBlending,
-			// blendSrcAlpha: THREE.SrcAlphaFactor,
-			// blendDstAlpha: THREE.OneFactor
-			transparent: false
+			blending: THREE.CustomBlending,
+			blendSrcAlpha: THREE.SrcAlphaFactor,
+			blendDstAlpha: THREE.OneFactor
 		};
 	} else if (modulateType >= FFLModulateType.SHAPE_MASK &&
 		modulateType <= FFLModulateType.SHAPE_GLASS) {
 		// Translucent (DrawXlu)
 		// glTF alphaMode: MASK (TEXTURE_DIRECT), or BLEND (LUMINANCE_ALPHA)?
 		return {
-			// blending: THREE.CustomBlending,
-			// blendSrc: THREE.SrcAlphaFactor,
-			// blendDst: THREE.OneMinusSrcAlphaFactor,
-			// blendDstAlpha: THREE.OneFactor,
-			transparent: true
-			// depthWrite: false // for glass?
+			blending: THREE.CustomBlending,
+			blendSrc: THREE.SrcAlphaFactor,
+			blendDst: THREE.OneMinusSrcAlphaFactor,
+			blendDstAlpha: THREE.OneFactor,
+			// transparent: true
+			depthWrite: false // kept on inside of LUTShaderMaterial
 		};
 	} else
 	*/
@@ -2963,10 +3104,16 @@ function _applyModulateParam(modulateParam, module) {
 		color: color,
 		opacity: opacity,
 		transparent: transparent,
+		// Depth writing is disabled for DrawXlu stage however
+		// it is kept enabled in LUTShaderMaterial because its
+		// alpha testing chooses to not write depth. Since we are
+		// disabling it anyway, that means shapes NEED to be in order
+		depthWrite: !transparent,
 
 		// Apply blending options (for mask/faceline) based on modulateType.
 		..._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
 	};
+	// only for mask/faceline which should not be drawn in non-ffl materials:
 	if (!lightEnable) {
 		// Only set lightEnable if it is not default.
 		/** @type {Object<string, *>} */ (param).lightEnable = lightEnable;
@@ -3033,11 +3180,16 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
 	// Set position and scale. FFLiAdjustShape does not set rotation.
 	mesh.scale.setFromMatrixScale(matrix);
 	mesh.position.setFromMatrixPosition(matrix);
+	// Account for flipped X scale (setFromMatrixScale doesn't?)
+	if (matrix.elements[0] === -1) {
+		mesh.scale.x = -1;
+	}
 }
 
 // // ---------------------------------------------------------------------
 // //  CharModel Render Textures
 // // ---------------------------------------------------------------------
+// TODO PATH: src/CharModelTextures.js
 
 // ---------------- initCharModelTextures(charModel, renderer) ----------------
 /**
@@ -3047,15 +3199,11 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
  * Note that this is a separate function due to needing renderer parameter.
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
- * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
+ * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  */
 function initCharModelTextures(charModel, renderer, materialClass = charModel._materialClass) {
 	const module = charModel._module;
-	/**
-	 * Material class used to initialize textures specifically.
-	 * @type {function(new: import('three').Material, ...*): import('three').Material}
-	 * @public
-	 */
+	// Set material class for render textures.
 	charModel._materialTextureClass = materialClass;
 
 	const textureTempObject = charModel._getTextureTempObject();
@@ -3087,7 +3235,7 @@ function initCharModelTextures(charModel, renderer, materialClass = charModel._m
  * @param {FFLiTextureTempObject} textureTempObject - The FFLiTextureTempObject containing faceline DrawParams.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
- * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
+ * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
  */
 function _drawFacelineTexture(charModel, textureTempObject, renderer, module, materialClass) {
@@ -3141,7 +3289,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
  * @param {FFLiTextureTempObject} textureTempObject - The temporary texture object.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
- * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
+ * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
  */
 function _drawMaskTextures(charModel, textureTempObject, renderer, module, materialClass) {
@@ -3187,7 +3335,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
  * @param {FFLiRawMaskDrawParam} rawMaskParam - The RawMaskDrawParam.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
- * @param {function(new: import('three').Material, ...*): import('three').Material} materialClass - The material class (e.g., FFLShaderMaterial).
+ * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}} The RenderTarget and scene of this mask texture.
  * @throws {Error} All DrawParams are empty.
  * @package
@@ -3246,6 +3394,7 @@ function _setFaceline(charModel, target) {
 // // ---------------------------------------------------------------------
 // //  Scene/Render Target Handling
 // // ---------------------------------------------------------------------
+// TODO PATH: src/RenderTargetUtils.js
 
 // TODO: private?
 // ----- createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) -----
@@ -3254,7 +3403,7 @@ function _setFaceline(charModel, target) {
  * to a new mesh. Used for one-time rendering of faceline/mask 2D planes.
  * @param {Array<FFLDrawParam>} drawParams - Array of FFLDrawParam.
  * @param {import('three').Color|null} bgColor - Optional background color.
- * @param {[function(new: import('three').Material, ...*): import('three').Material, Module, TextureManager|null]} drawParamArgs - Arguments to pass to drawParamToMesh.
+ * @param {[MaterialConstructor, Module, TextureManager|null]} drawParamArgs - Arguments to pass to drawParamToMesh.
  * @returns {{scene: import('three').Scene, meshes: Array<import('three').Mesh|null>}} An object containing the created scene and an array of meshes.
  */
 function createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) {
@@ -3443,14 +3592,18 @@ function renderTargetToDataURL(renderTarget, renderer, flipY = false) {
 // // ---------------------------------------------------------------------
 // //  CharModel Icon Creation
 // // ---------------------------------------------------------------------
+// TODO PATH: src/ModelIcon.js
 
 /**
  * @enum {number}
  */
 const ViewType = {
-	Face: 0, // Typical icon body view.
-	MakeIcon: 1, // FFLMakeIcon matrix
-	IconFovy45: 2 // Custom
+	/** Typical icon body view. */
+	Face: 0,
+	/** FFLMakeIcon matrix */
+	MakeIcon: 1,
+	/** Custom view with 45 degree field-of-view. */
+	IconFovy45: 2
 };
 
 // -------------- getCameraForViewType(viewType, width, height) --------------
@@ -3521,6 +3674,7 @@ function createCharModelIcon(charModel, renderer, viewType = ViewType.MakeIcon, 
 // // ---------------------------------------------------------------------
 // //  StudioCharInfo Definition, Conversion
 // // ---------------------------------------------------------------------
+// TODO PATH: src/StudioCharInfo.js
 
 /**
  * @typedef {Object} StudioCharInfo
@@ -3808,6 +3962,7 @@ function convertFFLiCharInfoToStudioCharInfo(src) {
 // // ---------------------------------------------------------------------
 // //  Generic Hex/Base64 Utilities
 // // ---------------------------------------------------------------------
+// TODO PATH: src/CodecUtilities.js
 
 /**
  * Removes all spaces from a string.
@@ -3898,6 +4053,7 @@ export {
 	FFLModulateType,
 	FFLExpression,
 	FFLModelFlag,
+	FFLResourceType,
 
 	// Types for CharModel initialization
 	FFLiCharInfo,
@@ -3912,6 +4068,7 @@ export {
 	FFLRace,
 
 	// Begin public methods
+	initializeFFL,
 	initializeFFLWithResource,
 	exitFFL,
 	CharModel, // CharModel class
@@ -3927,12 +4084,15 @@ export {
 	_allocateModelSource,
 	createCharModel,
 	updateCharModel,
+	getIdentCamera,
+	createAndRenderToTarget,
 	initCharModelTextures,
 	renderTargetToDataURL,
 	transferCharModelTex, // TODO
 
 	// Icon rendering
 	ViewType,
+	getCameraForViewType,
 	createCharModelIcon,
 	StudioCharInfo,
 

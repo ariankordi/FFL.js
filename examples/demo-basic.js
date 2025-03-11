@@ -70,7 +70,7 @@ function initializeScene() {
 		controls = new THREE.OrbitControls(camera, renderer.domElement);
 		// Initialize defaults.
 		if (Object.keys(controlsOld).length) {
-			for (prop in controlsOld) {
+			for (const prop in controlsOld) {
 				// Apply properties already set to controls.
 				controls[prop] = controlsOld[prop];
 			}
@@ -179,7 +179,7 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 			element.appendChild(img);
 		}
 		// Remove excess images in the list.
-		while (element.children.length > maximum) {
+		while (element.children.length > maximum && element.lastChild) {
 			element.removeChild(element.lastChild);
 		}
 	}
@@ -190,7 +190,7 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 
 /**
  * Either creates or updates CharModel and adds it to the scene.
- * @param {Uint8Array|string} data - Data as Uint8Array or hex or Base64 string.
+ * @param {Uint8Array|string|null} data - Data as Uint8Array or hex or Base64 string.
  * @param {Object|Array|null} descOrExpFlag - Either a new FFLCharModelDesc object or an array of expressions.
  * @throws {Error} cannot exclude modelDesc if no model was initialized yet
  */
@@ -205,18 +205,21 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	try {
 		if (currentCharModel) {
 			// Remove current CharModel from the scene.
-			scene.remove(currentCharModel.meshes);
+			currentCharModel.meshes && scene.remove(currentCharModel.meshes);
 			// Update existing model via updateCharModel.
 			// (will also dispose it for us)
 			currentCharModel = updateCharModel(currentCharModel, data, renderer, descOrExpFlag);
 		} else {
 			// Create a new CharModel.
-			if (!descOrExpFlag) {
-				throw new Error('cannot exclude modelDesc if no model was initialized yet');
+			if (!descOrExpFlag || !data) {
+				throw new Error('cannot exclude modelDesc or data if no model was initialized yet');
 			}
 			currentCharModel = createCharModel(data, descOrExpFlag, mat, moduleFFL);
 			// Initialize textures for the new CharModel.
 			initCharModelTextures(currentCharModel, renderer);
+		}
+		if (!currentCharModel.meshes) {
+			throw new Error('updateCharModelInScene: currentCharModel.meshes is null or undefined after initialization');
 		}
 	} catch (err) {
 		currentCharModel = null;
@@ -378,7 +381,7 @@ function onShaderMaterialChange() {
 
 let rotationEnabled = false;
 
-const rotationSpeedElement = /** @type {HTMLInputElement|null} */ (document.getElementById)('rotationSpeed');
+const rotationSpeedElement = /** @type {HTMLInputElement|null} */ (document.getElementById('rotationSpeed'));
 
 /**
  * Updates the global rotation speed from the range input with id "rotationSpeed".
@@ -404,6 +407,9 @@ function toggleRotation() {
  * equal to the one used for blinking.
  */
 function updateCanBlink() {
+	if (!currentCharModel) {
+		return;
+	}
 	const flag = currentCharModel._model.charModelDesc.allExpressionFlag;
 	// Compare expressionFlagBlinking to flag to see if they match.
 	canBlink = expressionFlagBlinking.every((val, i) => val === flag[i]);
@@ -584,15 +590,21 @@ const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getE
 // -------------- Form Submission Handler ------------------
 document.addEventListener('DOMContentLoaded', async function () {
 	// Initialize FFL.
-	const initResult = await initializeFFL(window.ffljsResourceFetchResponse, window.ModuleFFL);
-	if (!initResult || !initResult.module) {
-		throw new Error(`initializeFFLWithResource returned unexpected result: ${initResult}`);
+	try {
+		const initResult = await initializeFFL(window.ffljsResourceFetchResponse, window.ModuleFFL);
+		// Check the return result.
+		if (!initResult || !initResult.module) {
+			throw new Error(`initializeFFLWithResource returned unexpected result: ${initResult}`);
+		}
+		// Set moduleFFL global from initialization result.
+		moduleFFL = initResult.module;
+		// Catch and alert if this fails.
+	} catch (error) {
+		alert(`Error initializing FFL with resource: ${error}`);
+		throw error;
 	}
-	// Set moduleFFL global from initialization result.
-	moduleFFL = initResult.module;
 
-	// Initialize FFL.
-	// await initializeFFLWithResource(window.Module);
+	// await initializeFFLWithResource(window.Module); // Alternative.
 
 	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
 
@@ -659,11 +671,11 @@ function loadCharacterButtons(useLocalIcon = true) {
 	const btnTemplateElement = document.getElementById('btn-template');
 	const elements = document.querySelectorAll('[data-name][data-data]');
 	elements.forEach((el) => {
-		const clone = btnTemplateElement.cloneNode(true);
+		const clone = /** @type {HTMLButtonElement} */ (btnTemplateElement.cloneNode(true));
 		clone.style.display = '';
 		clone.removeAttribute('id');
 
-		const btn = clone.querySelector('button');
+		const btn = /** @type {HTMLButtonElement} */ (clone.querySelector('button'));
 		btn.removeAttribute('disabled');
 		btn.addEventListener('click', onPresetCharacterClick);
 		const img = btn.querySelector('img');
@@ -673,7 +685,9 @@ function loadCharacterButtons(useLocalIcon = true) {
 		setIcon(img, data);
 
 		btn.setAttribute('data-data', el.getAttribute('data-data'));
-		div.textContent = el.getAttribute('data-name');
+		if (name) {
+			name.textContent = el.getAttribute('data-name');
+		}
 
 		el.replaceWith(clone);
 	});
@@ -686,9 +700,10 @@ function loadCharacterButtons(useLocalIcon = true) {
 function onPresetCharacterClick(event) {
 	event.preventDefault();
 	const data = /** @type {HTMLButtonElement} */ (event.currentTarget).getAttribute('data-data');
-	console.log('Preset character data clicked: ', data);
-
-	initAndUpdateScene(data);
+	console.log('Preset character data clicked, data: ', data);
+	if (data) {
+		initAndUpdateScene(data);
+	}
 }
 
 // // ---------------------------------------------------------------------
@@ -764,7 +779,7 @@ function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0, definedTypes 
  * Generates JSDoc, calling {@link generateJSDoc}, from the name
  * of a type defined as a struct-fu struct.
  * The result will be logged to console.
- * @param {_.StructInstance<*>} structInstance - Result of _.struct for the type.
+ * @param {import('../struct-fu').StructInstance<*>} structInstance - Result of _.struct for the type.
  * @param {string} [typeName] - Name of the type.
  * @returns {string} The JSDoc typedef with type name set to just "type".
  * @throws {Error} typeName must be a string
@@ -774,3 +789,6 @@ function generateJSDocStructFu(structInstance, typeName = 'type') {
 	const obj = structInstance.unpack(empty); // Object containing all struct fields.
 	return generateJSDoc(obj, typeName);
 }
+
+window.generateJSDoc = generateJSDoc;
+window.generateJSDocStructFu = generateJSDocStructFu;

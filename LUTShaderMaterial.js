@@ -6,6 +6,16 @@
  * @typedef {import('three')} THREE
  */
 
+/**
+ * @typedef {Object} LUTShaderMaterialParameters
+ * @property {FFLModulateMode} [modulateMode] - Modulate mode.
+ * @property {FFLModulateType} [modulateType] - Modulate type.
+ * @property {import('three').Color|Array<import('three').Color>} [color] - Constant color assigned to uColor0/1/2 depending on single or array.
+ * @property {import('three').Vector3} [lightDirection] - Light direction.
+ * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
+ * @property {import('three').Texture} [map] - Texture map.
+ */
+
 /* global define, require, module -- UMD globals. */
 (function (root, factory) {
 	// @ts-ignore - cannot find name define
@@ -1056,15 +1066,6 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	}
 
 	/** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
-
-	/**
-	 * @typedef {Object} LUTShaderMaterialParameters
-	 * @property {FFLModulateMode} [modulateMode] - Modulate mode.
-	 * @property {FFLModulateType} [modulateType] - Modulate type.
-	 * @property {import('three').Color|Array<import('three').Color>} [color] - Constant color assigned to uColor0/1/2 depending on single or array.
-	 * @property {import('three').Vector3} [lightDirection] - Light direction.
-	 * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
-	 */
 
 	/**
 	 * Constructs a LUTShaderMaterial instance.
