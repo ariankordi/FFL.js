@@ -324,7 +324,7 @@ void main()
         vPunctualLightHalfVecWorldOrTangent.xyz = normalize(vPunctualLightDirWorldOrTangent.xyz + vEyeVecWorldOrTangent.xyz);
 
         // Diffuse計算
-        diffuseColor += (uDirLightColor0.rgb * clamp(dot(lightDir, normal), 0.0, 1.0));
+        diffuseColor += (uDirLightColor0.rgb * clamp(dot(lightDir, normal_), 0.0, 1.0));
     }
     if (uDirLightCount > 1)
     {
@@ -336,7 +336,7 @@ void main()
         else                                { lightDir = uDirLightDirAndType1.xyz - positionWorld.xyz; }
         lightDir = normalize(lightDir);
 
-        diffuseColor += max(dot(lightDir, normal), 0.0) * uDirLightColor1;
+        diffuseColor += max(dot(lightDir, normal_), 0.0) * uDirLightColor1;
     }
     // ライトは1.0を超えないように
     diffuseColor = min(diffuseColor, 1.0);
@@ -345,13 +345,13 @@ void main()
 #if defined(AGX_FEATURE_SPHERE_MAP_TEXTURE)
     {
         // キューブ環境マップ用の反射ベクトルを求める
-//        vReflectDir = reflect(normalize(positionWorld.xyz - cameraPosition), normal);
+//        vReflectDir = reflect(normalize(positionWorld.xyz - cameraPosition), normal_);
 
         // スフィア環境マップ用の反射ベクトルを求める
-//        vReflectDir = normalize((uViewMatrix * vec4(normal, 0.0)).xyz) * 0.5 + 0.5;
+//        vReflectDir = normalize((uViewMatrix * vec4(normal_, 0.0)).xyz) * 0.5 + 0.5;
 
         // ビュー座標系での位置と法線を取得
-        mediump vec3 viewNormal   = normalize(mat3(uViewMatrix) * normal);
+        mediump vec3 viewNormal   = normalize(mat3(uViewMatrix) * normal_);
         mediump vec4 viewPosition = uViewMatrix * positionWorld;
         viewPosition = viewPosition / viewPosition.w;
         // ビュー座標系での頂点ベクトルを取得
@@ -366,7 +366,7 @@ void main()
 
         // 公式
 //        mediump vec3  viewPositionVec = normalize(vec3(uViewMatrix * positionWorld));
-//        mediump vec3  viewReflectVec = viewPositionVec - 2.0 * dot(viewPositionVec, normal) * normal;
+//        mediump vec3  viewReflectVec = viewPositionVec - 2.0 * dot(viewPositionVec, normal_) * normal;
 //        mediump float m = 2.0 * sqrt(viewReflectVec.x * viewReflectVec.x +
 //                                     viewReflectVec.y * viewReflectVec.y +
 //                                     (viewReflectVec.z + 1.0) * (viewReflectVec.z * 1.0));
@@ -392,14 +392,14 @@ void main()
         mediump vec3 ground = uHSLightGroundColor;
 
         {
-            mediump float skyRatio = (normal.y + 1.0) * 0.5;
+            mediump float skyRatio = (normal_.y + 1.0) * 0.5;
             hemiColor =  (sky * skyRatio + ground * (1.0 - skyRatio));
             diffuseColor += hemiColor;
         }
 
         {
-//            mediump vec3 reflectDir = -reflect(normal, eyeVecWorld); // おそらくコレで良いはず
-            mediump vec3 reflectDir = 2.0 * dot(eyeVecWorld, normal) * normal - eyeVecWorld; // 多少冗長でも、正しい計算で行なう
+//            mediump vec3 reflectDir = -reflect(normal_, eyeVecWorld); // おそらくコレで良いはず
+            mediump vec3 reflectDir = 2.0 * dot(eyeVecWorld, normal_) * normal_ - eyeVecWorld; // 多少冗長でも、正しい計算で行なう
 
             mediump float skyRatio = (reflectDir.y + 1.0) * 0.5;
             hemiColor =  (sky * skyRatio + ground * (1.0 - skyRatio));

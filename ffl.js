@@ -300,8 +300,8 @@ const FFLExpression = {
 	CONFUSED: 58,
 	CHEERFUL_MOUTH_STRAIGHT: 59,
 	CHEERFUL: 60,
-	NORMAL_DUPLICATE_1: 61,
-	NORMAL_DUPLICATE_2: 62,
+	BLANK_61: 61,
+	BLANK_62: 62,
 	GRUMBLE_MOUTH_STRAIGHT: 63,
 	GRUMBLE: 64,
 	MOVED_MOUTH_STRAIGHT: 65,
@@ -1489,7 +1489,7 @@ class ExpressionNotSet extends Error {
 /**
  * Loads data from TypedArray or fetch response directly into Emscripten heap.
  * If passed a fetch response, it streams it directly into memory and avoids copying.
- * @param {Uint8Array|Response} resource - The resource data. Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
+ * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data. Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
  * @param {Module} module - The Emscripten module instance.
  * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
  * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
@@ -1505,13 +1505,11 @@ async function _loadDataIntoHeap(resource, module) {
 			resource = new Uint8Array(resource);
 		}
 		if (resource instanceof Uint8Array) {
-			// Recommend passing in fetch Response, read func description for why
-			console.warn('initializeFFL -> _loadDataIntoHeap: resource was passed as Uint8Array/ArrayBuffer. Please pass in a fetch Response instance for improved efficiency.');
-
+			// Comes in as Uint8Array, allocate and set it.
 			heapSize = resource.length;
 			heapPtr = module._malloc(heapSize);
-			console.debug(`loadDataIntoHeap: Loading from Uint8Array. Size: ${heapSize}, pointer: ${heapPtr}`);
-			// Allocate and set this area in the heap as the passed array.
+			console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, pointer: ${heapPtr}`);
+			// Allocate and set this area in the heap as the passed buffer.
 			module.HEAPU8.set(resource, heapPtr);
 		} else if (resource instanceof Response) {
 			// Handle as fetch response.
@@ -1520,19 +1518,21 @@ async function _loadDataIntoHeap(resource, module) {
 			}
 			// Throw an error if it is not a streamable response.
 			if (!resource.body) {
-				throw new Error(`Fetch response is not streamable (resource.body = ${resource.body})`);
+				throw new Error(`Response body is null (resource.body = ${resource.body})`);
 			}
 			// Get the total size of the resource from the headers.
 			const contentLength = resource.headers.get('Content-Length');
 			if (!contentLength) {
-				throw new Error('Fetch response is missing Content-Length.');
+				// Cannot stream the response. Read as ArrayBuffer and reinvoke function.
+				console.debug('_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.');
+				return _loadDataIntoHeap(await resource.arrayBuffer(), module);
 			}
 
 			// Allocate into heap using the Content-Length.
 			heapSize = parseInt(contentLength, 10);
 			heapPtr = module._malloc(heapSize);
 
-			console.debug(`loadDataIntoHeap: Streaming ${heapSize} bytes from fetch response. URL: ${resource.url}, pointer: ${heapPtr}`);
+			console.debug(`loadDataIntoHeap: Streaming from fetch response. Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
 
 			// Begin reading and streaming chunks into the heap.
 			const reader = resource.body.getReader();
@@ -2186,7 +2186,7 @@ class CharModel {
 
 	/**
 	 * Sets the expression for this CharModel and updates the corresponding mask texture.
-	 * @param {number} expression - The new expression index.
+	 * @param {FFLExpression} expression - The new expression index.
 	 * @throws {Error} CharModel must have been initialized with the expression enabled in the flag and have XLU_MASK in meshes.
 	 * @public
 	 */
@@ -2199,6 +2199,11 @@ class CharModel {
 		}
 		const mesh = this._maskMesh;
 		if (!mesh || !(mesh instanceof THREE.Mesh)) {
+			// So there is no mask mesh, which is not supposed to happen...
+			// ... except for when the expression is 61 or 62, in which case just return.
+			if (expression === FFLExpression.BLANK_61 || expression === FFLExpression.BLANK_62) {
+				return; // Drop out without throwing or setting expression.
+			}
 			throw new Error('setExpression: mask mesh does not exist, cannot set expression on it');
 		}
 		// Update texture and material.
@@ -2554,14 +2559,15 @@ function getRandomCharInfo(module, gender = FFLGender.ALL, age = FFLAge.ALL, rac
 // --------------------- makeExpressionFlag(expressions) ----------------------
 /**
  * Creates an expression flag to be used in FFLCharModelDesc.
- * Use this whenever you need to describe which expression, or expressions, you want to be able to use in the CharModel.
- * @param {Array<number>|number} expressions - Either a single expression index or an array of expression indices. See {@link FFLExpression} for min/max.
+ * Use this whenever you need to describe which expression,
+ * or expressions, you want to be able to use in the CharModel.
+ * @param {Array<FFLExpression>|FFLExpression} expressions - Either a single expression index or an array of expression indices. See {@link FFLExpression} for min/max.
  * @returns {Uint32Array} FFLAllExpressionFlag type of three 32-bit integers.
  * @throws {Error} expressions must be in range and less than {@link FFLExpression.MAX}.
  */
 function makeExpressionFlag(expressions) {
 	/**
-	 * @param {number} i - Expression index to check.
+	 * @param {FFLExpression} i - Expression index to check.
 	 * @throws {Error} input out of range
 	 */
 	function checkRange(i) {
@@ -2791,6 +2797,9 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 	}
 	if (!texManager) {
 		throw new Error('drawParamToMesh: Passed in TextureManager is null or undefined, is it constructed?');
+	}
+	if (typeof materialClass !== 'function') {
+		throw new Error('drawParamToMesh: materialClass is unexpectedly not a function.');
 	}
 
 	// Skip if the index count is 0, indicating no shape data.
@@ -3244,9 +3253,9 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
 	module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
 	// Gather the drawParams that make up the faceline texture.
 	const drawParams = [
+		textureTempObject.facelineTexture.drawParamFaceMake,
 		textureTempObject.facelineTexture.drawParamFaceLine,
-		textureTempObject.facelineTexture.drawParamFaceBeard,
-		textureTempObject.facelineTexture.drawParamFaceMake
+		textureTempObject.facelineTexture.drawParamFaceBeard
 	].filter(dp => dp && dp.modulateParam.pTexture2D !== 0);
 	// Note that for faceline DrawParams to not be empty,
 	// it must have a texture. For other DrawParams to not
