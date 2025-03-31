@@ -50,7 +50,7 @@
 			overflow-y: scroll;
 		}
 		/* Limit height and give margin and border to textures. */
-		#ffl-js-display-render-textures img {
+		#ffl-js-display-render-textures canvas {
 			height: 100px;
 			margin: 5px;
 			border: 1px dotted #808080;
@@ -138,7 +138,7 @@
 			width: 220px;
 		}
 
-		.options-container > img {
+		.options-container > canvas {
 			border: 1px dotted #808080;
 			width: 128px;
 			aspect-ratio: 1 / 1; /* Make image a square. */
@@ -170,7 +170,7 @@
 		<i>or, choose you're fighter...</i>
 		<div class="preset-character-selection">
 			<!-- Template for buttons here: vv -->
-			<div id="btn-template" style="display: none;"><button disabled style="display: inline-block; margin-right: 10px;"><img data-src="https://mii-unsecure.ariankordi.net/miis/image.png?shaderType=switch&amp;type=variableiconbody&amp;width=96&amp;texResolution=128&amp;resourceType=low&amp;scale=1&amp;data=" style="width: 128px; height: 128px;"><div>template</div></button></div>
+			<div id="btn-template" style="display: none;"><button disabled style="display: inline-block; margin-right: 10px;"><canvas class="image" style="width: 128px; height: 128px;"></canvas><div class="name">template</div></button></div>
 
 			<!-- Actual buttons defined below: -->
 			<meta data-name="jasmine" data-data="AwAAQKBBOMSghAAA27iHMb5gKyoqQgAAWS1KAGEAcwBtAGkAbgBlAAAAAAAAABw3EhB7ASFuQxwNZMcYAAgegg0AMEGzW4JtAABvAHMAaQBnAG8AbgBhAGwAAAAAAJA6">
@@ -264,7 +264,7 @@
 				</div>
 			</div>
 			<!-- Icon for current CharModel. -->
-			<img id="modelIcon" src="" alt="CharModel Icon">
+			<canvas id="modelIcon" alt="CharModel Icon"></canvas>
 		</div>
 
 		<!-- Hidden Debug Option (inside details) -->

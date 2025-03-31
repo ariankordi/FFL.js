@@ -1,29 +1,8 @@
 declare namespace _exports {
-    export { FFLModulateMode, FFLModulateType, THREE };
+    export { FFLModulateMode, FFLModulateType, THREE, LUTShaderMaterialParameters };
 }
 declare const _exports: {
-    new (options?: import("three").ShaderMaterialParameters & {
-        /**
-         * - Modulate mode.
-         */
-        modulateMode?: number | undefined;
-        /**
-         * - Modulate type.
-         */
-        modulateType?: number | undefined;
-        /**
-         * - Constant color assigned to uColor0/1/2 depending on single or array.
-         */
-        color?: import("three").Color | import("three").Color[] | undefined;
-        /**
-         * - Light direction.
-         */
-        lightDirection?: import("three").Vector3 | undefined;
-        /**
-         * - Enable lighting. Needs to be off when drawing faceline/mask textures.
-         */
-        lightEnable?: boolean | undefined;
-    }): {
+    new (options?: import("three").ShaderMaterialParameters & LUTShaderMaterialParameters): {
         /** @type {FFLModulateType} */
         _modulateType: FFLModulateType;
         /**
@@ -39,16 +18,9 @@ declare const _exports: {
         _color3: import("three").Color | undefined;
         /**
          * Gets the opacity of the constant color.
-         * @returns {number|undefined} The new opacity value.
+         * @returns {number} The opacity value.
          */
-        get opacity(): number | undefined;
-        /**
-         * Sets the opacity of the constant color.
-         * NOTE: that this is actually set in the constructor
-         * of Material, meaning it is the only one set BEFORE uniforms are
-         * @param {number} value - The new opacity value.
-         */
-        set opacity(value: number);
+        opacity: number;
         _opacity: number | undefined;
         /**
          * Gets the value of the modulateMode uniform.
@@ -300,3 +272,29 @@ export = _exports;
 type FFLModulateMode = number;
 type FFLModulateType = number;
 type THREE = typeof import("three");
+type LUTShaderMaterialParameters = {
+    /**
+     * - Modulate mode.
+     */
+    modulateMode?: number | undefined;
+    /**
+     * - Modulate type.
+     */
+    modulateType?: number | undefined;
+    /**
+     * - Constant color assigned to uColor0/1/2 depending on single or array.
+     */
+    color?: import("three").Color | import("three").Color[] | undefined;
+    /**
+     * - Light direction.
+     */
+    lightDirection?: import("three").Vector3 | undefined;
+    /**
+     * - Enable lighting. Needs to be off when drawing faceline/mask textures.
+     */
+    lightEnable?: boolean | undefined;
+    /**
+     * - Texture map.
+     */
+    map?: import("three").Texture | undefined;
+};

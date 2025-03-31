@@ -6,20 +6,20 @@
 
 /**
  * Emscripten module instance returned after initialization.
- * @type {Module}
+ * @type {import('../ffl').Module}
  */
 let moduleFFL;
 
 // Global variables for the main scene, renderer, camera, controls, etc.
-/** @type {THREE.Scene} */
+/** @type {import('three').Scene} */
 let scene;
-/** @type {THREE.WebGLRenderer} */
+/** @type {import('three').WebGLRenderer} */
 let renderer;
-/** @type {THREE.Camera} */
+/** @type {import('three').Camera} */
 let camera;
-/** @type {THREE.OrbitControls|Object} */
+/** @type {import('three').OrbitControls|Object} */
 let controls = {}; // Initialize to empty so properties can be set.
-/** @type {CharModel} */
+/** @type {CharModel|null} */
 let currentCharModel;
 let isInitialized = false;
 // window.isInitialized = false;
@@ -159,19 +159,18 @@ function startAnimationLoop() {
 /**
  * Displays CharModel render textures, appending their images to `element` for debugging.
  * @param {CharModel} model - The CharModel whose textures to display.
- * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {HTMLElement} element - The HTML list to append the images inside of.
  */
 function displayCharModelTexturesDebug(model, renderer, element) {
 	const maximum = 30; // Limit before older textures are removed.
 	/**
 	 * Displays and appends an image of a render target.
-	 * @param {THREE.WebGLRenderTarget} target - The render target.
+	 * @param {import('three').RenderTarget} target - The render target.
 	 */
 	function displayTarget(target) {
-		const dataURL = renderTargetToDataURL(target, renderer, true);
-		const img = new Image();
-		img.src = dataURL;
+		const img = textureToCanvas(target.texture, renderer);
+
 		if (element.firstChild) {
 			// Prepend instead of appending if available.
 			element.insertBefore(img, element.firstChild);
@@ -227,6 +226,7 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 		console.error('Error creating/updating CharModel:', err);
 		throw err;
 	}
+
 	// Display CharModel render textures if the element is non-null.
 	if (displayRenderTexturesElement) {
 		displayCharModelTexturesDebug(currentCharModel, renderer, displayRenderTexturesElement);
@@ -244,6 +244,9 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	// directions in a global then use updateLightDirection
 	// which should now take direct XYZ values and set them here.
 	resetLightDirection();
+
+	// Specifically allow currentCharModel to be accessible on window.
+	/** @type {*} */ (window).currentCharModel = currentCharModel;
 }
 
 // // ---------------------------------------------------------------------
@@ -358,15 +361,20 @@ function onShaderMaterialChange() {
 		const userData = mesh.geometry.userData; // Get modulateMode/Type
 		// Create new material (assumes the new shader is accessible via window).
 
+		const modulateModeType = {
+			modulateMode: userData.modulateMode,
+			modulateType: userData.modulateType // this setter sets side too
+		};
+
 		const params = {
 			// _side = original side from LUTShaderMaterial, must be set first
 			side: (oldMat._side !== undefined) ? oldMat._side : oldMat.side,
-			modulateMode: userData.modulateMode,
-			modulateType: userData.modulateType, // this setter sets side too
+			...modulateModeType,
 			color: oldMat.color, // should be after modulateType
 			map: oldMat.map,
 			transparent: oldMat.transparent
 		};
+
 		mesh.material = new window[activeMaterialClassName](params);
 	});
 
@@ -472,30 +480,26 @@ function toggleReinitModel() {
 // //  CharModel Icon and Info Updates
 // // ---------------------------------------------------------------------
 
-const modelIconElement = /** @type {HTMLImageElement|null} */ (document.getElementById('modelIcon'));
+const modelIconElement = /** @type {HTMLCanvasElement|null} */ (document.getElementById('modelIcon'));
 
 /**
  * Updates the icon beside the options for the current CharModel.
  */
 function updateCharModelIcon() {
 	// Skip if currentCharModel was not initialized properly.
-	if (!currentCharModel) {
+	if (!currentCharModel || !modelIconElement) {
 		return;
 	}
 
 	/**
-	 * Asynchronously makes a CharModel icon.
-	 * @param {HTMLImageElement} img - The image to set `src` of.
-	 * @param {ViewType} viewType - The view type for the icon.
+	 * Asynchronously make the CharModel icon.
+	 * @param {ViewType} [viewType] - The view type for the icon.
 	 */
-	async function makeIcon(img, viewType = ViewType.MakeIcon) {
+	(async (viewType = ViewType.MakeIcon) => {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
-		const dataURL = createCharModelIcon(currentCharModel, renderer, viewType, 256, 256);
-		img.src = dataURL;
-	}
-
-	makeIcon(modelIconElement);
+		makeIconFromCharModel(currentCharModel, renderer, { canvas: modelIconElement, viewType });
+	})();
 }
 
 const charModelNameElement = document.getElementById('charModelName');
@@ -612,6 +616,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 	renderer = new THREE.WebGLRenderer({
 		alpha: true // Needed for icons with transparent backgrounds.
 	});
+	if (THREE.ColorManagement) {
+		THREE.ColorManagement.enabled = false; // Ensures Color3s will be treated as sRGB.
+	}
+	renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // Makes shaders work in sRGB
 
 	loadCharacterButtons(); // Load character buttons.
 
@@ -637,34 +645,31 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 /**
  * Creates buttons and icons for the `preset-character-selection` list.
- * @param {boolean} useLocalIcon - Whether or not to create the icon locally with createCharModelIcon.
  */
-function loadCharacterButtons(useLocalIcon = true) {
+function loadCharacterButtons() {
 	/**
 	 * Asynchronously makes a CharModel icon.
-	 * @param {HTMLImageElement} img - The image to set `src` of.
+	 * @param {HTMLImageElement} el - The image element to set `src` of.
 	 * @param {string} data - Data for the CharModel in a hex or Base64 string.
 	 * @param {ViewType} viewType - The view type for the icon.
 	 */
-	async function setIcon(img, data, viewType = ViewType.IconFovy45) {
+	async function setIcon(el, data, viewType = ViewType.IconFovy45) {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
-		if (useLocalIcon) {
-			// Render the icon using createCharModelIcon.
-			let model;
-			try {
-				const dataU8 = parseHexOrB64ToUint8Array(data);
-				model = createCharModel(dataU8, null, window[activeMaterialClassName], moduleFFL);
-				initCharModelTextures(model, renderer);
-				const dataURL = createCharModelIcon(model, renderer, viewType);
-				img.src = dataURL;
-			} catch (e) {
-				console.error(`loadCharacterButtons: Could not make icon for ${data}: ${e}`);
-			} finally {
+		// Render the icon using createCharModelIcon.
+		let model;
+		try {
+			const dataU8 = parseHexOrB64ToUint8Array(data);
+			model = createCharModel(dataU8, null, window[activeMaterialClassName], moduleFFL);
+			initCharModelTextures(model, renderer);
+
+			makeIconFromCharModel(model, renderer, { canvas: el, viewType });
+		} catch (e) {
+			console.error(`loadCharacterButtons: Could not make icon for ${data}: ${e}`);
+		} finally {
+			if (model) {
 				model.dispose();
 			}
-		} else {
-			img.src = img.getAttribute('data-src') + encodeURIComponent(data);
 		}
 	}
 
@@ -678,11 +683,15 @@ function loadCharacterButtons(useLocalIcon = true) {
 		const btn = /** @type {HTMLButtonElement} */ (clone.querySelector('button'));
 		btn.removeAttribute('disabled');
 		btn.addEventListener('click', onPresetCharacterClick);
-		const img = btn.querySelector('img');
-		const div = btn.querySelector('div');
+		const img = btn.querySelector('.image');
+		const name = btn.querySelector('div.name');
 
 		const data = el.getAttribute('data-data-icon') || el.getAttribute('data-data');
-		setIcon(img, data);
+		if (img) {
+			setIcon(img, data);
+		} else {
+			console.warn('setIcon > elements.forEach...: button.querySelector(img) returned null');
+		}
 
 		btn.setAttribute('data-data', el.getAttribute('data-data'));
 		if (name) {

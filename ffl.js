@@ -7,13 +7,12 @@
  */
 
 // ------------------ ESM imports, uncomment if you use ESM ------------------
-// Also see the bottom of the script for corresponding exports.
 /*
+// Also see the bottom of the script for corresponding exports.
 import * as THREE from 'three';
 // import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.167.0/+esm';
-import * as _ from './struct-fu';
+import * as _Import from './struct-fu.js';
 */
-
 // Hack to get library globals recognized throughout the file (remove for ESM).
 /**
  * @typedef {import('./struct-fu')} _
@@ -22,6 +21,8 @@ import * as _ from './struct-fu';
 /* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
 globalThis._ = /** @type {_} */ (/** @type {*} */ (globalThis)._);
 globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
+// NOTeslint-disable-next-line @stylistic/max-statements-per-line --  Hack to use either UMD or browser ESM import.
+// let _ = globalThis._; _ = (!_) ? _Import : _; // Uncomment for ESM
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 /* globals _ THREE -- Global dependencies. */
 
@@ -72,6 +73,7 @@ globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
  * @property {function(number, number, number, number): *} _FFLiGetRandomCharInfo
  * @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
  * @property {function(number, number): *} _FFLpGetCharInfoFromStoreData
+ * @property {function(number, number): *} _FFLpGetCharInfoFromMiiDataOfficialRFL
  * @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo
  * @property {function(number, number): *} _FFLInitRes
  * @property {function(): *} _FFLInitResGPUStep
@@ -2056,7 +2058,7 @@ class CharModel {
 		}
 		this.meshes.traverse((child) => {
 			if (!(child instanceof THREE.Mesh) ||
-				// Exclude meshes whose modulateMode are in excludeFromBox.
+				// Exclude meshes whose modulateType are in excludeFromBox.
 				excludeFromBox.indexOf(child.geometry.userData.modulateType) !== -1) {
 				return;
 			}
@@ -2459,6 +2461,26 @@ function _allocateModelSource(data, module) {
 		module.HEAPU8.set(data, bufferPtr);
 	}
 
+	/**
+	 * Gets CharInfo from calling a function.
+	 * @param {Uint8Array} data - The input data.
+	 * @param {number} size - The size to allocate.
+	 * @param {string} funcName - The function on the module to call.
+	 * @throws {Error} Throws if the function returned false.
+	 * @private
+	 */
+	function callGetCharInfoFunc(data, size, funcName) {
+		const dataPtr = module._malloc(size);
+		module.HEAPU8.set(data, dataPtr);
+		// @ts-ignore - Module cannot be indexed by string. NOTE: The function MUST exist.
+		const result = module[funcName](bufferPtr, dataPtr);
+		module._free(dataPtr);
+		if (!result) {
+			module._free(bufferPtr);
+			throw new Error(`_allocateModelSource: call to ${funcName} returned false, CharInfo verification probably failed`);
+		}
+	}
+
 	// data should be Uint8Array at this point.
 
 	// Enumerate through supported data types.
@@ -2466,14 +2488,12 @@ function _allocateModelSource(data, module) {
 		case FFLStoreData_size: { // sizeof(FFLStoreData)
 			// modelSource.dataSource = FFLDataSource.STORE_DATA;
 			// Convert FFLStoreData to FFLiCharInfo instead.
-			const storeDataPtr = module._malloc(FFLStoreData_size);
-			module.HEAPU8.set(data, storeDataPtr);
-			const result = module._FFLpGetCharInfoFromStoreData(bufferPtr, storeDataPtr);
-			module._free(storeDataPtr);
-			if (!result) {
-				module._free(bufferPtr);
-				throw new Error('_allocateModelSource: call to FFLpGetCharInfoFromStoreData returned false, CharInfo verification probably failed');
-			}
+			callGetCharInfoFunc(data, FFLStoreData_size, '_FFLpGetCharInfoFromStoreData');
+			break;
+		}
+		case 74: // sizeof(RFLCharData)
+		case 76: { // sizeof(RFLStoreData)
+			callGetCharInfoFunc(data, 74, '_FFLpGetCharInfoFromMiiDataOfficialRFL');
 			break;
 		}
 		case FFLiCharInfo.size:
@@ -2833,6 +2853,15 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 		map: texture,
 		...params
 	};
+
+	// Special case for if tangent (NEEDED for aniso) is missing, and...
+	if (geometry.attributes.tangent === undefined && // "_color" can be tested too.
+		// ... material is FFLShaderMaterial. Which is the only one using that attribute.
+		'useSpecularModeBlinn' in materialClass.prototype) {
+		/** @type {import('./FFLShaderMaterial').FFLShaderMaterialParameters} */
+		(materialParam).useSpecularModeBlinn = true;
+	}
+
 	// Create material using the provided materialClass.
 	const material = new materialClass(materialParam);
 	// Create mesh and set userData.modulateType.
@@ -2862,6 +2891,15 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
  * @todo Does not yet handle color stride = 0
  */
 function _bindDrawParamGeometry(drawParam, module) {
+	/**
+	 * @param {string} typeStr - The type of the attribute.
+	 * @param {number} stride - The stride to display.
+	 * @throws {Error} Unexpected stride for attribute ...
+	 */
+	function unexpectedStride(typeStr, stride) {
+		throw new Error(`_bindDrawParamGeometry: Unexpected stride for attribute ${typeStr}: ${stride}`);
+	}
+
 	// Access FFLAttributeBufferParam.
 	const attributes = drawParam.attributeBufferParam.attributeBuffers;
 	const positionBuffer = attributes[FFLAttributeBufferType.POSITION];
@@ -2895,11 +2933,6 @@ function _bindDrawParamGeometry(drawParam, module) {
 			continue;
 		}
 
-		/** @throws {Error} Unexpected stride for attribute ... */
-		function unexpectedStride() {
-			throw new Error(`_bindDrawParamGeometry: Unexpected stride for attribute ${typeStr}: ${buffer.stride}`);
-		}
-
 		switch (type) {
 			case FFLAttributeBufferType.POSITION: {
 				if (buffer.stride === 16) {
@@ -2915,7 +2948,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 					const data = module.HEAPU16.subarray(ptr, ptr + (vertexCount * 3));
 					geometry.setAttribute('position', new THREE.Float16BufferAttribute(data, 3));
 				} else {
-					unexpectedStride();
+					unexpectedStride(typeStr, buffer.stride);
 				}
 				break;
 			}
@@ -2947,7 +2980,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 					const data = module.HEAPU16.subarray(ptr, ptr + (vertexCount * 2));
 					geometry.setAttribute('uv', new THREE.Float16BufferAttribute(data, 2));
 				} else {
-					unexpectedStride();
+					unexpectedStride(typeStr, buffer.stride);
 				}
 				break;
 			}
@@ -3538,64 +3571,102 @@ function disposeMeshes(group, scene) {
 // // ---------------------------------------------------------------------
 // //  Export Scene/Texture To Image
 // // ---------------------------------------------------------------------
+// TODO PATH: src/ExportTexture.js
 
-// ----------- renderTargetToDataURL(renderTarget, renderer, flipY) -----------
 /**
- * Gets a data URL for a render target's texture using the same renderer.
- * @param {import('three').RenderTarget} renderTarget - The render target.
- * @param {import('three').WebGLRenderer} renderer - The renderer (MUST be the same renderer used for the target).
- * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
- * @returns {string} The data URL representing the RenderTarget's texture contents.
+ * Saves the current renderer state and returns an object to restore it later.
+ * @param {import('three').WebGLRenderer} renderer - The renderer to save state from.
+ * @returns {{target: import('three').WebGLRenderTarget|null, colorSpace: import('three').ColorSpace, size: import('three').Vector2}} The saved state object.
  */
-function renderTargetToDataURL(renderTarget, renderer, flipY = false) {
-	// Create a new scene using a full-screen quad.
-	const scene = new THREE.Scene();
-	scene.background = null;
-	// Assign a transparent, textured, and double-sided material.
-	const material = new THREE.MeshBasicMaterial({
-		side: THREE.DoubleSide,
-		map: renderTarget.texture,
-		transparent: true
-	});
-	const plane = new THREE.PlaneGeometry(2, 2); // Full-screen quad
-	const mesh = new THREE.Mesh(plane, material);
-	scene.add(mesh);
-
-	// Use an orthographic camera that fits the full screen.
-	const camera = getIdentCamera(flipY);
-	// Get previous render target, color space, and size.
-	const prevTarget = renderer.getRenderTarget();
-	const prevColorSpace = renderer.outputColorSpace;
+function _saveRendererState(renderer) {
 	const size = new THREE.Vector2();
 	renderer.getSize(size);
 
+	return {
+		target: renderer.getRenderTarget(),
+		colorSpace: /** @type {import('three').ColorSpace} */ (renderer.outputColorSpace),
+		size
+	};
+}
+
+/**
+ * Restores a renderer's state from a saved state object.
+ * @param {import('three').WebGLRenderer} renderer - The renderer to restore state to.
+ * @param {{target: import('three').WebGLRenderTarget|null, colorSpace: import('three').ColorSpace, size: import('three').Vector2}} state - The saved state object.
+ */
+function _restoreRendererState(renderer, state) {
+	renderer.setRenderTarget(state.target);
+	renderer.outputColorSpace = state.colorSpace;
+	renderer.setSize(state.size.x, state.size.y, false);
+}
+
+/**
+ * Copies the renderer's swapchain to a canvas.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
+ * @returns {HTMLCanvasElement} The canvas containing the rendered output.
+ * @throws {Error} Throws if the canvas is defined but invalid.
+ */
+function _copyRendererToCanvas(renderer, canvas) {
+	const sourceCanvas = renderer.domElement;
+	// If the target canvas is not simply undefined, it's null, then error out.
+	if (canvas !== undefined && !(canvas instanceof HTMLCanvasElement)) {
+		throw new Error('copyRendererToCanvas: canvas is neither a valid canvas nor undefined.');
+	}
+	const targetCanvas = canvas || document.createElement('canvas');
+	targetCanvas.width = sourceCanvas.width;
+	targetCanvas.height = sourceCanvas.height;
+	// NOTE: Line below guarantees the canvas to be valid.
+	/** @type {CanvasRenderingContext2D} */ (targetCanvas.getContext('2d'))
+		.drawImage(sourceCanvas, 0, 0);
+
+	return targetCanvas;
+}
+
+// --------------- textureToCanvas(texture, renderer, options) ---------------
+/**
+ * Renders a texture to a canvas. If no canvas is provided, a new one is created.
+ * @param {import('three').Texture} texture - The texture to render.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Object} [options] - Options for canvas output.
+ * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
+ * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into. Creates a new canvas if this does not exist.
+ * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
+ */
+function textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
+	// Create a new scene using a full-screen quad.
+	const scene = new THREE.Scene();
+	scene.background = null; // Transparent background.
+	// Assign a transparent, textured, and double-sided material.
+	const material = new THREE.MeshBasicMaterial({
+		side: THREE.DoubleSide, map: texture, transparent: true
+	});
+	const plane = new THREE.PlaneGeometry(2, 2); // Full-screen quad.
+	const mesh = new THREE.Mesh(plane, material);
+	scene.add(mesh);
+	const camera = getIdentCamera(flipY); // Ortho camera filling whole screen.
+
+	// Get previous render target, color space, and size.
+	const state = _saveRendererState(renderer);
+
 	// Render to the main canvas to extract pixels.
-	renderer.setRenderTarget(null); // Switch render target.
+	renderer.setRenderTarget(null); // Render to primary target.
+	// Get width and set it on renderer.
+	const { width, height } = texture.image;
+	renderer.setSize(width, height, false);
 	// Use working color space.
 	renderer.outputColorSpace = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
-	renderer.setSize(renderTarget.width, renderTarget.height, false);
 	renderer.render(scene, camera);
 
-	/** Disposes working materials used and restores renderer options. */
-	function cleanup() {
-		// Dispose material, plane, remove it from scene.
-		material.dispose();
-		plane.dispose();
-		scene.remove(mesh);
-		// (Optionally set all above to null to destroy references)
+	canvas = _copyRendererToCanvas(renderer, canvas); // Populate canvas.
 
-		// Restore previous size, color space, and target.
-		renderer.outputColorSpace = prevColorSpace;
-		renderer.setSize(size.x, size.y, false);
-		renderer.setRenderTarget(prevTarget);
-	}
+	// Cleanup and restore renderer state.
+	material.dispose();
+	plane.dispose();
+	scene.remove(mesh);
+	_restoreRendererState(renderer, state);
 
-	// Convert the renderer's canvas to an image.
-	const dataURL = renderer.domElement.toDataURL('image/png');
-
-	cleanup();
-
-	return dataURL;
+	return canvas; // Either a new canvas or the same one.
 }
 
 // // ---------------------------------------------------------------------
@@ -3644,39 +3715,60 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
 	}
 }
 
-// ---- createCharModelIcon(charModel, renderer, viewType, width, height) ----
+// ----------- makeIconFromCharModel(charModel, renderer, options) -----------
 /**
- * Creates an icon representing the CharModel's head,
- * using a render target and reading its pixels into a data URL.
+ * Creates an icon of the CharModel with the specified view type.
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
- * @param {ViewType} viewType - The view type.
- * @param {number} width - Desired icon width.
- * @param {number} height - Desired icon height.
- * @returns {string} A data URL of the icon image.
+ * @param {Object} [options] - Optional settings for rendering the icon.
+ * @param {ViewType} [options.viewType] - The view type that the camera derives from.
+ * @param {number} [options.width] - Desired icon width in pixels.
+ * @param {number} [options.height] - Desired icon height in pixels.
+ * @param {import('three').Scene} [options.scene] - Optional scene if you want to provide your own (e.g., with background, or models).
+ * @param {import('three').Camera} [options.camera] - Optional camera to use instead of the one derived from {@link ViewType}.
+ * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into. Creates a new canvas if this does not exist.
+ * @returns {HTMLCanvasElement} The canvas containing the icon.
  * @throws {Error} CharModel.meshes is null or undefined, it may have been disposed.
  */
-function createCharModelIcon(charModel, renderer, viewType = ViewType.MakeIcon, width = 256, height = 256) {
+function makeIconFromCharModel(charModel, renderer, options = {}) {
 	if (!charModel.meshes) {
 		throw new Error('CharModel.meshes is null or undefined, it may have been disposed.');
 	}
-	// Create an offscreen scene for the icon.
-	const iconScene = new THREE.Scene();
-	iconScene.background = null; // Transparent background.
+	// Set locals from options object.
+	let {
+		viewType = ViewType.MakeIcon,
+		width = 256,
+		height = 256,
+		scene,
+		camera,
+		canvas
+	} = options;
+
+	// Create an offscreen scene for the icon if one is not provided.
+	if (!scene) {
+		scene = new THREE.Scene();
+		scene.background = null; // Transparent background.
+	}
 	// Add meshes from the CharModel.
-	iconScene.add(charModel.meshes.clone());
+	scene.add(charModel.meshes.clone());
 	// If the meshes aren't cloned then they disappear from the
 	// primary scene, however geometry/material etc are same
 
 	// Get camera based on viewType parameter.
-	const iconCamera = getCameraForViewType(viewType);
+	if (!camera) {
+		camera = getCameraForViewType(viewType);
+	}
 
-	const target = createAndRenderToTarget(iconScene,
-		iconCamera, renderer, width, height);
+	const state = _saveRendererState(renderer);
 
-	const dataURL = renderTargetToDataURL(target, renderer);
-	target.dispose(); // Dispose RenderTarget before returning.
-	return dataURL;
+	renderer.setRenderTarget(null); // Switch to primary target.
+	renderer.setSize(width, height, false);
+	renderer.render(scene, camera); // Render scene.
+
+	canvas = _copyRendererToCanvas(renderer, canvas); // Populate canvas.
+
+	_restoreRendererState(renderer, state);
+	return canvas;
 	// Caller needs to dispose CharModel.
 }
 
@@ -4096,13 +4188,13 @@ export {
 	getIdentCamera,
 	createAndRenderToTarget,
 	initCharModelTextures,
-	renderTargetToDataURL,
+	textureToCanvas,
 	transferCharModelTex, // TODO
 
 	// Icon rendering
 	ViewType,
 	getCameraForViewType,
-	createCharModelIcon,
+	makeIconFromCharModel,
 	StudioCharInfo,
 
 	// Export utilities

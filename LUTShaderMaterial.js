@@ -1183,13 +1183,13 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the opacity of the constant color.
-	 * @returns {number|undefined} The new opacity value.
+	 * @returns {number} The opacity value.
 	 */
 	// @ts-ignore - Already defined on parent class.
 	get opacity() {
 		if (!this.uniforms.uColor0) {
 			// Get from _opacity if it is set before constant color.
-			return this._opacity;
+			return this._opacity ? this._opacity : 1;
 		}
 		// Return w (alpha) of the constant color uniform.
 		return /** @type {IUniformVector4} */ (this.uniforms.uColor0).value.w;

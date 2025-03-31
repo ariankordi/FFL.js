@@ -95,7 +95,6 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 ### TODO: Improvements
 
 * **Major**: Decide on whether functions should be exported via UMD or ESM (currently using neither)
-* Include [reverse enum to string tables](https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/include/EnumStrings.h#L8) to resolve result codes to exceptions
 * All console.debug statements should be stripped out when not debugging because they will LEAK! objects that are printed. Can that be automated?
 * Implement optimization to update CharModel's faceline/mask only: `FFL_MODEL_FLAG_NEW_MASK_ONLY`, `transferCharModelTex` _(dependency: CharInfo editing demo)_
 
@@ -104,7 +103,7 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 
 * Allow rendering with built-in Three.js materials (e.g. MeshStandardMaterial).
   - By using a custom shader to convert all textures that need colors replaced, potentially a built-in no lighting shader that can also draw mask/faceline?
-  - May also need an option to switch color space (`FFLSetLinearGammaMode`), needs to be kept track of per-CharModel.
+* Add an option to switch color space (`FFLSetLinearGammaMode`), needs to be kept track of per-CharModel.
 * Improve resource loading by either not loading all resource in WASM heap or in memory in general. (IndexedDB streaming?)
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
 * **Refactor**: Split code into files, use ESM imports/exports, consider refactoring to TypeScript(?????)
