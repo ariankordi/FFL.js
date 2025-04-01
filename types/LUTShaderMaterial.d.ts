@@ -12,7 +12,8 @@ declare const _exports: {
         get color(): import("three").Color | null;
         /**
          * Sets the constant color uniforms from THREE.Color.
-         * @param {import('three').Color|Array<import('three').Color>} value - The constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
+         * @param {import('three').Color|Array<import('three').Color>} value - The
+         * constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
          */
         set color(value: import("three").Color | Array<import("three").Color>);
         _color3: import("three").Color | undefined;
@@ -163,18 +164,14 @@ declare const _exports: {
             dispose: {};
         }[T]): void;
     };
-    /**
-     * @enum {number}
-     */
+    /** @enum {number} */
     LUTSpecularTextureType: {
         NONE: number;
         DEFAULT_02: number;
         SKIN_01: number;
         MAX: number;
     };
-    /**
-     * @enum {number}
-     */
+    /** @enum {number} */
     LUTFresnelTextureType: {
         NONE: number;
         DEFAULT_02: number;
@@ -193,19 +190,17 @@ declare const _exports: {
         specular: any;
         fresnel: any;
     };
-    /**
-     * @type {Object<FFLModulateType, LUTSpecularTextureType>}
-     */
+    /** @type {Object<FFLModulateType, LUTSpecularTextureType>} */
     modulateTypeToLUTSpecular: any;
-    /**
-     * @type {Object<FFLModulateType, LUTFresnelTextureType>}
-     */
+    /** @type {Object<FFLModulateType, LUTFresnelTextureType>} */
     modulateTypeToLUTFresnel: any;
     /**
      * Cached LUT textures to avoid redundant generation.
      * @typedef {Object} LUTTextures
-     * @property {Object<LUTSpecularTextureType, import('three').DataTexture>} specular - Specular LUT textures indexed by LUT type.
-     * @property {Object<LUTSpecularTextureType, import('three').DataTexture>} fresnel - Fresnel LUT textures indexed by LUT type.
+     * @property {Object<LUTSpecularTextureType, import('three').DataTexture>} specular -
+     * Specular LUT textures indexed by LUT type.
+     * @property {Object<LUTSpecularTextureType, import('three').DataTexture>} fresnel -
+     * Fresnel LUT textures indexed by LUT type.
      */
     /**
      * @type {LUTTextures|null}
@@ -213,11 +208,13 @@ declare const _exports: {
      */
     _lutTextures: {
         /**
-         * - Specular LUT textures indexed by LUT type.
+         * -
+         * Specular LUT textures indexed by LUT type.
          */
         specular: any;
         /**
-         * - Fresnel LUT textures indexed by LUT type.
+         * -
+         * Fresnel LUT textures indexed by LUT type.
          */
         fresnel: any;
     } | null;
@@ -228,11 +225,13 @@ declare const _exports: {
      */
     getLUTTextures(lutSize?: number): {
         /**
-         * - Specular LUT textures indexed by LUT type.
+         * -
+         * Specular LUT textures indexed by LUT type.
          */
         specular: any;
         /**
-         * - Fresnel LUT textures indexed by LUT type.
+         * -
+         * Fresnel LUT textures indexed by LUT type.
          */
         fresnel: any;
     };
@@ -282,7 +281,8 @@ type LUTShaderMaterialParameters = {
      */
     modulateType?: number | undefined;
     /**
-     * - Constant color assigned to uColor0/1/2 depending on single or array.
+     * -
+     * Constant color assigned to uColor0/1/2 depending on single or array.
      */
     color?: import("three").Color | import("three").Color[] | undefined;
     /**

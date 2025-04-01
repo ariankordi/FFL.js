@@ -57,10 +57,37 @@ let isInitialized = false;
 // window.isInitialized = false;
 let isAnimating = false;
 
+/**
+ * Variant of FFLShaderMaterial that forces specular mode to Blinn-Phong.
+ * @augments {FFLShaderMaterial}
+ */
+class FFLShaderBlinnMaterial extends FFLShaderMaterial {
+	/**
+	 * Constructs an FFLShaderMaterial instance.
+	 * @param {import('three').ShaderMaterialParameters
+	 * & import('../FFLShaderMaterial').FFLShaderMaterialParameters} [options] -
+	 * Parameters for the material.
+	 */
+	constructor(options = {}) {
+		options = Object.assign({
+			useSpecularModeBlinn: true
+		}, options);
+		super(options); // Construct the extended class.
+
+		if (this.uniforms && this.uniforms.u_material_specular_power) {
+			// Adjust specular power, which is the reflection point, to be larger.
+			/** @type {FFLShaderMaterial} */ (this).uniforms.u_material_specular_power.value = 2.0;
+		}
+	}
+}
+window.FFLShaderBlinnMaterial = FFLShaderBlinnMaterial;
+
 // Available shader materials.
-const availableMaterialClasses = ['FFLShaderMaterial', 'LUTShaderMaterial'];
+const availableMaterialClasses = ['FFLShaderMaterial', 'LUTShaderMaterial', 'FFLShaderBlinnMaterial'];
 // Expression flag with default expression, blink, FFL_EXPRESSION_LIKE_WINK_LEFT
-const expressionFlagBlinking = makeExpressionFlag([FFLExpression.NORMAL, 5, 16]);
+const expressionFlagBlinking = makeExpressionFlag(
+	[FFLExpression.NORMAL, FFLExpression.BLINK, FFLExpression.LIKE_WINK_LEFT]
+);
 
 // For debugging.
 let reinitModelEveryFrame = false;
@@ -84,7 +111,7 @@ let canBlink = false;
 function initializeScene() {
 	// Create scene.
 	scene = new THREE.Scene();
-	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : null;
+	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
 	scene.background = new THREE.Color().setHex(0xE6E6FA, space);
 
 	renderer.setPixelRatio(window.devicePixelRatio);
@@ -403,10 +430,14 @@ function onShaderMaterialChange() {
 		const userData = mesh.geometry.userData;
 		// Create new material (assumes the new shader is accessible via window).
 
-		const modulateModeType = {
-			modulateMode: userData.modulateMode,
-			modulateType: userData.modulateType // this setter sets side too
-		};
+		const forFFLMaterial = matSupportsFFL(window[activeMaterialClassName]);
+		/** Do not include the parameters if forFFLMaterial is false. */
+		const modulateModeType = forFFLMaterial
+			? {
+				modulateMode: userData.modulateMode,
+				modulateType: userData.modulateType // this setter sets side too
+			}
+			: {};
 
 		const params = {
 			// _side = original side from LUTShaderMaterial, must be set first
@@ -535,7 +566,7 @@ function updateCharModelIcon() {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
 		makeIconFromCharModel(currentCharModel, renderer,
-			{ canvas: modelIconElement, viewType, scene: getSceneWithLights() });
+			{ canvas: modelIconElement, viewType });
 	})();
 }
 
@@ -649,6 +680,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
 
 	// Create renderer now.
+	// renderer = new THREE.WebGPURenderer({
 	renderer = new THREE.WebGLRenderer({
 		alpha: true // Needed for icons with transparent backgrounds.
 	});
@@ -656,6 +688,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 		THREE.ColorManagement.enabled = false; // Ensures Color3s will be treated as sRGB.
 	}
 	renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // Makes shaders work in sRGB
+
+	if (renderer['init'] !== undefined) {
+		await renderer.init();
+	}
 
 	loadCharacterButtons(); // Load character buttons.
 

@@ -22,7 +22,8 @@ declare const _exports: {
         get color(): import("three").Color | null;
         /**
          * Sets the constant color uniforms from THREE.Color.
-         * @param {import('three').Color|Array<import('three').Color>} value - The constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
+         * @param {import('three').Color|Array<import('three').Color>} value - The
+         * constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
          */
         set color(value: import("three").Color | Array<import("three").Color>);
         _color3: import("three").Color | undefined;
@@ -235,7 +236,8 @@ type FFLShaderMaterialParameters = {
      */
     modulateType?: number | undefined;
     /**
-     * - Constant color assigned to u_const1/2/3 depending on single or array.
+     * -
+     * Constant color assigned to u_const1/2/3 depending on single or array.
      */
     color?: import("three").Color | import("three").Color[] | undefined;
     /**
@@ -247,7 +249,8 @@ type FFLShaderMaterialParameters = {
      */
     lightDirection?: import("three").Vector3 | undefined;
     /**
-     * - Whether to override specular mode on all materials with 0 (Blinn-Phong specular).
+     * - Whether to override
+     * specular mode on all materials with 0 (Blinn-Phong specular).
      */
     useSpecularModeBlinn?: boolean | undefined;
     /**

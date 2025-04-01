@@ -2587,6 +2587,27 @@ function makeExpressionFlag(expressions) {
 		}
 	}
 
+	/**
+	 * Logs using {@link console.warn} if the expression index
+	 * disables any shapes in the CharModel, meant to
+	 * be used when setting multiple indices.
+	 * @param {FFLExpression} i - Expression index to check.
+	 */
+	function warnIfChangesShapes(i) {
+		// Disables nose: dog/cat, blank
+		const expressionsDisablingNose = [49, 50, 51, 52, 61, 62];
+		// Disables mask: blank
+		const expressionsDisablingMask = [61, 62];
+
+		const prefix = `makeExpressionFlag > warnIfChangesShapes: An expression was enabled (${i}) that is meant to disable nose or mask shape for the entire CharModel, so it is only recommended to set this as a single expression rather than as one of multiple.`;
+		if (expressionsDisablingNose.indexOf(i) !== -1) {
+			console.warn(`${prefix} (nose shape)`);
+		}
+		if (expressionsDisablingMask.indexOf(i) !== -1) {
+			console.warn(`${prefix} (in this case, MASK SHAPE so there is supposed to be NO FACE)`);
+		}
+	}
+
 	/** FFLAllExpressionFlag */
 	const flags = new Uint32Array([0, 0, 0]);
 
@@ -2602,6 +2623,7 @@ function makeExpressionFlag(expressions) {
 	// Set multiple expressions in an array.
 	for (const index of expressions) {
 		checkRange(index);
+		warnIfChangesShapes(index); // Warn if the expression changes shapes.
 		/** Determine which 32-bit block. */
 		const part = Math.floor(index / 32);
 		/** Determine the bit within the block. */
@@ -2802,6 +2824,13 @@ function transferCharModelTex(src, dst) {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/DrawParam.js
 
+/**
+ * @param {Function} material - Class constructor for the material to test.
+ * @returns {boolean} Whether or not the material class supports FFL swizzled (modulateMode) textures.
+ */
+function matSupportsFFL(material) {
+	return ('modulateMode' in material.prototype);
+}
 
 // TODO: private?
 // ------ drawParamToMesh(drawParam, materialClass, module, texManager) ------
@@ -2851,7 +2880,8 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 	const texture = _getTextureFromModulateParam(drawParam.modulateParam, texManager);
 
 	// Apply modulateParam material parameters.
-	const params = _applyModulateParam(drawParam.modulateParam, module);
+	const isFFLMaterial = matSupportsFFL(materialClass);
+	const params = _applyModulateParam(drawParam.modulateParam, module, isFFLMaterial);
 	// Create object for material parameters.
 	const materialParam = {
 		side: side,
@@ -2912,15 +2942,6 @@ function _bindDrawParamGeometry(drawParam, module) {
 	// There should always be positions.
 	if (positionBuffer.size === 0) {
 		throw new Error('_bindDrawParamGeometry: Position buffer must not have size of 0');
-	}
-
-	// To use half float resources, Three.js >=160 is needed.
-
-	// const forceHalfFloat = false;
-	// faceline/mask are never half float, they have cull mode set to 3
-	if (/* forceHalfFloat && */(drawParam.cullMode !== FFLCullMode.MAX)) { // cullMode === 3
-		attributes[FFLAttributeBufferType.POSITION].stride = 6;
-		attributes[FFLAttributeBufferType.TEXCOORD].stride = 4;
 	}
 
 	// Get vertex count from position buffer.
@@ -3117,10 +3138,11 @@ function _getBlendOptionsFromModulateType(modulateType, modulateMode) {
  * Returns an object of parameters for a Three.js material constructor, based on {@link FFLModulateParam}.
  * @param {FFLModulateParam} modulateParam - Property `modulateParam` of {@link FFLDrawParam}.
  * @param {Module} module - The Emscripten module for accessing color pointers in heap.
+ * @param {boolean} [forFFLMaterial] - Whether or not to include modulateMode/Type parameters for material parameters.
  * @returns {Object} Parameters for creating a Three.js material.
  * @package
  */
-function _applyModulateParam(modulateParam, module) {
+function _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
 	// Apply constant colors.
 	/** @type {import('three').Color|Array<import('three').Color>|null} */
 	let color = null;
@@ -3155,11 +3177,16 @@ function _applyModulateParam(modulateParam, module) {
 	const lightEnable = !(modulateParam.type >= FFLModulateType.SHAPE_MAX &&
 		modulateParam.mode !== FFLModulateMode.CONSTANT);
 
-	// Not applying map here, that happens in _getTextureFromModulateParam.
-	const param = {
-		modulateMode: modulateParam.mode,
-		modulateType: modulateParam.type, // LUTShaderMaterial needs this set before color.
+	/** Do not include the parameters if forFFLMaterial is false. */
+	const modulateModeType = forFFLMaterial
+		? {
+			modulateMode: modulateParam.mode,
+			modulateType: modulateParam.type // need this set before color.
+		}
+		: {};
 
+	// Not applying map here, that happens in _getTextureFromModulateParam.
+	const param = Object.assign(modulateModeType, {
 		// Common Three.js material parameters.
 		color: color,
 		opacity: opacity,
@@ -3172,7 +3199,8 @@ function _applyModulateParam(modulateParam, module) {
 
 		// Apply blending options (for mask/faceline) based on modulateType.
 		..._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
-	};
+	});
+
 	// only for mask/faceline which should not be drawn in non-ffl materials:
 	if (!lightEnable) {
 		// Only set lightEnable if it is not default.
@@ -3261,8 +3289,13 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
+ * @throws {Error} Throws if the type of `renderer` is unexpected.
  */
 function initCharModelTextures(charModel, renderer, materialClass = charModel._materialClass) {
+	if (!(renderer instanceof THREE.WebGLRenderer) &&
+		renderer['isWebGPURenderer'] === undefined) { // Accounting for future WebGPURenderer support.
+		throw new Error('initCharModelTextures: renderer is an invalid or unexpected type.');
+	}
 	const module = charModel._module;
 	// Set material class for render textures.
 	charModel._materialTextureClass = materialClass;
@@ -3282,8 +3315,15 @@ function initCharModelTextures(charModel, renderer, materialClass = charModel._m
 	// Update the expression to refresh the mask texture.
 	charModel.setExpression(charModel.expression);
 	// Set clearAlpha back.
-	if (clearAlpha !== 0) {
-		renderer.setClearAlpha(clearAlpha);
+	(clearAlpha !== 0) && renderer.setClearAlpha(clearAlpha);
+
+	// convert textures
+	if (!matSupportsFFL(charModel._materialClass)) {
+		if (!matSupportsFFL(charModel._materialTextureClass)) {
+			console.warn('initCharModelTextures: charModel._materialClass does not support modulateMode (no getter), but the _materialTextureClass is either the same or also does not support modulateMode so textures will look wrong');
+		} else {
+			convertModelTexturesToRGBA(charModel, renderer, charModel._materialTextureClass);
+		}
 	}
 }
 
@@ -3461,6 +3501,308 @@ function _setFaceline(charModel, target) {
 }
 
 // // ---------------------------------------------------------------------
+// //  Modulate Mode Texture Conversion Utilities
+// // ---------------------------------------------------------------------
+// TODO PATH: src/ModulateTextureConversion.js
+
+/**
+ * Takes the texture in `material` and draws it using `materialTextureClass`, using
+ * the modulateMode property in `userData`, using the `renderer` and sets it back
+ * in the `material`. So it converts a swizzled (using modulateMode) texture to RGBA.
+ * NOTE: Does NOT handle mipmaps. But these textures
+ * usually do not have mipmaps anyway so it's fine
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {import('three').MeshBasicMaterial} material - The original material of the mesh.
+ * @param {Object<string, *>} userData - The original mesh.geometry.userData to get modulateMode/Type from.
+ * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+ * @returns {import('three').RenderTarget} The RenderTarget of the final RGBA texture.
+ * @throws {Error} material.map is null or undefined
+ */
+function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) {
+	const plane = new THREE.PlaneGeometry(2, 2);
+	const scene = new THREE.Scene();
+	// Create mesh that has color but alpha value of 0.
+	const bgClearRGBMesh = new THREE.Mesh(plane,
+		new THREE.MeshBasicMaterial({
+			color: material.color,
+			transparent: true,
+			opacity: 0.0,
+			blending: THREE.NoBlending
+		})
+	);
+	scene.add(bgClearRGBMesh); // Must be drawn first.
+
+	if (!material.map) {
+		throw new Error('_texDrawRGBATarget: material.map is null or undefined');
+	}
+	/** Shortcut to the existing texture. */
+	const tex = material.map;
+	// This material is solely for the texture itself and not the shape.
+	// It actually does not need color set on it, or modulate type (blending)
+	const texMat = new materialTextureClass({
+		map: tex,
+		modulateMode: userData.modulateMode,
+		color: material.color,
+		lightEnable: false
+	});
+	texMat.blending = THREE.NoBlending;
+	texMat.transparent = true;
+	const textureMesh = new THREE.Mesh(plane, texMat);
+	scene.add(textureMesh);
+
+	const target = createAndRenderToTarget(scene,
+		getIdentCamera(false), renderer,
+		tex.image.width, tex.image.height, {
+			wrapS: tex.wrapS, wrapT: tex.wrapT, // Preserve wrap.
+			depthBuffer: false, stencilBuffer: false
+		});
+
+	/** @type {import('three').Texture&{_target: import('three').RenderTarget}} */ (target.texture)
+		._target = target;
+
+	// Dispose previous texture and replace with this one.
+	material.map.dispose();
+	material.map = target.texture;
+	// Set color to default and modulateMode to TEXTURE_DIRECT.
+	material.color = new THREE.Color(1, 1, 1);
+	userData.modulateMode = 1;
+
+	return target; // Caller is responsible for disposing the RenderTarget.
+}
+
+/**
+ * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
+ * textures that are R/RG format, to RGBA and also applying colors, so that
+ * the CharModel can be rendered without a material that supports modulateMode.
+ * @param {CharModel} charModel - The CharModel whose textures to convert.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+ * @throws {Error} charModel.meshes is null
+ */
+function convertModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
+	const convertTextureForTypes = [
+		FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_NOSELINE, FFLModulateType.SHAPE_GLASS];
+	if (!charModel.meshes) {
+		throw new Error('convertModelTexturesToRGBA: charModel.meshes is null.');
+	}
+	charModel.meshes.traverse((mesh) => {
+		if (!(mesh instanceof THREE.Mesh) ||
+			!mesh.geometry.userData.modulateType ||
+			!mesh.material.map ||
+			convertTextureForTypes.indexOf(mesh.geometry.userData.modulateType) === -1
+		) {
+			return;
+		}
+		const target = _texDrawRGBATarget(renderer, mesh.material,
+			mesh.geometry.userData, materialTextureClass);
+		// HACK?: Push to _maskTargets so that it will be disposed.
+		charModel._maskTargets.push(target);
+	});
+}
+
+/**
+ * Converts all textures in the CharModel that are associated
+ * with RenderTargets into THREE.DataTextures, so that the
+ * CharModel can be exported using e.g., GLTFExporter.
+ * @param {CharModel} charModel - The CharModel whose textures to convert.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @throws {Error} charModel.meshes or mesh.material.map is null, texture is not THREE.RGBAFormat
+ */
+function convModelTargetsToDataTex(charModel, renderer) {
+	if (!charModel.meshes) {
+		throw new Error('convModelTargetsToDataTex: charModel.meshes is null.');
+	}
+	charModel.meshes.traverse((mesh) => {
+		if (!(mesh instanceof THREE.Mesh) || !mesh.material.map) {
+			return;
+		}
+		const tex = mesh.material.map;
+		if (tex.format !== THREE.RGBAFormat) {
+			throw new Error('convModelTargetsToDataTex: found a texture that is not of format THREE.RGBAFormat, but, this function is only meant to be used if all textures in CharModel meshes are RGBA (so render targets)...');
+		}
+		/** RGBA */
+		const data = new Uint8Array(tex.image.width * tex.image.height * 4);
+		const target = /** @type {import('three').RenderTarget|null|undefined} */ tex._target;
+		if (!target) {
+			throw new Error('convModelTargetsToDataTex: mesh.material.map (texture)._target is null or undefined.');
+		}
+		renderer.readRenderTargetPixels(target, 0, 0,
+			tex.image.width, tex.image.height, data);
+		// Construct new THREE.DataTexture from the read data.
+		// So... draw the texture, download it out, and upload it again.
+		const dataTex = new THREE.DataTexture(data, tex.image.width,
+			tex.image.height, THREE.RGBAFormat, THREE.UnsignedByteType);
+		// Copy wrap and filtering options.
+		dataTex.wrapS = tex.wrapS;
+		dataTex.wrapT = tex.wrapT;
+		dataTex.minFilter = tex.minFilter;
+		dataTex.magFilter = tex.magFilter;
+
+		dataTex.needsUpdate = true;
+		mesh.material.map = dataTex;
+	});
+	// The original render targets are no longer needed now, dispose them.
+	charModel.disposeTargets();
+	// Note that expressions cannot be set on the CharModel anymore.
+}
+
+// // ---------------------------------------------------------------------
+// //  TextureShaderMaterial Class
+// // ---------------------------------------------------------------------
+// TODO PATH: src/TextureShaderMaterial.js
+
+/**
+ * A material class that renders FFL swizzled (modulateMode) textures.
+ * Has no lighting whatsoever, just meant to render 2D planes.
+ * @augments {THREE.ShaderMaterial}
+ */
+class TextureShaderMaterial extends THREE.ShaderMaterial {
+	/**
+	 * @typedef {Object} TextureShaderMaterialParameters
+	 * @property {FFLModulateMode} [modulateMode] - Modulate mode.
+	 * @property {FFLModulateType} [modulateType] - Modulate type.
+	 * @property {import('three').Color|Array<import('three').Color>} [color] -
+	 * Constant color assigned to u_const1/2/3 depending on single or array.
+	 */
+
+	/**
+	 * The material constructor.
+	 * @param {import('three').ShaderMaterialParameters & TextureShaderMaterialParameters} [options] -
+	 * Parameters for the material.
+	 */
+	constructor(options = {}) {
+		// Set default uniforms.
+		/** @type {Object<string, import('three').IUniform>} */
+		const uniforms = {
+			opacity: { value: 1.0 }
+		};
+		const blankMatrix3 = { value: new THREE.Matrix3() };
+		if (Number(THREE.REVISION) < 151) {
+			uniforms.uvTransform = blankMatrix3;
+		} else {
+			uniforms.mapTransform = blankMatrix3;
+		}
+
+		// Construct the ShaderMaterial using the shader source.
+		super({
+			vertexShader: /* glsl */`
+				#include <common>
+				#include <uv_pars_vertex>
+
+				void main() {
+					#include <begin_vertex>
+					#include <uv_vertex>
+					#include <project_vertex>
+				}`,
+			fragmentShader: /* glsl */`
+				#include <common>
+				#include <uv_pars_fragment>
+				#include <map_pars_fragment>
+				uniform vec3 diffuse;
+				uniform float opacity;
+				uniform int modulateMode;
+				uniform vec3 color1;
+				uniform vec3 color2;
+
+				void main() {
+					vec4 diffuseColor = vec4( diffuse, opacity );
+
+					#include <map_fragment>
+					#include <alphamap_fragment>
+				#ifdef USE_MAP
+					if (modulateMode == 2) { // FFL_MODULATE_MODE_RGB_LAYERED
+				    diffuseColor = vec4(
+				      diffuse.rgb * sampledDiffuseColor.r +
+				      color1.rgb * sampledDiffuseColor.g +
+				      color2.rgb * sampledDiffuseColor.b,
+				      sampledDiffuseColor.a
+				    );
+				  } else if (modulateMode == 3) { // FFL_MODULATE_MODE_ALPHA
+				    diffuseColor = vec4(
+				      diffuse.rgb * sampledDiffuseColor.r,
+				      sampledDiffuseColor.r
+				    );
+				  } else if (modulateMode == 4) { // FFL_MODULATE_MODE_LUMINANCE_ALPHA
+				    diffuseColor = vec4(
+				      diffuse.rgb * sampledDiffuseColor.g,
+				      sampledDiffuseColor.r
+				    );
+				  } else if (modulateMode == 5) { // FFL_MODULATE_MODE_ALPHA_OPA
+				    diffuseColor = vec4(
+				      diffuse.rgb * sampledDiffuseColor.r,
+				      1.0
+				    );
+				  }
+				#endif
+
+				  // avoids little outline around mask elements
+				  if (modulateMode != 0 && diffuseColor.a == 0.0) { // FFL_MODULATE_MODE_CONSTANT
+				      discard;
+				  }
+
+					gl_FragColor = diffuseColor;
+					//#include <colorspace_fragment>
+				}`,
+			uniforms: uniforms
+		});
+		// Set defaults so that they are valid parameters.
+		this.lightEnable = false;
+		this.modulateType = 0;
+
+		// Use the setters to set the rest of the uniforms.
+		this.setValues(options);
+	}
+
+	/**
+	 * Gets the constant color (diffuse) uniform as THREE.Color.
+	 * @returns {import('three').Color|null} The constant color, or null if it is not set.
+	 */
+	get color() {
+		return this.uniforms.diffuse ? this.uniforms.diffuse.value : null;
+	}
+
+	/**
+	 * Sets the constant color uniforms from THREE.Color.
+	 * @param {import('three').Color|Array<import('three').Color>} value -
+	 * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
+	 */
+	set color(value) {
+		// Set an array of colors, assumed to have 3 elements.
+		if (Array.isArray(value)) {
+			// Assign multiple color instances.
+			this.uniforms.diffuse = { value: value[0] };
+			this.uniforms.color1 = { value: value[1] };
+			this.uniforms.color2 = { value: value[2] };
+			return;
+		}
+		// Set single color as THREE.Color, defaulting to white.
+		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
+		/** @type {import('three').Color} */
+		this._color3 = color3;
+		this.uniforms.diffuse = { value: color3 };
+	}
+
+	/** @returns {FFLModulateMode|null}The modulateMode value, or null if it is unset. */
+	get modulateMode() {
+		return this.uniforms.modulateMode ? this.uniforms.modulateMode.value : null;
+	}
+
+	/** @param {FFLModulateMode} value - The new modulateMode value. */
+	set modulateMode(value) {
+		this.uniforms.modulateMode = { value: value };
+	}
+
+	/** @returns {import('three').Texture|null}The texture map, or null if it is unset. */
+	get map() {
+		return this.uniforms.map ? this.uniforms.map.value : null;
+	}
+
+	/** @param {import('three').Texture} value - The new texture map. */
+	set map(value) {
+		this.uniforms.map = { value: value };
+	}
+}
+// // ---------------------------------------------------------------------
 // //  Scene/Render Target Handling
 // // ---------------------------------------------------------------------
 // TODO PATH: src/RenderTargetUtils.js
@@ -3529,11 +3871,15 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
 		magFilter: THREE.LinearFilter,
 		...targetOptions
 	};
-	const renderTarget = new THREE.WebGLRenderTarget(width, height, options);
+
+	const renderTarget = /** @type {*} */ (renderer)['isWebGPURenderer'] === undefined
+		? new THREE.WebGLRenderTarget(width, height, options)
+		: new THREE.RenderTarget(width, height, options);
 	// Get previous render target to switch back to.
 	const prevTarget = renderer.getRenderTarget();
 	// Only works on Three.js r102 and above.
-	renderer.setRenderTarget(renderTarget); // Set new target.
+	renderer.setRenderTarget(
+		/** @type {import('three').WebGLRenderTarget} */ (renderTarget)); // Set new target.
 	renderer.render(scene, camera); // Render.
 	renderer.setRenderTarget(prevTarget); // Set previous target.
 	return renderTarget; // This needs to be disposed when done.
@@ -4045,7 +4391,6 @@ function studioURLObfuscationDecode(data) {
  * @todo TODO: Currently does NOT convert color indices
  * to CommonColor indices (ToVer3... etc)
  */
-// eslint-disable-next-line no-unused-vars -- TODO: Planned to be used to export CharModel to StudioCharInfo.
 function convertFFLiCharInfoToStudioCharInfo(src) {
 	return {
 		beardColor: commonColorUnmask(src.beard.color),
@@ -4222,11 +4567,17 @@ export {
 	_allocateModelSource,
 	createCharModel,
 	updateCharModel,
+	transferCharModelTex, // TODO
 	getIdentCamera,
 	createAndRenderToTarget,
+	matSupportsFFL,
 	initCharModelTextures,
 	textureToCanvas,
-	transferCharModelTex, // TODO
+
+	// CharModel helpers for exporting models
+	TextureShaderMaterial,
+	convertModelTexturesToRGBA,
+	convModelTargetsToDataTex,
 
 	// Icon rendering
 	ViewType,
@@ -4236,6 +4587,7 @@ export {
 
 	// Export utilities
 	convertStudioCharInfoToFFLiCharInfo,
+	convertFFLiCharInfoToStudioCharInfo,
 	uint8ArrayToBase64,
 	parseHexOrB64ToUint8Array
 };

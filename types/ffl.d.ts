@@ -720,9 +720,14 @@ export namespace FFLRace {
 /**
  * Initializes FFL by copying the resource into heap and calling FFLInitRes.
  * It will first wait for the Emscripten module to be ready.
- * @param {Uint8Array|Response} resource - The FFL resource data. Use a Uint8Array if you have the raw bytes, or a fetch response containing the FFL resource file.
- * @param {Module|Promise<Module>|function(): Promise<Module>} moduleOrPromise - The Emscripten module by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1), or as a function returning a promise (window.Module when MODULARIZE=1).
- * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when FFL is fully initialized, returning the final Emscripten {@link Module} instance and the {@link FFLResourceDesc} object that can later be passed into {@link exitFFL}.
+ * @param {Uint8Array|Response} resource - The FFL resource data. Use a Uint8Array
+ * if you have the raw bytes, or a fetch response containing the FFL resource file.
+ * @param {Module|Promise<Module>|function(): Promise<Module>} moduleOrPromise - The Emscripten module
+ * by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
+ * or as a function returning a promise (window.Module when MODULARIZE=1).
+ * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when FFL is fully initialized,
+ * returning the final Emscripten {@link Module} instance and the {@link FFLResourceDesc} object
+ * that can later be passed into {@link exitFFL}.
  */
 export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: Module | Promise<Module> | (() => Promise<Module>)): Promise<{
     module: Module;
@@ -732,9 +737,13 @@ export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: 
  * Fetches the FFL resource from the specified path or the "content"
  * attribute of this HTML element: meta[itemprop=ffl-js-resource-fetch-path]
  * It then calls {@link initializeFFL} on the specified module.
- * @param {Module|Promise<Module>|function(): Promise<Module>} module - The Emscripten module by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1), or as a function returning a promise (window.Module when MODULARIZE=1).
+ * @param {Module|Promise<Module>|function(): Promise<Module>} module - The Emscripten module by itself
+ * (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
+ * or as a function returning a promise (window.Module when MODULARIZE=1).
  * @param {string|null} resourcePath - The URL for the FFL resource.
- * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when fetch is finished and initializeFFL returns, returning the final Emscripten {@link Module} instance and the {@link FFLResourceDesc} object that can later be passed into {@link exitFFL}.
+ * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when fetch is finished
+ * and initializeFFL returns, returning the final Emscripten {@link Module} instance
+ * and the {@link FFLResourceDesc} object that can later be passed into {@link exitFFL}.
  * @throws {Error} resourcePath must be a URL string, or, an HTML element with FFL resource must exist and have content.
  */
 export function initializeFFLWithResource(module: Module | Promise<Module> | (() => Promise<Module>), resourcePath: string | null): Promise<{
@@ -748,9 +757,7 @@ export function initializeFFLWithResource(module: Module | Promise<Module> | (()
  * @todo TODO: Needs to somehow destroy Emscripten instance.
  */
 export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
-/**
- * @typedef {function(new: import('three').Material, ...*): import('three').Material} MaterialConstructor
- */
+/** @typedef {function(new: import('three').Material, ...*): import('three').Material} MaterialConstructor */
 /**
  * Represents an FFLCharModel, which is the head model.
  * Encapsulates a pointer to the underlying instance and provides helper methods.
@@ -761,9 +768,7 @@ export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
  * @public
  */
 export class CharModel {
-    /**
-     * @enum {number}
-     */
+    /** @enum {number} */
     static BodyScaleMode: {
         /** Applies scale normally. */
         Apply: number;
@@ -937,14 +942,16 @@ export class CharModel {
     /**
      * Serializes the CharModel data to FFLStoreData.
      * @returns {Uint8Array} The exported FFLStoreData.
-     * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo returns false, usually when CharInfo verification fails.
+     * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
+     * returns false, usually when CharInfo verification fails.
      * @public
      */
     public getStoreData(): Uint8Array;
     /**
      * Sets the expression for this CharModel and updates the corresponding mask texture.
      * @param {FFLExpression} expression - The new expression index.
-     * @throws {Error} CharModel must have been initialized with the expression enabled in the flag and have XLU_MASK in meshes.
+     * @throws {Error} CharModel must have been initialized with the
+     * expression enabled in the flag and have XLU_MASK in meshes.
      * @public
      */
     public setExpression(expression: FFLExpression): void;
@@ -955,7 +962,9 @@ export class CharModel {
      * such as eyes, mouth, etc. which is the mask.
      * The faceline texture may not exist if it is not needed, in which
      * case the faceline color is used directly, see property {@link facelineColor}.
-     * @returns {import('three').RenderTarget|null} The faceline render target, or null if it does not exist, in which case {@link facelineColor} should be used. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
+     * @returns {import('three').RenderTarget|null} The faceline render target, or null if it does not exist,
+     * in which case {@link facelineColor} should be used. Access .texture on this object to
+     * get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
      */
     getFaceline(): import("three").RenderTarget | null;
     /**
@@ -964,7 +973,10 @@ export class CharModel {
      * around the mask shape, which is a transparent shape
      * placed in front of the head model.
      * @param {FFLExpression} expression - The desired expression, or the current expression.
-     * @returns {import('three').RenderTarget|null} The mask render target for the given expression, or null if the CharModel was not initialized with that expression. Access .texture on this object to get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
+     * @returns {import('three').RenderTarget|null} The mask render target for the given expression,
+     * or null if the CharModel was not initialized with that expression.
+     * Access .texture on this object to get a {@link THREE.Texture} from it.
+     * It becomes invalid if the CharModel is disposed.
      */
     getMask(expression?: FFLExpression): import("three").RenderTarget | null;
     /**
@@ -1051,7 +1063,8 @@ export function getRandomCharInfo(module: Module, gender?: FFLGender, age?: FFLA
  * Creates an expression flag to be used in FFLCharModelDesc.
  * Use this whenever you need to describe which expression,
  * or expressions, you want to be able to use in the CharModel.
- * @param {Array<FFLExpression>|FFLExpression} expressions - Either a single expression index or an array of expression indices. See {@link FFLExpression} for min/max.
+ * @param {Array<FFLExpression>|FFLExpression} expressions - Either a single expression
+ * index or an array of expression indices. See {@link FFLExpression} for min/max.
  * @returns {Uint32Array} FFLAllExpressionFlag type of three 32-bit integers.
  * @throws {Error} expressions must be in range and less than {@link FFLExpression.MAX}.
  */
@@ -1063,9 +1076,7 @@ export namespace PantsColor {
     let RedRegular: number;
     let GoldSpecial: number;
 }
-/**
- * @type {Object<PantsColor, import('three').Color>}
- */
+/** @type {Object<PantsColor, import('three').Color>} */
 export const pantsColors: any;
 /**
  * Converts the input data and allocates it into FFLCharModelSource.
@@ -1081,13 +1092,15 @@ export function _allocateModelSource(data: Uint8Array | FFLiCharInfo, module: Mo
  * Creates a CharModel from data and FFLCharModelDesc.
  * You must call initCharModelTextures afterwards to finish the process.
  * Don't forget to call dispose() on the CharModel when you are done.
- * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
+ * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types:
+ * FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
  * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
  * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
  * @param {Module} module - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
- * @throws {FFLResultException|BrokenInitModel|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc` or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
+ * @throws {FFLResultException|BrokenInitModel|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc`,
+ * or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
  */
 export function createCharModel(data: Uint8Array | FFLiCharInfo, modelDesc: FFLCharModelDesc | null, materialClass: MaterialConstructor, module: Module, verify?: boolean): CharModel;
 /**
@@ -1097,13 +1110,24 @@ export function createCharModel(data: Uint8Array | FFLiCharInfo, modelDesc: FFLC
  * @param {CharModel} charModel - The existing CharModel instance.
  * @param {Uint8Array|null} newData - The new raw charInfo data, or null to use the original.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
- * @param {FFLCharModelDesc|Array<number>|Uint32Array|null} descOrExpFlag - Either a new {@link FFLCharModelDesc}, an array of expressions, a single expression, or an expression flag (Uint32Array).
+ * @param {FFLCharModelDesc|Array<number>|Uint32Array|null} descOrExpFlag - Either a
+ * new {@link FFLCharModelDesc}, an array of expressions, a single expression, or an expression flag (Uint32Array).
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The updated CharModel instance.
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
  */
 export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: import("three").WebGLRenderer, descOrExpFlag?: FFLCharModelDesc | Array<number> | Uint32Array | null, verify?: boolean): CharModel;
+/**
+ * Copies faceline and mask render targets from `src`
+ * to the `dst` CharModel, disposing textures from `dst`
+ * and disposing shapes from `src`, effectively transferring.
+ * @param {CharModel} src - The source {@link CharModel} from which to copy textures from and dispose shapes.
+ * @param {CharModel} dst - The destination {@link CharModel} receiving the textures.
+ * @returns {CharModel} The final CharModel.
+ * @todo TODO: Completely untested.
+ */
+export function transferCharModelTex(src: CharModel, dst: CharModel): CharModel;
 /**
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
@@ -1145,13 +1169,81 @@ export function initCharModelTextures(charModel: CharModel, renderer: import("th
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Object} [options] - Options for canvas output.
  * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
- * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into. Creates a new canvas if this does not exist.
+ * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into.
+ * Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
  */
 export function textureToCanvas(texture: import("three").Texture, renderer: import("three").WebGLRenderer, { flipY, canvas }?: {
     flipY?: boolean | undefined;
     canvas?: HTMLCanvasElement | undefined;
 }): HTMLCanvasElement;
+/**
+ * A material class that renders FFL swizzled (modulateMode) textures.
+ * Has no lighting whatsoever, just meant to render 2D planes.
+ * @augments {THREE.ShaderMaterial}
+ */
+export class TextureShaderMaterial extends THREE.ShaderMaterial {
+    /**
+     * @typedef {Object} TextureShaderMaterialParameters
+     * @property {FFLModulateMode} [modulateMode] - Modulate mode.
+     * @property {FFLModulateType} [modulateType] - Modulate type.
+     * @property {import('three').Color|Array<import('three').Color>} [color] -
+     * Constant color assigned to u_const1/2/3 depending on single or array.
+     */
+    /**
+     * The material constructor.
+     * @param {import('three').ShaderMaterialParameters & TextureShaderMaterialParameters} [options] -
+     * Parameters for the material.
+     */
+    constructor(options?: import("three").ShaderMaterialParameters & {
+        /**
+         * - Modulate mode.
+         */
+        modulateMode?: number | undefined;
+        /**
+         * - Modulate type.
+         */
+        modulateType?: number | undefined;
+        /**
+         * -
+         * Constant color assigned to u_const1/2/3 depending on single or array.
+         */
+        color?: THREE.Color | THREE.Color[] | undefined;
+    });
+    lightEnable: boolean;
+    modulateType: number;
+    /**
+     * Sets the constant color uniforms from THREE.Color.
+     * @param {import('three').Color|Array<import('three').Color>} value -
+     * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
+     */
+    set color(value: import("three").Color | Array<import("three").Color>);
+    /**
+     * Gets the constant color (diffuse) uniform as THREE.Color.
+     * @returns {import('three').Color|null} The constant color, or null if it is not set.
+     */
+    get color(): import("three").Color | null;
+    /** @type {import('three').Color} */
+    _color3: THREE.Color | undefined;
+    /** @param {FFLModulateMode} value - The new modulateMode value. */
+    set modulateMode(value: FFLModulateMode);
+    /** @returns {FFLModulateMode|null}The modulateMode value, or null if it is unset. */
+    get modulateMode(): FFLModulateMode | null;
+    /** @param {import('three').Texture} value - The new texture map. */
+    set map(value: import("three").Texture);
+    /** @returns {import('three').Texture|null}The texture map, or null if it is unset. */
+    get map(): import("three").Texture | null;
+}
+/**
+ * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
+ * textures that are R/RG format, to RGBA and also applying colors, so that
+ * the CharModel can be rendered without a material that supports modulateMode.
+ * @param {CharModel} charModel - The CharModel whose textures to convert.
+ * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+ * @throws {Error} charModel.meshes is null
+ */
+export function convertModelTexturesToRGBA(charModel: CharModel, renderer: import("three").WebGLRenderer, materialTextureClass: MaterialConstructor): void;
 /**
  * Converts all textures in the CharModel that are associated
  * with RenderTargets into THREE.DataTextures, so that the
@@ -1162,15 +1254,15 @@ export function textureToCanvas(texture: import("three").Texture, renderer: impo
  */
 export function convModelTargetsToDataTex(charModel: CharModel, renderer: import("three").WebGLRenderer): void;
 /**
- * Copies faceline and mask render targets from `src`
- * to the `dst` CharModel, disposing textures from `dst`
- * and disposing shapes from `src`, effectively transferring.
- * @param {CharModel} src - The source {@link CharModel} from which to copy textures from and dispose shapes.
- * @param {CharModel} dst - The destination {@link CharModel} receiving the textures.
- * @returns {CharModel} The final CharModel.
- * @todo TODO: Completely untested.
+ * Modifies a BufferGeometry in place to be compatible with glTF.
+ * It deinterleaves attributes if necessary, converts half-float arrays to Float32,
+ * and if an attribute is named "normal" (case-insensitive) it will ensure the data
+ * is converted to a vec3 (discarding any extra component).
+ * @param {import('three').BufferGeometry} geometry - The BufferGeometry to modify in place.
+ * @throws {Error} If an unsupported or ambiguous attribute format is encountered.
+ * @todo TODO: VERIFY THAT THIS DOES NOT LEEEEAKKKKKKKKKK
  */
-export function transferCharModelTex(src: CharModel, dst: CharModel): CharModel;
+export function convGeometryToGLTFCompatible(geometry: import("three").BufferGeometry): void;
 export type ViewType = number;
 export namespace ViewType {
     let Face: number;
@@ -1193,9 +1285,12 @@ export function getCameraForViewType(viewType: ViewType, width?: number, height?
  * @param {ViewType} [options.viewType] - The view type that the camera derives from.
  * @param {number} [options.width] - Desired icon width in pixels.
  * @param {number} [options.height] - Desired icon height in pixels.
- * @param {import('three').Scene} [options.scene] - Optional scene if you want to provide your own (e.g., with background, or models).
- * @param {import('three').Camera} [options.camera] - Optional camera to use instead of the one derived from {@link ViewType}.
- * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into. Creates a new canvas if this does not exist.
+ * @param {import('three').Scene} [options.scene] - Optional scene
+ * if you want to provide your own (e.g., with background, or models).
+ * @param {import('three').Camera} [options.camera] - Optional camera
+ * to use instead of the one derived from {@link ViewType}.
+ * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
+ * to draw into. Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the icon.
  * @throws {Error} CharModel.meshes is null or undefined, it may have been disposed.
  */
@@ -1360,7 +1455,8 @@ declare class TextureManager {
      * @param {number} format - Enum value for FFLTextureFormat.
      * @returns {import('three').PixelFormat} Three.js texture format constant.
      * @throws {Error} Unexpected FFLTextureFormat value
-     * Note that this function won't work on WebGL1Renderer in Three.js r137-r162 since R and RG textures need to use Luminance(Alpha)Format
+     * Note that this function won't work on WebGL1Renderer in Three.js r137-r162
+     * since R and RG textures need to use Luminance(Alpha)Format
      * (you'd somehow need to detect which renderer is used)
      * @private
      */
