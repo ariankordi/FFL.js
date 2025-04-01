@@ -70,6 +70,16 @@ export default [
 			'@stylistic/indent': ['error', 'tab', {
 				SwitchCase: 1,
 				ignoredNodes: ['Program > ExpressionStatement > CallExpression > :last-child > *']
+			}],
+			'@stylistic/max-len': ['warn', {
+				code: 100,
+				comments: 120,
+				ignoreUrls: true, // Ignore long URLs
+				ignoreStrings: true, // Ignore long strings
+				ignoreTemplateLiterals: true, // Ignore long template literals
+				ignoreRegExpLiterals: true, // Ignore regex
+				ignoreTrailingComments: false, // Enforce trailing comment length
+				ignoreComments: false // Enforce all comment lines
 			}]
 		}
 	},
@@ -87,7 +97,7 @@ export default [
 			'import/consistent-type-specifier-style': ['error', 'prefer-top-level']
 		},
 		languageOptions: {
-			ecmaVersion // For some reason, the recommended config sets this to 2018, reset this to the default
+			ecmaVersion // Default sets this to 2018???, so let's reset this to the default
 		}
 	},
 
@@ -118,7 +128,14 @@ export default [
 			'jsdoc/require-asterisk-prefix': 'warn',
 			'jsdoc/check-syntax': 'warn',
 			'jsdoc/check-line-alignment': 'warn',
-			'jsdoc/check-indentation': 'warn'
+			'jsdoc/check-indentation': 'warn',
+			'jsdoc/convert-to-jsdoc-comments': 'warn',
+			'jsdoc/multiline-blocks': ['warn', {
+				noMultilineBlocks: true,
+				minimumLengthForMultiline: 80,
+				multilineTags: []
+			}]
+
 		}
 	},
 

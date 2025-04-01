@@ -1,6 +1,37 @@
 // @ts-check
-// import * as THREE from 'three';
-// import { initializeFFL, createCharModel, initCharModelTextures, updateCharModel, makeExpressionFlag, parseHexOrB64ToUint8Array, FFLExpression, FFLCharModelDescDefault, FFLCharModelDesc, CharModel, Module } from './ffl';
+/*
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import {
+	initializeFFL, createCharModel, textureToCanvas, initCharModelTextures,
+	matSupportsFFL, updateCharModel, makeExpressionFlag, makeIconFromCharModel,
+	parseHexOrB64ToUint8Array, FFLExpression,
+	FFLCharModelDescDefault, CharModel, ViewType
+} from '../ffl.js';
+import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
+import * as LUTShaderMaterialImport from '../LUTShaderMaterial.js';
+*/
+
+// Hack to get library globals recognized throughout the file (uncomment for ESM).
+/**
+ * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
+ * @typedef {import('../LUTShaderMaterial.js')} LUTShaderMaterial
+ * @typedef {import('three')} THREE
+ */
+/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
+window.FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
+window.FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
+window.LUTShaderMaterial = /** @type {*} */ (globalThis).LUTShaderMaterial;
+window.LUTShaderMaterial = (!LUTShaderMaterial) ? LUTShaderMaterialImport : LUTShaderMaterial;
+globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
+/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
+/* globals FFLShaderMaterial LUTShaderMaterial THREE -- Imported materials whose names are set above. */
+
+if ('OrbitControls' in THREE) {
+	globalThis.OrbitControls =
+		/** @type {import('three/addons/controls/OrbitControls.js')} */
+		(/** @type {*} */ (THREE).OrbitControls);
+}
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
@@ -17,8 +48,9 @@ let scene;
 let renderer;
 /** @type {import('three').Camera} */
 let camera;
-/** @type {import('three').OrbitControls|Object} */
-let controls = {}; // Initialize to empty so properties can be set.
+/** @type {import('three/addons/controls/OrbitControls.js')} */
+/** Initialize to empty so properties can be set. */
+let controls = {};
 /** @type {CharModel|null} */
 let currentCharModel;
 let isInitialized = false;
@@ -34,9 +66,12 @@ const expressionFlagBlinking = makeExpressionFlag([FFLExpression.NORMAL, 5, 16])
 let reinitModelEveryFrame = false;
 let displayRenderTexturesElement = null;
 // Global options.
-let activeMaterialClassName = availableMaterialClasses[0]; // Default shader as first.
-let currentExpressionFlag = expressionFlagBlinking; // Expression.
-let canBlink = false; // Controls if the animation sets blinking. updateCanBlink()
+/** Default shader as first. */
+let activeMaterialClassName = availableMaterialClasses[0];
+/** Expression. */
+let currentExpressionFlag = expressionFlagBlinking;
+/** Controls if the animation sets blinking. updateCanBlink() */
+let canBlink = false;
 
 // // ---------------------------------------------------------------------
 // //  Scene Setup
@@ -58,16 +93,17 @@ function initializeScene() {
 	document.body.appendChild(renderer.domElement);
 
 	// Create camera.
-	camera = new THREE.PerspectiveCamera(15, window.innerWidth / (window.innerHeight - 256), 1, 5000);
+	camera = new THREE.PerspectiveCamera(15,
+		window.innerWidth / (window.innerHeight - 256), 1, 5000);
 	// Note that faceline and mask are close, and
 	// often you may run into Z-fighting if you
 	// don't set near/far plane with care.
 	camera.position.set(0, 10, 500);
 
 	// Set up OrbitControls if it is loaded.
-	if (THREE.OrbitControls !== undefined) {
+	if (OrbitControls !== undefined) {
 		const controlsOld = controls;
-		controls = new THREE.OrbitControls(camera, renderer.domElement);
+		controls = new OrbitControls(camera, renderer.domElement);
 		// Initialize defaults.
 		if (Object.keys(controlsOld).length) {
 			for (const prop in controlsOld) {
@@ -102,12 +138,16 @@ function startAnimationLoop() {
 	let lastBlinkTime = Date.now();
 	let isBlinking = false;
 	// Expression parameters.
-	const expressionBlink = 5; // FFL_EXPRESSION_WINK
-	const expressionWink = 16; // FFL_EXPRESSION_LIKE_WINK_LEFT
+	/** FFL_EXPRESSION_WINK */
+	const expressionBlink = 5;
+	/** FFL_EXPRESSION_LIKE_WINK_LEFT */
+	const expressionWink = 16;
 	const winkChance = 0.25;
 
-	const blinkInterval = 1500; // 1.5s
-	const blinkDuration = 100; // 100ms
+	/** 1.5s */
+	const blinkInterval = 1500;
+	/** 100ms */
+	const blinkDuration = 100;
 
 	/** Main animation loop. */
 	function animate() {
@@ -163,7 +203,8 @@ function startAnimationLoop() {
  * @param {HTMLElement} element - The HTML list to append the images inside of.
  */
 function displayCharModelTexturesDebug(model, renderer, element) {
-	const maximum = 30; // Limit before older textures are removed.
+	/** Limit before older textures are removed. */
+	const maximum = 30;
 	/**
 	 * Displays and appends an image of a render target.
 	 * @param {import('three').RenderTarget} target - The render target.
@@ -358,7 +399,8 @@ function onShaderMaterialChange() {
 		}
 		// Recreate material with same parameters but using the new shader class.
 		const oldMat = mesh.material;
-		const userData = mesh.geometry.userData; // Get modulateMode/Type
+		/** Get modulateMode/Type */
+		const userData = mesh.geometry.userData;
 		// Create new material (assumes the new shader is accessible via window).
 
 		const modulateModeType = {
@@ -391,18 +433,14 @@ let rotationEnabled = false;
 
 const rotationSpeedElement = /** @type {HTMLInputElement|null} */ (document.getElementById('rotationSpeed'));
 
-/**
- * Updates the global rotation speed from the range input with id "rotationSpeed".
- */
+/** Updates the global rotation speed from the range input with id "rotationSpeed". */
 function updateRotationSpeed() {
 	controls.autoRotateSpeed = parseFloat(rotationSpeedElement.value);
 }
 
 const toggleRotationElement = document.getElementById('toggleRotation');
 
-/**
- * Toggles rotation on/off.
- */
+/** Toggles rotation on/off. */
 function toggleRotation() {
 	rotationEnabled = !rotationEnabled;
 	controls.autoRotate = rotationEnabled;
@@ -482,9 +520,7 @@ function toggleReinitModel() {
 
 const modelIconElement = /** @type {HTMLCanvasElement|null} */ (document.getElementById('modelIcon'));
 
-/**
- * Updates the icon beside the options for the current CharModel.
- */
+/** Updates the icon beside the options for the current CharModel. */
 function updateCharModelIcon() {
 	// Skip if currentCharModel was not initialized properly.
 	if (!currentCharModel || !modelIconElement) {
@@ -498,16 +534,15 @@ function updateCharModelIcon() {
 	(async (viewType = ViewType.MakeIcon) => {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
-		makeIconFromCharModel(currentCharModel, renderer, { canvas: modelIconElement, viewType });
+		makeIconFromCharModel(currentCharModel, renderer,
+			{ canvas: modelIconElement, viewType, scene: getSceneWithLights() });
 	})();
 }
 
 const charModelNameElement = document.getElementById('charModelName');
 const charModelFavoriteColorElement = document.getElementById('charModelFavoriteColor');
 
-/**
- * Updates the info section above the options for the current CharModel.
- */
+/** Updates the info section above the options for the current CharModel. */
 function updateCharModelInfo() {
 	// Skip if currentCharModel was not initialized properly.
 	if (!currentCharModel || !currentCharModel._model) {
@@ -562,7 +597,8 @@ function addUIControls() {
 // //  Form Submission Handling
 // // ---------------------------------------------------------------------
 
-const defaultTextureResolution = 512; // Typical default.
+/** Typical default. */
+const defaultTextureResolution = 512;
 /**
  * Same as updateCharModelInScene, but also initializes scene and animation loop if needed.
  * @param {string} charData - CharModel data passed to updateCharModelInScene.
@@ -643,13 +679,11 @@ document.addEventListener('DOMContentLoaded', async function () {
 // //  Preset Character Button Handling
 // // ---------------------------------------------------------------------
 
-/**
- * Creates buttons and icons for the `preset-character-selection` list.
- */
+/** Creates buttons and icons for the `preset-character-selection` list. */
 function loadCharacterButtons() {
 	/**
 	 * Asynchronously makes a CharModel icon.
-	 * @param {HTMLImageElement} el - The image element to set `src` of.
+	 * @param {HTMLCanvasElement} el - The image element to set `src` of.
 	 * @param {string} data - Data for the CharModel in a hex or Base64 string.
 	 * @param {ViewType} viewType - The view type for the icon.
 	 */
@@ -751,7 +785,8 @@ function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0, definedTypes 
 		if (value === null) {
 			propType = 'null';
 		} else if (Array.isArray(value)) {
-			let arrayType = '*'; // Assume first element type.
+			/** Assume first element type. */
+			let arrayType = '*';
 			if (value.length > 0) {
 				const firstElem = value[0];
 				if (typeof firstElem === 'object' && firstElem !== null) {
@@ -795,7 +830,8 @@ function generateJSDoc(obj, typeName = 'GeneratedType', depth = 0, definedTypes 
  */
 function generateJSDocStructFu(structInstance, typeName = 'type') {
 	const empty = new Uint8Array(structInstance.size);
-	const obj = structInstance.unpack(empty); // Object containing all struct fields.
+	/** Object containing all struct fields. */
+	const obj = structInstance.unpack(empty);
 	return generateJSDoc(obj, typeName);
 }
 

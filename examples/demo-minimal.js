@@ -1,12 +1,25 @@
 // @ts-check
-// import * as THREE from 'three';
-// import { initializeFFLWithResource, createCharModel, initCharModelTextures, updateCharModel, parseHexOrB64ToUint8Array, FFLCharModelDescDefault, FFLCharModelDesc, CharModel, Module } from './ffl';
+/*
+import * as THREE from 'three';
+import {
+	initializeFFLWithResource, initializeFFL, createCharModel,
+	initCharModelTextures, parseHexOrB64ToUint8Array,
+	FFLCharModelDescDefault, CharModel
+} from '../ffl.js';
+import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
+*/
+// Hack to get library globals recognized throughout the file (uncomment for ESM).
+/** @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial */
+window.FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
+window.FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
+/* globals FFLShaderMaterial -- Imported materials whose names are set above. */
+
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
 /**
  * Emscripten module instance returned after initialization.
- * @type {Module}
+ * @type {import('../ffl').Module}
  */
 let moduleFFL;
 
@@ -54,9 +67,7 @@ function initializeScene() {
 	console.log('initializeScene: Scene, renderer, camera created.');
 }
 
-/**
- * Starts the animation loop only once.
- */
+/** Starts the animation loop only once. */
 function startAnimationLoop() {
 	if (isAnimating) {
 		return;
@@ -115,7 +126,7 @@ function updateCharModelInScene(data, modelDesc) {
 	}
 
 	// Create a new CharModel.
-	currentCharModel = createCharModel(data, modelDesc, window.FFLShaderMaterial, moduleFFL);
+	currentCharModel = createCharModel(data, modelDesc, FFLShaderMaterial, moduleFFL);
 	// Initialize textures for the new CharModel.
 	initCharModelTextures(currentCharModel, renderer);
 
@@ -157,7 +168,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 		}
 
 		// Define the FFLCharModelDesc.
-		const modelDesc = FFLCharModelDescDefault; // Default expression.
+		/** Default expression. */
+		const modelDesc = FFLCharModelDescDefault;
 
 		try {
 			// First-time scene initialization.

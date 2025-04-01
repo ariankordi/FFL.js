@@ -10,13 +10,16 @@
  * @typedef {Object} FFLShaderMaterialParameters
  * @property {FFLModulateMode} [modulateMode] - Modulate mode.
  * @property {FFLModulateType} [modulateType] - Modulate type.
- * @property {import('three').Color|Array<import('three').Color>} [color] - Constant color assigned to u_const1/2/3 depending on single or array.
+ * @property {import('three').Color|Array<import('three').Color>} [color] -
+ * Constant color assigned to u_const1/2/3 depending on single or array.
  * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
  * @property {import('three').Vector3} [lightDirection] - Light direction.
- * @property {boolean} [useSpecularModeBlinn] - Whether to override specular mode on all materials with 0 (Blinn-Phong specular).
+ * @property {boolean} [useSpecularModeBlinn] - Whether to override
+ * specular mode on all materials with 0 (Blinn-Phong specular).
  * @property {import('three').Texture} [map] - Texture map.
  */
 
+// eslint-disable-next-line jsdoc/convert-to-jsdoc-comments -- not applicable
 /* global define, require, module -- UMD globals. */
 (function (root, factory) {
 	// @ts-ignore - cannot find name define
@@ -602,7 +605,8 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Constructs an FFLShaderMaterial instance.
-	 * @param {import('three').ShaderMaterialParameters & FFLShaderMaterialParameters} [options] - Parameters for the material.
+	 * @param {import('three').ShaderMaterialParameters & FFLShaderMaterialParameters} [options] -
+	 * Parameters for the material.
 	 */
 	constructor(options = {}) {
 		// Set default uniforms.
@@ -660,7 +664,8 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {import('three').Color|Array<import('three').Color>} value - The constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
+	 * @param {import('three').Color|Array<import('three').Color>} value - The
+	 * constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
 	 */
 	set color(value) {
 		/**
