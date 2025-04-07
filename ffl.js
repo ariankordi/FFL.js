@@ -2916,7 +2916,7 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 		mesh.geometry.userData.modulateMode = drawParam.modulateParam.mode;
 		mesh.geometry.userData.modulateType = drawParam.modulateParam.type;
 		// Note that color is a part of THREE.Material and will most always be there
-		mesh.geometry.userData.color = params.color instanceof THREE.Color
+		mesh.geometry.userData.modulateColor = params.color instanceof THREE.Color
 			? [params.color.r, params.color.g, params.color.b, 1.0]
 			: [1.0, 1.0, 1.0, 1.0];
 		mesh.geometry.userData.cullMode = drawParam.cullMode;
@@ -3992,55 +3992,6 @@ function convertSNORMToFloat32(src, count, srcItemSize, targetItemSize) {
 	}
 
 	return dst;
-}
-
-// TODO: TODO: Below function is uSELESS because I didn't realize that
-// the triangle winding thing had already been taken care of and that's
-// the only reason the below function exists so it will promptly be removed next time I push
-
-/**
- * Converts a {@link CharModel}'s geometry to be compatible with glTF (see {@link convGeometryToGLTFCompatible})
- * This function additionally reverses triangle winding for meshes using front culling (flipped hair).
- * @param {CharModel} charModel - The CharModel whose mesh attributes to convert.
- * @throws {Error} charModel.meshes is null
- */
-function convModelToGLTFCompatible(charModel) {
-	/**
-	 * Reverses the triangle winding in the given index array.
-	 * It swaps the first and third index of every triangle.
-	 * @param {THREE.TypedArray} indices - The index array to modify in place.
-	 */
-	function _reverseTriangleWinding(indices) {
-		for (let i = 0; i < indices.length; i += 3) {
-			const temp = indices[i];
-			indices[i] = indices[i + 2];
-			indices[i + 2] = temp;
-		}
-	}
-
-	if (!charModel.meshes) {
-		throw new Error('convCharModelToGLTFCompatible: charModel.meshes is null.');
-	}
-	charModel.meshes.traverse((node) => {
-		// Ensure this is a mesh with geometry.
-		if (!(node instanceof THREE.Mesh) || !(node.geometry instanceof THREE.BufferGeometry)) {
-			return;
-		}
-		// Convert geometry attributes to glTF compliant ones.
-		convGeometryToGLTFCompatible(node.geometry);
-
-		// Check if the material side is set to THREE.BackSide (front face culling).
-		if (node.material && node.material.side === THREE.BackSide) {
-			if (!node.geometry.index) {
-				// Early return if there are no indices.
-				return;
-			}
-			_reverseTriangleWinding(node.geometry.index.array); // Reverse triangle winding.
-			// Update material and userData to front face culling.
-			node.material.side = THREE.FrontSide;
-			node.geometry.userData.cullMode = FFLCullMode.BACK;
-		}
-	});
 }
 
 // // ---------------------------------------------------------------------
