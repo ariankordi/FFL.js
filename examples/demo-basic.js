@@ -1,5 +1,6 @@
 // @ts-check
 /*
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import {
@@ -8,21 +9,30 @@ import {
 	parseHexOrB64ToUint8Array, FFLExpression,
 	FFLCharModelDescDefault, CharModel, ViewType
 } from '../ffl.js';
+// All UMDs below:
+// import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
 import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
 import * as LUTShaderMaterialImport from '../LUTShaderMaterial.js';
 */
 
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
 /**
+ * @typedef {import('../ffl-emscripten.js')} ModuleFFL
  * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
  * @typedef {import('../LUTShaderMaterial.js')} LUTShaderMaterial
  * @typedef {import('three')} THREE
  */
 /* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
-window.FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
-window.FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
-window.LUTShaderMaterial = /** @type {*} */ (globalThis).LUTShaderMaterial;
-window.LUTShaderMaterial = (!LUTShaderMaterial) ? LUTShaderMaterialImport : LUTShaderMaterial;
+// /** @type {ModuleFFL} */ let ModuleFFL = globalThis.ModuleFFL;
+// ModuleFFL = (!ModuleFFL) ? ModuleFFLImport : ModuleFFL;
+// /** @type {ModuleFFL} */ const ModuleFFL = window.ModuleFFL; // Uncomment for ESM (browser).
+
+/** @type {FFLShaderMaterial} */
+let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
+FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
+/** @type {LUTShaderMaterial} */
+let LUTShaderMaterial = /** @type {*} */ (globalThis).LUTShaderMaterial;
+LUTShaderMaterial = (!LUTShaderMaterial) ? LUTShaderMaterialImport : LUTShaderMaterial;
 globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 /* globals FFLShaderMaterial LUTShaderMaterial THREE -- Imported materials whose names are set above. */
@@ -30,7 +40,8 @@ globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 if ('OrbitControls' in THREE) {
 	globalThis.OrbitControls =
 		/** @type {import('three/addons/controls/OrbitControls.js')} */
-		(/** @type {*} */ (THREE).OrbitControls);
+		// eslint-disable-next-line import/namespace -- not explicitly imported
+		(THREE.OrbitControls);
 }
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
@@ -76,14 +87,25 @@ class FFLShaderBlinnMaterial extends FFLShaderMaterial {
 
 		if (this.uniforms && this.uniforms.u_material_specular_power) {
 			// Adjust specular power, which is the reflection point, to be larger.
-			/** @type {FFLShaderMaterial} */ (this).uniforms.u_material_specular_power.value = 2.0;
+			/** @type {import('three').ShaderMaterial} */ (this)
+				.uniforms.u_material_specular_power = { value: 2.0 };
 		}
 	}
 }
-window.FFLShaderBlinnMaterial = FFLShaderBlinnMaterial;
 
-// Available shader materials.
-const availableMaterialClasses = ['FFLShaderMaterial', 'LUTShaderMaterial', 'FFLShaderBlinnMaterial'];
+/**
+ * Global object for storing all available material classes.
+ * @type {Object<string, function(new: import('three').Material, ...*): import('three').Material>}
+ */
+const materials = {
+	// from ffl.js
+	FFLShaderMaterial, FFLShaderBlinnMaterial, LUTShaderMaterial,
+	// Three.js default shader materials
+	MeshStandardMaterial: THREE.MeshStandardMaterial, // same as Standard/Lambert/Physical?
+	MeshBasicMaterial: THREE.MeshBasicMaterial, // no lighting
+	MeshPhongMaterial: THREE.MeshPhongMaterial
+};
+
 // Expression flag with default expression, blink, FFL_EXPRESSION_LIKE_WINK_LEFT
 const expressionFlagBlinking = makeExpressionFlag(
 	[FFLExpression.NORMAL, FFLExpression.BLINK, FFLExpression.LIKE_WINK_LEFT]
@@ -94,7 +116,7 @@ let reinitModelEveryFrame = false;
 let displayRenderTexturesElement = null;
 // Global options.
 /** Default shader as first. */
-let activeMaterialClassName = availableMaterialClasses[0];
+let activeMaterialClassName = Object.keys(materials)[0];
 /** Expression. */
 let currentExpressionFlag = expressionFlagBlinking;
 /** Controls if the animation sets blinking. updateCanBlink() */
@@ -105,12 +127,37 @@ let canBlink = false;
 // // ---------------------------------------------------------------------
 
 /**
+ * Adds {@link THREE.AmbientLight} and {@link THREE.DirectionalLight} to
+ * a scene, using values similar to what the FFLShader is using.
+ * @param {import('three').Scene} scene - The scene to add lights to.
+ * @todo TODO: Why does it look worse when WebGLRenderer.useLegacyLights is not enabled?
+ */
+function addLightsToScene(scene) {
+	const intensity = Number(THREE.REVISION) >= 155 ? Math.PI : 1.0;
+	const ambientLight = new THREE.AmbientLight(new THREE.Color(0.73, 0.73, 0.73), intensity);
+	const directionalLight = new THREE.DirectionalLight(
+		new THREE.Color(0.60, 0.60, 0.60), intensity);
+	directionalLight.position.set(-0.455, 0.348, 0.5);
+	scene.add(ambientLight, directionalLight);
+}
+
+/** @returns {import('three').Scene} The scene with lights added. */
+function getSceneWithLights() {
+	const scene = new THREE.Scene();
+	addLightsToScene(scene);
+	return scene;
+}
+
+/**
  * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
  * Called only the first time the button is clicked.
  */
 function initializeScene() {
 	// Create scene.
 	scene = new THREE.Scene();
+
+	addLightsToScene(scene);
+
 	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
 	scene.background = new THREE.Color().setHex(0xE6E6FA, space);
 
@@ -266,7 +313,7 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 	if (typeof data === 'string') {
 		data = parseHexOrB64ToUint8Array(data);
 	}
-	const mat = window[activeMaterialClassName];
+	const mat = materials[activeMaterialClassName];
 	// Continue assuming it is Uint8Array.
 	// If an existing CharModel exists, update it.
 	try {
@@ -283,7 +330,9 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 			}
 			currentCharModel = createCharModel(data, descOrExpFlag, mat, moduleFFL);
 			// Initialize textures for the new CharModel.
-			initCharModelTextures(currentCharModel, renderer);
+			// This is explicitly called with FFLShaderMaterial, which
+			// would be the material drawing only the mask/faceline textures.
+			initCharModelTextures(currentCharModel, renderer, FFLShaderMaterial);
 		}
 		if (!currentCharModel.meshes) {
 			throw new Error('updateCharModelInScene: currentCharModel.meshes is null or undefined after initialization');
@@ -367,9 +416,9 @@ function resetLightDirection() {
 	if (!currentCharModel || !currentCharModel.meshes) {
 		return;
 	}
-	const mat = window[activeMaterialClassName];
+	const mat = materials[activeMaterialClassName];
 	// Make sure that the material has light direction before continuing.
-	if (!mat.defaultLightDirection) {
+	if (mat.defaultLightDirection === undefined) {
 		return;
 	}
 	const defDir = mat.defaultLightDirection.clone();
@@ -388,17 +437,17 @@ const shaderMaterialSelectElement = /** @type {HTMLInputElement|null} */ (docume
 
 /**
  * Populates the shader selector (a <select> element)
- * with available shader material names from availableMaterialClasses.
+ * with available shader material names from {@link materials}.
  */
 function populateShaderSelector() {
-	if (!shaderMaterialSelectElement || !availableMaterialClasses) {
+	if (!shaderMaterialSelectElement || !materials) {
 		return;
 	}
 	shaderMaterialSelectElement.innerHTML = ''; // clear any existing options
-	availableMaterialClasses.forEach((name) => {
-		// Make sure that this really exists in window.
-		if (window[activeMaterialClassName] === undefined) {
-			throw new Error(`Material class name ${name} is listed in availableMaterialClasses but cannot be found in window.`);
+	Object.keys(materials).forEach((name) => {
+		// Make sure that this really exists.
+		if (materials[name] === undefined) {
+			throw new Error(`Material class name ${name} is listed in materials but is undefined.`);
 		}
 		const opt = document.createElement('option');
 		opt.value = name;
@@ -418,8 +467,22 @@ function onShaderMaterialChange() {
 	if (!currentCharModel || !currentCharModel.meshes) {
 		return;
 	}
-	// Update _materialClass property that updating CharModels will use.
-	currentCharModel._materialClass = window[activeMaterialClassName];
+
+	// Update _materialClass property used by updateCharModel.
+	currentCharModel._materialClass = materials[activeMaterialClassName];
+
+	/** Whether the new material supports FFL swizzling. */
+	const forFFLMaterial = matSupportsFFL(materials[activeMaterialClassName]);
+	/** Whether the model is currently using a material with FFL swizzling. */
+	const isModelUsingFFLMaterial =
+		'modulateMode' in /** @type {THREE.Mesh} */ (currentCharModel.meshes.children[0]).material;
+	// In this case, the CharModel should be recreated.
+	if (!forFFLMaterial && isModelUsingFFLMaterial) {
+		console.log('Switching to non-FFL material from FFL material. Recreating CharModel.');
+		updateCharModelInScene(null);
+		// The work done in this function will already be done.
+		return;
+	}
 	currentCharModel.meshes.traverse((mesh) => {
 		if (!(mesh instanceof THREE.Mesh)) {
 			return;
@@ -428,9 +491,7 @@ function onShaderMaterialChange() {
 		const oldMat = mesh.material;
 		/** Get modulateMode/Type */
 		const userData = mesh.geometry.userData;
-		// Create new material (assumes the new shader is accessible via window).
 
-		const forFFLMaterial = matSupportsFFL(window[activeMaterialClassName]);
 		/** Do not include the parameters if forFFLMaterial is false. */
 		const modulateModeType = forFFLMaterial
 			? {
@@ -448,7 +509,7 @@ function onShaderMaterialChange() {
 			transparent: oldMat.transparent
 		};
 
-		mesh.material = new window[activeMaterialClassName](params);
+		mesh.material = new materials[activeMaterialClassName](params);
 	});
 
 	resetLightDirection(); // There is now a new light direction.
@@ -566,7 +627,7 @@ function updateCharModelIcon() {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
 		makeIconFromCharModel(currentCharModel, renderer,
-			{ canvas: modelIconElement, viewType });
+			{ canvas: modelIconElement, viewType, scene: getSceneWithLights() });
 	})();
 }
 
@@ -662,7 +723,7 @@ const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getE
 document.addEventListener('DOMContentLoaded', async function () {
 	// Initialize FFL.
 	try {
-		const initResult = await initializeFFL(window.ffljsResourceFetchResponse, window.ModuleFFL);
+		const initResult = await initializeFFL(window.ffljsResourceFetchResponse, ModuleFFL);
 		// Check the return result.
 		if (!initResult || !initResult.module) {
 			throw new Error(`initializeFFLWithResource returned unexpected result: ${initResult}`);
@@ -689,14 +750,15 @@ document.addEventListener('DOMContentLoaded', async function () {
 	}
 	renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // Makes shaders work in sRGB
 
+	// Call renderer.init in case it is WebGPURenderer.
 	if (renderer['init'] !== undefined) {
-		await renderer.init();
+		await /** @type {*} */ (renderer).init();
 	}
 
 	loadCharacterButtons(); // Load character buttons.
 
 	addUIControls(); // Set up UI controls.
-	// Populate shader selector (assumes window.availableMaterialClasses is defined).
+	// Populate shader selector (assumes materials is defined).
 	populateShaderSelector();
 
 	charFormElement.addEventListener('submit', function (event) {
@@ -730,10 +792,12 @@ function loadCharacterButtons() {
 		let model;
 		try {
 			const dataU8 = parseHexOrB64ToUint8Array(data);
-			model = createCharModel(dataU8, null, window[activeMaterialClassName], moduleFFL);
-			initCharModelTextures(model, renderer);
+			model = createCharModel(dataU8, null, materials[activeMaterialClassName], moduleFFL);
+			initCharModelTextures(model, renderer, FFLShaderMaterial);
 
-			makeIconFromCharModel(model, renderer, { canvas: el, viewType });
+			makeIconFromCharModel(model, renderer, {
+				canvas: el, viewType, scene: getSceneWithLights()
+			});
 		} catch (e) {
 			console.error(`loadCharacterButtons: Could not make icon for ${data}: ${e}`);
 		} finally {
@@ -753,17 +817,18 @@ function loadCharacterButtons() {
 		const btn = /** @type {HTMLButtonElement} */ (clone.querySelector('button'));
 		btn.removeAttribute('disabled');
 		btn.addEventListener('click', onPresetCharacterClick);
-		const img = btn.querySelector('.image');
+		const img = /** @type {HTMLCanvasElement|null} */ (btn.querySelector('.image'));
 		const name = btn.querySelector('div.name');
 
-		const data = el.getAttribute('data-data-icon') || el.getAttribute('data-data');
+		const dataData = el.getAttribute('data-data') || '';
+		const data = el.getAttribute('data-data-icon') || dataData;
 		if (img) {
 			setIcon(img, data);
 		} else {
 			console.warn('setIcon > elements.forEach...: button.querySelector(img) returned null');
 		}
 
-		btn.setAttribute('data-data', el.getAttribute('data-data'));
+		btn.setAttribute('data-data', dataData);
 		if (name) {
 			name.textContent = el.getAttribute('data-name');
 		}
@@ -771,6 +836,22 @@ function loadCharacterButtons() {
 		el.replaceWith(clone);
 	});
 }
+
+// TODO: NULL CHECK
+// * expressionSelectElement
+// * lightDir{X,Y,Z}Element
+// * shaderMaterialSelectElement
+// * rotationSpeedElement
+// * expressionSelectElement
+// * renderTexturesDisplayElement
+// * reinitModelElement
+// * charModelNameElement
+// * charModelFavoriteColorElement
+// * rotationSpeedElement
+// * resetLightButtonElement
+// * shaderMaterialSelectElement
+// * expressionSelectElement
+// * charFormElement
 
 /**
  * Event listener for clicking a preset character button.
@@ -871,5 +952,5 @@ function generateJSDocStructFu(structInstance, typeName = 'type') {
 	return generateJSDoc(obj, typeName);
 }
 
-window.generateJSDoc = generateJSDoc;
-window.generateJSDocStructFu = generateJSDocStructFu;
+/** @type {*} */ (window).generateJSDoc = generateJSDoc;
+/** @type {*} */ (window).generateJSDocStructFu = generateJSDocStructFu;

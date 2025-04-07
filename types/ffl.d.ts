@@ -1255,12 +1255,11 @@ export function convertModelTexturesToRGBA(charModel: CharModel, renderer: impor
 export function convModelTargetsToDataTex(charModel: CharModel, renderer: import("three").WebGLRenderer): void;
 /**
  * Modifies a BufferGeometry in place to be compatible with glTF.
- * It deinterleaves attributes if necessary, converts half-float arrays to Float32,
- * and if an attribute is named "normal" (case-insensitive) it will ensure the data
- * is converted to a vec3 (discarding any extra component).
+ * It currently: deinterleaves attributes, converts half-float to float,
+ * and converts signed integer formats (not uint8 for color) to float.
+ * Attributes named "normal" are reduced to three components.
  * @param {import('three').BufferGeometry} geometry - The BufferGeometry to modify in place.
- * @throws {Error} If an unsupported or ambiguous attribute format is encountered.
- * @todo TODO: VERIFY THAT THIS DOES NOT LEEEEAKKKKKKKKKK
+ * @throws {Error} Throws if an unsupported attribute format is encountered.
  */
 export function convGeometryToGLTFCompatible(geometry: import("three").BufferGeometry): void;
 export type ViewType = number;
