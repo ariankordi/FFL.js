@@ -27,6 +27,71 @@
 		<h3>ffl.js sample: minimal</h3>
 		<div style="font-size: 12px;">minimal code HERE that is... not the library is minimal at all..................</div>
 
+		<!-- Global error display block. -->
+		<div id="global-error-box" style="display: none; background: #ffeeee; color: #000; border: 2px solid red; padding: 1em; margin: 1em; font-family: monospace;">
+			<div style="font-weight: bold; font-size: 1.2em;"><span id="global-error-text-error">⚠️ JS Error:</span><span id="global-error-text-promise-rejection">⚠️ JS Promise Rejection:</span></div>
+			<div id="global-error-message" style="white-space: pre-wrap; margin-top: 0.5em;"></div>
+			<button id="global-error-hide-button" style="margin-top: 1em;">Close</button>
+		</div>
+
+		<!-- Global error handling snippet. -->
+		<script>
+			(function () {
+				var box = /** @type {HTMLElement} */ (document.getElementById('global-error-box'));
+				var message = /** @type {HTMLElement} */ (document.getElementById('global-error-message'));
+				var closeBtn = /** @type {HTMLElement} */ (document.getElementById('global-error-hide-button'));
+				var textError = /** @type {HTMLElement} */ (document.getElementById('global-error-text-error'));
+				var textPromiseRejection = /** @type {HTMLElement} */ (document.getElementById('global-error-text-promise-rejection'));
+				if (!box || !message || !closeBtn || !textError || !textPromiseRejection) {
+					console.warn('Global error handler: Missing one or more required DOM elements.');
+					return;
+				}
+				function showError(isPromiseRejection, detail) {
+					textError.style.display = isPromiseRejection ? 'none' : 'initial';
+					textPromiseRejection.style.display = isPromiseRejection ? 'initial' : 'none';
+					var timestamp = new Date().toLocaleString();
+					message.innerText = '[' + timestamp + '] ' + detail;
+					box.style.display = 'block';
+				}
+				function formatErrorEvent(errorEvent) {
+					var stack = errorEvent.error && errorEvent.error.stack ? errorEvent.error.stack : 'No stack trace available.';
+					var fileInfo = (errorEvent.filename || 'unknown file') + ':' +
+						(errorEvent.lineno != null ? errorEvent.lineno : '?') + ':' +
+						(errorEvent.colno != null ? errorEvent.colno : '?');
+					return errorEvent.message + '\nFile: ' + fileInfo + '\n\n' + stack;
+				}
+				function formatRejection(reason) {
+					if (reason instanceof Error) {
+						var stack = reason.stack || 'No stack trace.';
+						return reason.message + '\n\n' + stack;
+					}
+					if (typeof reason === 'string') {
+						return reason;
+					}
+					try {
+						return JSON.stringify(reason, null, 2);
+					} catch {
+						return 'Unable to serialize rejection reason.';
+					}
+				}
+				window.addEventListener('error', function (event) {
+					event.preventDefault();
+					showError(false, formatErrorEvent(event));
+				});
+				window.addEventListener('unhandledrejection', function (event) {
+					event.preventDefault();
+					showError(true, formatRejection(event.reason));
+				});
+				closeBtn.addEventListener('click', function () {
+					box.style.display = 'none';
+					message.innerText = '';
+				});
+			})();
+		</script>
+
+		<!-- Container for the resource loader widget from ResourceLoadHelper.js. -->
+		<div id="resourceContainer"></div>
+
 		<!-- Input form. -->
 		<form id="charForm">
 			<label for="charData">Enter FFLStoreData or Studio Data:</label>
@@ -39,6 +104,8 @@
 	</div> <!-- top-content -->
 
 	<!-- End main content. -->
+	<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.min.js"></script>
+	<script src="ResourceLoadHelper.js"></script>
 	<script src="demo-minimal.js"></script>
 </body>
 </html>

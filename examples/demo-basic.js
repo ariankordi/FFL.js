@@ -6,7 +6,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import {
 	initializeFFL, createCharModel, textureToCanvas, initCharModelTextures,
 	matSupportsFFL, updateCharModel, makeExpressionFlag, makeIconFromCharModel,
-	parseHexOrB64ToUint8Array, FFLExpression,
+	parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel, ViewType
 } from '../ffl.js';
 // All UMDs below:
@@ -51,6 +51,11 @@ if ('OrbitControls' in THREE) {
  * @type {import('../ffl').Module}
  */
 let moduleFFL;
+/**
+ * FFLResourceDesc returned by {@link initializeFFL}, needed for calling {@link exitFFL}.
+ * @type {import('../ffl').FFLResourceDesc}
+ */
+let resourceDesc;
 
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {import('three').Scene} */
@@ -64,7 +69,8 @@ let camera;
 let controls = {};
 /** @type {CharModel|null} */
 let currentCharModel;
-let isInitialized = false;
+let isRendererInitialized = false;
+let isSceneInitialized = false;
 // window.isInitialized = false;
 let isAnimating = false;
 
@@ -148,11 +154,29 @@ function getSceneWithLights() {
 	return scene;
 }
 
+async function initializeThreeRenderer() {
+	// renderer = new THREE.WebGPURenderer({
+	renderer = new THREE.WebGLRenderer({
+		alpha: true // Needed for icons with transparent backgrounds.
+	});
+	if (THREE.ColorManagement) {
+		THREE.ColorManagement.enabled = false; // Ensures Color3s will be treated as sRGB.
+	}
+	renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // Makes shaders work in sRGB
+
+	// Call renderer.init in case it is WebGPURenderer.
+	if (renderer['init'] !== undefined) {
+		await /** @type {*} */ (renderer).init();
+	}
+
+	isRendererInitialized = true;
+}
+
 /**
  * Initializes the Three.js scene, renderer, camera, lights, and OrbitControls.
  * Called only the first time the button is clicked.
  */
-function initializeScene() {
+async function initializeScene() {
 	// Create scene.
 	scene = new THREE.Scene();
 
@@ -161,6 +185,7 @@ function initializeScene() {
 	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
 	scene.background = new THREE.Color().setHex(0xE6E6FA, space);
 
+	// Create renderer now.
 	renderer.setPixelRatio(window.devicePixelRatio);
 	// 256 = height of #ffl-js-display-render-textures.
 	renderer.setSize(window.innerWidth, window.innerHeight - 256);
@@ -175,7 +200,7 @@ function initializeScene() {
 	camera.position.set(0, 10, 500);
 
 	// Set up OrbitControls if it is loaded.
-	if (OrbitControls !== undefined) {
+	if (typeof OrbitControls !== 'undefined') {
 		const controlsOld = controls;
 		controls = new OrbitControls(camera, renderer.domElement);
 		// Initialize defaults.
@@ -194,7 +219,7 @@ function initializeScene() {
 		console.warn('THREE.OrbitControls is undefined, continuing without controls.');
 	}
 
-	isInitialized = true;
+	isSceneInitialized = true;
 	console.log('initializeScene: Scene, renderer, camera created.');
 }
 
@@ -697,7 +722,7 @@ const defaultTextureResolution = 512;
  */
 function initAndUpdateScene(charData) {
 	// First-time scene initialization.
-	if (!isInitialized) {
+	if (!isSceneInitialized) {
 		initializeScene();
 	}
 
@@ -715,63 +740,77 @@ function initAndUpdateScene(charData) {
 	}
 }
 
-// Assume a form with id "charform" exists in the HTML.
-const charFormElement = /** @type {HTMLFormElement|null} */ (document.getElementById('charForm'));
-const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
-
-// -------------- Form Submission Handler ------------------
-document.addEventListener('DOMContentLoaded', async function () {
-	// Initialize FFL.
-	try {
-		const initResult = await initializeFFL(window.ffljsResourceFetchResponse, ModuleFFL);
-		// Check the return result.
-		if (!initResult || !initResult.module) {
-			throw new Error(`initializeFFLWithResource returned unexpected result: ${initResult}`);
-		}
-		// Set moduleFFL global from initialization result.
-		moduleFFL = initResult.module;
-		// Catch and alert if this fails.
-	} catch (error) {
-		alert(`Error initializing FFL with resource: ${error}`);
-		throw error;
-	}
-
-	// await initializeFFLWithResource(window.Module); // Alternative.
-
-	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
-
-	// Create renderer now.
-	// renderer = new THREE.WebGPURenderer({
-	renderer = new THREE.WebGLRenderer({
-		alpha: true // Needed for icons with transparent backgrounds.
-	});
-	if (THREE.ColorManagement) {
-		THREE.ColorManagement.enabled = false; // Ensures Color3s will be treated as sRGB.
-	}
-	renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // Makes shaders work in sRGB
-
-	// Call renderer.init in case it is WebGPURenderer.
-	if (renderer['init'] !== undefined) {
-		await /** @type {*} */ (renderer).init();
-	}
-
-	loadCharacterButtons(); // Load character buttons.
-
+/** Set up event handling for the CharModel submission form and other UI elements. */
+function setupCharModelForm() {
 	addUIControls(); // Set up UI controls.
 	// Populate shader selector (assumes materials is defined).
 	populateShaderSelector();
 
+	// Assume a form with id "charform" exists in the HTML.
+	const charFormElement = /** @type {HTMLFormElement|null} */ (document.getElementById('charForm'));
+	const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
+
+	// -------------- Form Submission Handler ------------------
 	charFormElement.addEventListener('submit', function (event) {
 		event.preventDefault();
 
 		// Read input from the form.
 		if (!charDataInputElement || !charDataInputElement.value) {
-			throw new Error('need you to enter something in that there form...');
+			throw new Error('You need to input something into the CharModel form input.');
 		}
 
 		initAndUpdateScene(charDataInputElement.value);
 	});
-});
+}
+
+
+/**
+ * Callback invoked once the FFL resource is loaded.
+ * @param {Response | Uint8Array} resource - Resource data compatible with initializeFFL.
+ */
+async function callInitializeFFL(resource) {
+	// If FFL is already initialized, exit it first.
+	if (moduleFFL) {
+		exitFFL(moduleFFL, resourceDesc); // Frees the existing resource.
+	}
+	// Initialize FFL with the resource.
+	const initResult = await initializeFFL(resource, moduleFFL ?? ModuleFFL);
+	if (!initResult || !initResult.module) {
+		throw new Error(`initializeFFL returned unexpected result: ${initResult}`);
+	}
+	// Set globals from initialization result.
+	moduleFFL = initResult.module;
+	resourceDesc = initResult.resourceDesc;
+
+	loadCharacterButtons(); // Load character buttons after initializing FFL.
+}
+
+/**
+ * Main initialization method called on DOMContentLoaded.
+ * Initializes the ResourceLoadHelper with our onLoad callback assigned
+ * to {@link callInitializeFFL} and calls {@link setupCharModelForm}.
+ */
+async function main() {	// Initialize FFL.
+	// await callInitializeFFL(window.ffljsResourceFetchResponse);
+	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
+
+	setupCharModelForm();
+	// Container for the resource loader widget, if available.
+	const resourceContainer = document.getElementById('resourceContainer') || document.body;
+	const loader = new ResourceLoadHelper({
+		container: resourceContainer,
+		initialResource: null,
+		onLoad: callInitializeFFL
+	});
+	loader.init(); // Initialize the resource loader to load the default resource.
+
+	if (!isRendererInitialized) {
+		await initializeThreeRenderer();
+	}
+}
+
+// Call main when HTML is done loading.
+document.addEventListener('DOMContentLoaded', main);
 
 // // ---------------------------------------------------------------------
 // //  Preset Character Button Handling

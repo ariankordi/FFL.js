@@ -4,16 +4,29 @@ import * as THREE from 'three';
 import {
 	initializeFFLWithResource, initializeFFL, createCharModel,
 	initCharModelTextures, parseHexOrB64ToUint8Array,
-	FFLCharModelDescDefault, CharModel
+	FFLCharModelDescDefault, CharModel, exitFFL
 } from '../ffl.js';
 import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
+// All UMDs below:
+// import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
+import FFLResourceLoader from './ResourceLoadHelper.js';
 */
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
-/** @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial */
-window.FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
-window.FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
-/* globals FFLShaderMaterial -- Imported materials whose names are set above. */
+/**
+ * @typedef {import('../ffl-emscripten.js')} ModuleFFL
+ * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
+ * @typedef {import('three')} THREE
+ */
+/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
+// /** @type {ModuleFFL} */ let ModuleFFL = globalThis.ModuleFFL;
+// ModuleFFL = (!ModuleFFL) ? ModuleFFLImport : ModuleFFL;
+// /** @type {ModuleFFL} */ const ModuleFFL = window.ModuleFFL; // Uncomment for ESM (browser).
 
+/** @type {FFLShaderMaterial} */
+let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
+FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
+globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
+/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
@@ -22,6 +35,11 @@ window.FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLS
  * @type {import('../ffl').Module}
  */
 let moduleFFL;
+/**
+ * FFLResourceDesc returned by {@link initializeFFL}, needed for calling {@link exitFFL}.
+ * @type {import('../ffl').FFLResourceDesc}
+ */
+let resourceDesc;
 
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
@@ -35,8 +53,7 @@ let currentCharModel;
 
 /** @type {THREE.Box3Helper|null} */
 let boxHelper;
-
-let isInitialized = false;
+let isSceneInitialized = false;
 let isAnimating = false;
 
 // // ---------------------------------------------------------------------
@@ -50,20 +67,23 @@ let isAnimating = false;
 function initializeScene() {
 	// Create scene.
 	scene = new THREE.Scene();
-	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : null;
+	const space = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
 	scene.background = new THREE.Color().setHex(0xE6E6FA, space);
 
+	// Create renderer here.
+	renderer = new THREE.WebGLRenderer();
 	renderer.setSize(window.innerWidth, window.innerHeight - 256);
 	document.body.appendChild(renderer.domElement);
 
 	// Create camera.
-	camera = new THREE.PerspectiveCamera(15, window.innerWidth / (window.innerHeight - 256), 1, 5000);
+	camera = new THREE.PerspectiveCamera(
+		15, window.innerWidth / (window.innerHeight - 256), 1, 5000);
 	// Note that faceline and mask are close, and
 	// often you may run into Z-fighting if you
 	// don't set near/far plane with care.
 	camera.position.set(0, 30, 500);
 
-	isInitialized = true;
+	isSceneInitialized = true;
 	console.log('initializeScene: Scene, renderer, camera created.');
 }
 
@@ -78,7 +98,7 @@ function startAnimationLoop() {
 	function animate() {
 		requestAnimationFrame(animate);
 
-		// Rotate CharModel.
+		// Rotate all top-level non-mesh Object3D nodes.
 		scene.traverse((node) => {
 			if (node.isObject3D && !(node instanceof THREE.Mesh)) {
 				node.rotation.y += 0.01;
@@ -101,7 +121,6 @@ function updateBoxHelper(charModel) {
 		/** @type {THREE.Material} */ (boxHelper.material).dispose();
 		boxHelper = null;
 	}
-	// boxHelper = new THREE.BoxHelper(charModel.meshes);
 	boxHelper = new THREE.Box3Helper(charModel.boundingBox);
 	scene.add(boxHelper);
 }
@@ -109,8 +128,8 @@ function updateBoxHelper(charModel) {
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string} data - Data as Uint8Array or hex or Base64 string.
- * @param {FFLCharModelDesc} modelDesc - CharModelDesc object to update CharModel with.
- * @throws {Error} cannot exclude modelDesc if no model was initialized yet
+ * @param {import('../ffl').FFLCharModelDesc} modelDesc - CharModelDesc object to update CharModel with.
+ * @throws {Error} cannot exclude modelDesc if no model was initialized yet, currentCharModel.meshes is null
  */
 function updateCharModelInScene(data, modelDesc) {
 	// Decode data.
@@ -121,7 +140,7 @@ function updateCharModelInScene(data, modelDesc) {
 	// If an existing CharModel exists, update it.
 	if (currentCharModel) {
 		// Remove current CharModel from the scene, then dispose it.
-		scene.remove(currentCharModel.meshes);
+		currentCharModel.meshes && scene.remove(currentCharModel.meshes);
 		currentCharModel.dispose();
 	}
 
@@ -131,6 +150,9 @@ function updateCharModelInScene(data, modelDesc) {
 	initCharModelTextures(currentCharModel, renderer);
 
 	// Add CharModel meshes to scene.
+	if (!currentCharModel.meshes) {
+		throw new Error('updateCharModelInScene: currentCharModel.meshes is null.');
+	}
 	scene.add(currentCharModel.meshes);
 	updateBoxHelper(currentCharModel); // Update boxHelper.
 }
@@ -139,55 +161,85 @@ function updateCharModelInScene(data, modelDesc) {
 // //  Form Submission Handling
 // // ---------------------------------------------------------------------
 
-// Assume a form with id "charform" exists in the HTML.
-const charFormElement = /** @type {HTMLFormElement|null} */ (document.getElementById('charForm'));
-const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
+/**
+ * Logging helper for missing elements.
+ * @param {string} elementName - The name of the HTML element.
+ */
+function elNotFound(elementName) {
+	const msg = `HTML element not found: ${elementName}`;
+	console.error(msg);
+	alert(msg);
+}
 
-// -------------- Form Submission Handler ------------------
-document.addEventListener('DOMContentLoaded', async function () {
-	// Initialize FFL.
-	const initResult = await initializeFFLWithResource(window.ModuleFFL);
-	if (!initResult || !initResult.module) {
-		throw new Error(`initializeFFLWithResource returned unexpected result: ${initResult}`);
-	}
-	// Set moduleFFL global from initialization result.
-	moduleFFL = initResult.module;
+/** Set up event handling for the CharModel submission form (charform). */
+function setupCharModelForm() {
+	const charFormElement = /** @type {HTMLFormElement} */ (document.getElementById('charForm')) || elNotFound('charForm');
+	const charDataInputElement = /** @type {HTMLInputElement} */ (document.getElementById('charData')) || elNotFound('charData');
 
-	// Create renderer now.
-	renderer = new THREE.WebGLRenderer();
-
-	if (!charFormElement) {
-		throw new Error('element #charForm not found');
-	}
-	charFormElement.addEventListener('submit', function (event) {
+	// -------------- Form Submission Handler ------------------
+	charFormElement.addEventListener('submit', (event) => {
 		event.preventDefault();
-
-		// Read input from the form.
-		if (!charDataInputElement || !charDataInputElement.value) {
-			throw new Error('need you to enter something in that there form...');
-		}
-
-		// Define the FFLCharModelDesc.
-		/** Default expression. */
-		const modelDesc = FFLCharModelDescDefault;
-
 		try {
-			// First-time scene initialization.
-			if (!isInitialized) {
+			if (!moduleFFL) {
+				throw new Error('FFL is not initialized yet. Please make sure the resource is loaded first.');
+			}
+			const userData = charDataInputElement.value;
+			if (!userData) {
+				throw new Error('You need to input something into the CharModel form input.');
+			}
+			if (!isSceneInitialized) {
 				initializeScene();
 			}
 
-			// Create or update single CharModel in the scene.
-			updateCharModelInScene(charDataInputElement.value, modelDesc);
+			updateCharModelInScene(userData, FFLCharModelDescDefault); // Use default expression.
 
 			// Start the animation loop if not already started.
 			if (!isAnimating) {
 				startAnimationLoop();
 			}
-		} catch (err) {
-			alert(`Error creating/updating CharModel: ${err}`);
-			console.error('Error creating/updating CharModel:', err);
-			throw err;
+		} catch (error) {
+			alert('Error creating/updating CharModel: ' + error.message);
+			console.error(error);
+			throw error;
 		}
 	});
-});
+}
+
+/**
+ * Callback invoked once the FFL resource is loaded.
+ * @param {Response | Uint8Array} resource - Resource data compatible with initializeFFL.
+ */
+async function callInitializeFFL(resource) {
+	// If FFL is already initialized, exit it first.
+	if (moduleFFL) {
+		exitFFL(moduleFFL, resourceDesc); // Frees the existing resource.
+	}
+	// Initialize FFL with the resource.
+	const initResult = await initializeFFL(resource, moduleFFL ?? ModuleFFL);
+	if (!initResult || !initResult.module) {
+		throw new Error(`initializeFFL returned unexpected result: ${initResult}`);
+	}
+	// Set globals from initialization result.
+	moduleFFL = initResult.module;
+	resourceDesc = initResult.resourceDesc;
+}
+
+/**
+ * Main initialization method called on DOMContentLoaded.
+ * Initializes the ResourceLoadHelper with our onLoad callback assigned
+ * to {@link callInitializeFFL} and calls {@link setupCharModelForm}.
+ */
+function main() {
+	const loader = new ResourceLoadHelper({
+		container: document.getElementById('resourceContainer') || document.body,
+		initialResource: null,
+		onLoad: callInitializeFFL
+	});
+	loader.init(); // Initialize the resource loader to load the default resource.
+
+	// Set up the CharModel form regardless, so that once FFL is ready, the user can submit.
+	setupCharModelForm();
+}
+
+// Call main when HTML is done loading.
+document.addEventListener('DOMContentLoaded', main);

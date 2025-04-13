@@ -7,9 +7,11 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 * Implemented in JSDoc annotated JavaScript (_compatible with TypeScript!_) directly calling into the FFL library.
 * Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and exporting FFLStoreData.
 * Supported FFL features: Expressions, mipmaps, ~~bounding box~~, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, basic head only icon creation
-* Tested from Three.js r109 up to r173, latest as of writing _(Both included shaders work exclusively in sRGB)_
+* Tested from Three.js r109 up to r173, latest as of writing
+  - Both included shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy.](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
+  - If you are using built-in Three.js materials and need colors to be linear, try: `moduleFFL._FFLSetLinearGammaMode(1)`
 
-There are currently two demos within `examples`: `demo-basic.html` and `demo-minimal.html`, both of which are pretty underwhelming.
+There are currently two demos within `examples`: `demo-basic.html` and `demo-minimal.html`, both of which just show spinning Mii heads.
 
 <img width="350" src="https://github.com/user-attachments/assets/853b4159-4cb0-47ac-b929-220299a3017a">
 
@@ -101,14 +103,12 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 ### Wishlist
 * Need more demos: body model, CharInfo editing, glTF export?, mass icons
 
-* Allow rendering with built-in Three.js materials (e.g. MeshStandardMaterial).
-  - By using a custom shader to convert all textures that need colors replaced, potentially a built-in no lighting shader that can also draw mask/faceline?
 * Add an option to switch color space (`FFLSetLinearGammaMode`), needs to be kept track of per-CharModel.
 * Improve resource loading by either not loading all resource in WASM heap or in memory in general. (IndexedDB streaming?)
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
 * **Refactor**: Split code into files, use ESM imports/exports, consider refactoring to TypeScript(?????)
   - Can someone harshly criticize my code? Style, naming conventions, ease of use and import, low quality sections...?
-* Port shaders to TSL and use NodeMaterial for WebGPURenderer support????? _(dependency: get built-in materials working)_
+* Port `TextureShaderMaterial` to TSL and use NodeMaterial for WebGPURenderer support?????
 
 # Acknowledgements
 * [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).

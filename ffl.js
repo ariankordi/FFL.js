@@ -1367,7 +1367,7 @@ class FFLResultException extends Error {
 class FFLResultWrongParam extends FFLResultException {
 	/** @param {string} [funcName] - Name of the function where the result originated. */
 	constructor(funcName) {
-		super(1, funcName, `${funcName} returned FFL_RESULT_WRONG_PARAM. This usually means parameters going into that function were invalid.`);
+		super(FFLResult.ERROR, funcName, `${funcName} returned FFL_RESULT_WRONG_PARAM. This usually means parameters going into that function were invalid.`);
 	}
 }
 
@@ -1378,7 +1378,7 @@ class FFLResultBroken extends FFLResultException {
 	 * @param {string} [message] - An optional message for the exception.
 	 */
 	constructor(funcName, message) {
-		super(3, funcName, message ? message : `${funcName} returned FFL_RESULT_BROKEN. This usually indicates invalid underlying data.`);
+		super(FFLResult.FILE_INVALID, funcName, message ? message : `${funcName} returned FFL_RESULT_BROKEN. This usually indicates invalid underlying data.`);
 	}
 }
 
@@ -1406,7 +1406,7 @@ class BrokenInitModel extends FFLResultBroken {
 class FFLResultNotAvailable extends FFLResultException {
 	/** @param {string} [funcName] - Name of the function where the result originated. */
 	constructor(funcName) {
-		super(4, funcName, `Tried to call FFL function ${funcName} when FFLManager is not constructed (FFL is not initialized properly).`);
+		super(FFLResult.MANAGER_NOT_CONSTRUCT, funcName, `Tried to call FFL function ${funcName} when FFLManager is not constructed (FFL is not initialized properly).`);
 	}
 }
 
@@ -1417,7 +1417,7 @@ class FFLResultNotAvailable extends FFLResultException {
 class FFLResultFatal extends FFLResultException {
 	/** @param {string} [funcName] - Name of the function where the result originated. */
 	constructor(funcName) {
-		super(5, funcName, `Failed to uncompress or load a specific asset from the FFL resource file during call to ${funcName}`);
+		super(FFLResult.FILE_LOAD_ERROR, funcName, `Failed to uncompress or load a specific asset from the FFL resource file during call to ${funcName}`);
 	}
 }
 
@@ -1482,11 +1482,11 @@ async function _loadDataIntoHeap(resource, module) {
 		} else if (resource instanceof Response) {
 			// Handle as fetch response.
 			if (!resource.ok) {
-				throw new Error(`HTTP error while fetching resource at URL = ${resource.url}, response code = ${resource.status}`);
+				throw new Error(`_loadDataIntoHeap: Failed to fetch resource at URL = ${resource.url}, response code = ${resource.status}`);
 			}
 			// Throw an error if it is not a streamable response.
 			if (!resource.body) {
-				throw new Error(`Response body is null (resource.body = ${resource.body})`);
+				throw new Error(`_loadDataIntoHeap: Fetch response body is null (resource.body = ${resource.body})`);
 			}
 			// Get the total size of the resource from the headers.
 			const contentLength = resource.headers.get('Content-Length');
@@ -1651,52 +1651,6 @@ async function initializeFFL(resource, moduleOrPromise) {
 	};
 }
 
-// ------------- initializeFFLWithResource(module, resourcePath) -------------
-/**
- * Fetches the FFL resource from the specified path or the "content"
- * attribute of this HTML element: meta[itemprop=ffl-js-resource-fetch-path]
- * It then calls {@link initializeFFL} on the specified module.
- * @param {Module|Promise<Module>|function(): Promise<Module>} module - The Emscripten module by itself
- * (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
- * or as a function returning a promise (window.Module when MODULARIZE=1).
- * @param {string|null} resourcePath - The URL for the FFL resource.
- * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when fetch is finished
- * and initializeFFL returns, returning the final Emscripten {@link Module} instance
- * and the {@link FFLResourceDesc} object that can later be passed into {@link exitFFL}.
- * @throws {Error} resourcePath must be a URL string, or, an HTML element with FFL resource must exist and have content.
- */
-async function initializeFFLWithResource(module, resourcePath) {
-	// Query selector string for element with "content" attribute for path to the resource.
-	const querySelectorResourcePath = 'meta[itemprop=ffl-js-resource-fetch-path]';
-
-	if (!resourcePath && typeof document !== 'undefined') {
-		// Load FFL resource file from meta tag in HTML.
-		const resourceFetchElement = document.querySelector(querySelectorResourcePath);
-		if (!resourceFetchElement || !resourceFetchElement.getAttribute('content')) {
-			throw new Error(`initializeFFLWithResource: Element not found or does not have "content" attribute with path to FFL resource: ${querySelectorResourcePath}`);
-		}
-		// URL to resource for FFL.
-		resourcePath = resourceFetchElement.getAttribute('content');
-	}
-	// is it still null?
-	if (!resourcePath) {
-		throw new Error('initializeFFLWithResource: resourcePath must be a string');
-	}
-	try {
-		/** Fetch resource. */
-		const response = await fetch(resourcePath);
-		// Initialize FFL using the resource from fetch response.
-		const ret = await initializeFFL(response, module);
-		console.debug('initializeFFLWithResource: FFLiManager and TextureManager initialized, exiting');
-		return ret;
-	} catch (error) {
-		if (typeof alert !== 'undefined') {
-			alert(`Error initializing FFL with resource: ${error}`);
-		}
-		throw error;
-	}
-}
-
 /**
  * Frees all pData pointers within {@link FFLResourceDesc}.
  * @param {FFLResourceDesc|null} desc - {@link FFLResourceDesc} to free pointers from.
@@ -1726,7 +1680,8 @@ function exitFFL(module, resourceDesc) {
 	console.debug('exitFFL called, resourceDesc:', resourceDesc);
 
 	// All CharModels must be deleted before this point.
-	module._FFLExit();
+	const result = module._FFLExit();
+	FFLResultException.handleResult(result, 'FFLExit');
 
 	// Free resources in heap after FFLExit().
 	_freeResourceDesc(resourceDesc, module);
@@ -1819,6 +1774,12 @@ class CharModel {
 		 * @package
 		 */
 		this._maskTargets = new Array(FFLExpression.MAX).fill(null);
+
+		/**
+		 * List of enabled expressions that can be set with {@link CharModel.setExpression}.
+		 * @type {Array<FFLExpression>}
+		 */
+		this.expressions = [];
 
 		/**
 		 * Group of THREE.Mesh objects representing the CharModel.
@@ -2647,7 +2608,8 @@ function makeExpressionFlag(expressions) {
  * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types:
  * FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
  * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
- * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
+ * @param {MaterialConstructor} materialClass - Class for the material (constructor). It must be compatible
+ * with FFL, so if your material isn't, try: {@link TextureShaderMaterial}, FFL/LUTShaderMaterial
  * @param {Module} module - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
@@ -2659,7 +2621,7 @@ function createCharModel(data, modelDesc, materialClass, module, verify = true) 
 
 	// Verify arguments.
 	if (!module || !module._malloc) {
-		throw new Error('createCharModel: module is null or does not have ._malloc.');
+		throw new Error('createCharModel: module is null not initialized properly (cannot find ._malloc).');
 	}
 	if (!data) {
 		throw new Error('createCharModel: data is null or undefined.');
@@ -3301,15 +3263,24 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
  * @throws {Error} Throws if the type of `renderer` is unexpected.
  */
 function initCharModelTextures(charModel, renderer, materialClass = charModel._materialClass) {
-	if (!(renderer instanceof THREE.WebGLRenderer) &&
-		renderer['isWebGPURenderer'] === undefined) { // Accounting for future WebGPURenderer support.
-		throw new Error('initCharModelTextures: renderer is an invalid or unexpected type.');
+	// Check if the passed in renderer is valid by checking the "render" property.
+	if (renderer.render === undefined) {
+		throw new Error('initCharModelTextures: renderer is an unexpected type (cannot find .render).');
 	}
 	const module = charModel._module;
 	// Set material class for render textures.
 	charModel._materialTextureClass = materialClass;
 
 	const textureTempObject = charModel._getTextureTempObject();
+
+	// Use the textureTempObject to set all available expressions on the CharModel.
+	charModel.expressions = textureTempObject.maskTextures.pRawMaskDrawParam
+		// expressions is a list of expression indices, where each index is non-null here.
+		.map((val, idx) =>
+			// If the value is 0 (null), map it.
+			val !== 0 ? idx : -1)
+		.filter(i => i !== -1); // -1 = null, filter them out.
+
 	// Draw faceline texture if applicable.
 	_drawFacelineTexture(charModel, textureTempObject, renderer, module, materialClass);
 
@@ -4729,6 +4700,7 @@ export {
 	FFLExpression,
 	FFLModelFlag,
 	FFLResourceType,
+	FFLResourceDesc,
 
 	// Types for CharModel initialization
 	FFLiCharInfo,
