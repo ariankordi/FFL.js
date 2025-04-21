@@ -782,6 +782,8 @@ const FFLCharModelDescDefault = {
 	resourceType: FFLResourceType.HIGH
 };
 
+/** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
+
 /**
  * @typedef {Object<string, FFLVec3>} FFLBoundingBox
  * @property {FFLVec3} min
@@ -2462,9 +2464,18 @@ function _allocateModelSource(data, module) {
 			setStudioData(data);
 			break;
 		}
+		// Unsupported types.
+		case 88:
+			throw new Error('_allocateModelSource: NX CharInfo is not supported.');
+		case 48:
+		case 68:
+			throw new Error('_allocateModelSource: NX CoreData/StoreData is not supported.');
+		case 92:
+		case 72:
+			throw new Error('_allocateModelSource: Please convert your FFLiMiiDataOfficial/FFLiMiiDataCore to FFLStoreData (add a checksum).');
 		default: {
 			module._free(bufferPtr);
-			throw new Error(`_allocateModelSource: Unknown data length: ${data.length}`);
+			throw new Error(`_allocateModelSource: Unknown length for character data: ${data.length}`);
 		}
 	}
 
@@ -2607,7 +2618,9 @@ function makeExpressionFlag(expressions) {
  * Don't forget to call dispose() on the CharModel when you are done.
  * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types:
  * FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
- * @param {FFLCharModelDesc|null} modelDesc - The model description. Default: {@link FFLCharModelDescDefault}
+ * @param {CharModelDescOrExpressionFlag} descOrExpFlag - Either a new {@link FFLCharModelDesc},
+ * an array of expressions, a single expression, or an
+ * expression flag (Uint32Array). Default: {@link FFLCharModelDescDefault}
  * @param {MaterialConstructor} materialClass - Class for the material (constructor). It must be compatible
  * with FFL, so if your material isn't, try: {@link TextureShaderMaterial}, FFL/LUTShaderMaterial
  * @param {Module} module - The Emscripten module.
@@ -2616,9 +2629,7 @@ function makeExpressionFlag(expressions) {
  * @throws {FFLResultException|BrokenInitModel|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc`,
  * or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
  */
-function createCharModel(data, modelDesc, materialClass, module, verify = true) {
-	modelDesc = modelDesc || FFLCharModelDescDefault;
-
+function createCharModel(data, descOrExpFlag, materialClass, module, verify = true) {
 	// Verify arguments.
 	if (!module || !module._malloc) {
 		throw new Error('createCharModel: module is null not initialized properly (cannot find ._malloc).');
@@ -2626,9 +2637,7 @@ function createCharModel(data, modelDesc, materialClass, module, verify = true) 
 	if (!data) {
 		throw new Error('createCharModel: data is null or undefined.');
 	}
-	if (typeof modelDesc !== 'object' || modelDesc.allExpressionFlag === undefined) {
-		throw new Error('createCharModel: modelDesc argument is invalid, make sure it is FFLCharModelDesc.');
-	}
+
 	// Allocate memory for model source, description, char model, and char info.
 	const modelSourcePtr = module._malloc(FFLCharModelSource.size);
 	const modelDescPtr = module._malloc(FFLCharModelDesc.size);
@@ -2644,6 +2653,7 @@ function createCharModel(data, modelDesc, materialClass, module, verify = true) 
 	const modelSourceBuffer = FFLCharModelSource.pack(modelSource);
 	module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
 
+	const modelDesc = _descOrExpFlagToModelDesc(descOrExpFlag);
 	// Set field to enable new expressions. This field
 	// exists because some callers would leave the other
 	// bits undefined but this does not so no reason to not enable
@@ -2702,6 +2712,45 @@ function createCharModel(data, modelDesc, materialClass, module, verify = true) 
 	return charModel;
 }
 
+/**
+ * Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
+ * Uses the `defaultDesc` as a fallback to return if input is null or applies expression to it.
+ * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
+ * an array of expressions, a single expression, or an expression flag (Uint32Array).
+ * @param {FFLCharModelDesc} [defaultDesc] - Fallback if descOrExpFlag is null or expression flag only.
+ * @returns {FFLCharModelDesc} The CharModelDesc with the expression applied, or the default.
+ * @throws {Error} Throws if `descOrExpFlag` is an unexpected type.
+ * @package
+ */
+function _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDescDefault) {
+	if (!descOrExpFlag && typeof descOrExpFlag !== 'number') {
+		return defaultDesc; // Use default if input is falsey.
+	}
+
+	// Convert descOrExpFlag to an expression flag if needed.
+	if (typeof descOrExpFlag === 'number' || Array.isArray(descOrExpFlag)) {
+		// Array of expressions or single expression was passed in.
+		descOrExpFlag = makeExpressionFlag(descOrExpFlag);
+	}
+
+	/** Shallow clone of {@link defaultDesc}. */
+	let newModelDesc = Object.assign({}, defaultDesc);
+
+	// Process descOrExpFlag based on what it is.
+	if (descOrExpFlag instanceof Uint32Array) {
+		// If this is already an expression flag (Uint32Array),
+		// or set to one previously, use it with existing CharModelDesc.
+		newModelDesc.allExpressionFlag = descOrExpFlag;
+	} else if (typeof descOrExpFlag === 'object') {
+		// Assume that descOrExpFlag is a new FFLCharModelDesc.
+		newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);
+	} else {
+		throw new Error('_descOrExpFlagToModelDesc: Unexpected type for descOrExpFlag');
+	}
+
+	return newModelDesc;
+}
+
 // ------- updateCharModel(charModel, newData, renderer, descOrExpFlag) -------
 /**
  * Updates the given CharModel with new data and a new ModelDesc or expression flag.
@@ -2710,42 +2759,20 @@ function createCharModel(data, modelDesc, materialClass, module, verify = true) 
  * @param {CharModel} charModel - The existing CharModel instance.
  * @param {Uint8Array|null} newData - The new raw charInfo data, or null to use the original.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
- * @param {FFLCharModelDesc|Array<number>|Uint32Array|null} descOrExpFlag - Either a
- * new {@link FFLCharModelDesc}, an array of expressions, a single expression, or an expression flag (Uint32Array).
+ * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
+ * an array of expressions, a single expression, or an expression flag (Uint32Array).
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The updated CharModel instance.
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
  */
-function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, verify = true) {
-	/** @type {FFLCharModelDesc} */
-	let newModelDesc;
+function updateCharModel(charModel, newData, renderer, descOrExpFlag = null, texOnly = false, verify = true) {
 	newData = newData || charModel._data;
 	if (!newData) {
 		throw new Error('updateCharModel: newData is null. It should be retrieved from charModel._data which is set by createCharModel.');
 	}
 
-	// Convert descOrExpFlag to an expression flag if needed.
-	if (Array.isArray(descOrExpFlag) || typeof descOrExpFlag === 'number') {
-		// Array of expressions or single expression was passed in.
-		descOrExpFlag = makeExpressionFlag(descOrExpFlag);
-	}
-
-	// Process descOrExpFlag based on what it is.
-	if (descOrExpFlag instanceof Uint32Array) {
-		// If this is already an expression flag (Uint32Array),
-		// or set to one previously, use it with existing CharModelDesc.
-		newModelDesc = charModel._model.charModelDesc;
-		newModelDesc.allExpressionFlag = descOrExpFlag;
-	} else if (!descOrExpFlag) {
-		// Inherit the CharModelDesc from the current model.
-		newModelDesc = charModel._model.charModelDesc;
-	} else if (typeof descOrExpFlag === 'object') {
-		// Assume that descOrExpFlag is a new FFLCharModelDesc.
-		newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);
-	} else {
-		throw new Error('updateCharModel: Unexpected type for descOrExpFlag');
-	}
+	const newModelDesc = _descOrExpFlagToModelDesc(descOrExpFlag, charModel._model.charModelDesc);
 
 	// Dispose of the old CharModel.
 	charModel.dispose();
@@ -2920,7 +2947,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 	// Bind index data.
 	const indexPtr = drawParam.primitiveParam.pIndexBuffer / 2;
 	const indexCount = drawParam.primitiveParam.indexCount;
-	const indices = module.HEAPU16.subarray(indexPtr, indexPtr + indexCount);
+	const indices = module.HEAPU16.slice(indexPtr, indexPtr + indexCount);
 	geometry.setIndex(new THREE.Uint16BufferAttribute(indices, 1));
 	// Add attribute data.
 	for (const typeStr in attributes) {
@@ -2937,7 +2964,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 					// 3 floats, last 4 bytes unused.
 					/** float data type */
 					const ptr = buffer.ptr / 4;
-					const data = module.HEAPF32.subarray(ptr, ptr + (vertexCount * 4));
+					const data = module.HEAPF32.slice(ptr, ptr + (vertexCount * 4));
 					const interleavedBuffer = new THREE.InterleavedBuffer(data, 4);
 					// Only works on Three.js r109 and above (previously used addAttribute which can be remapped)
 					geometry.setAttribute('position', new THREE.InterleavedBufferAttribute(interleavedBuffer, 3, 0));
@@ -2945,7 +2972,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 				} else if (buffer.stride === 6) {
 					/** half-float data type */
 					const ptr = buffer.ptr / 2;
-					const data = module.HEAPU16.subarray(ptr, ptr + (vertexCount * 3));
+					const data = module.HEAPU16.slice(ptr, ptr + (vertexCount * 3));
 					geometry.setAttribute('position', new THREE.Float16BufferAttribute(data, 3));
 				} else {
 					unexpectedStride(typeStr, buffer.stride);
@@ -2954,19 +2981,19 @@ function _bindDrawParamGeometry(drawParam, module) {
 			}
 			case FFLAttributeBufferType.NORMAL: {
 				// Either int8 or 10_10_10_2
-				// const data = module.HEAP32.subarray(buffer.ptr / 4, buffer.ptr / 4 + vertexCount);
+				// const data = module.HEAP32.slice(buffer.ptr / 4, buffer.ptr / 4 + vertexCount);
 				// const buf = gl.createBuffer();
 				// gl.bindBuffer(gl.ARRAY_BUFFER, buf);
 				// gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
 				// // Bind vertex type GL_INT_2_10_10_10_REV/ / 0x8D9F.
 				// geometry.setAttribute('normal', new THREE.GLBufferAttribute(buf, 0x8D9F, 4, 4));
-				const data = module.HEAP8.subarray(buffer.ptr, buffer.ptr + buffer.size);
+				const data = module.HEAP8.slice(buffer.ptr, buffer.ptr + buffer.size);
 				geometry.setAttribute('normal', new THREE.Int8BufferAttribute(data, buffer.stride, true));
 				break;
 			}
 			case FFLAttributeBufferType.TANGENT: {
 				// Int8
-				const data = module.HEAP8.subarray(buffer.ptr, buffer.ptr + buffer.size);
+				const data = module.HEAP8.slice(buffer.ptr, buffer.ptr + buffer.size);
 				geometry.setAttribute('tangent', new THREE.Int8BufferAttribute(data, buffer.stride, true));
 				break;
 			}
@@ -2974,12 +3001,12 @@ function _bindDrawParamGeometry(drawParam, module) {
 				if (buffer.stride === 8) {
 					/** float data type */
 					const ptr = buffer.ptr / 4;
-					const data = module.HEAPF32.subarray(ptr, ptr + (vertexCount * 2));
+					const data = module.HEAPF32.slice(ptr, ptr + (vertexCount * 2));
 					geometry.setAttribute('uv', new THREE.Float32BufferAttribute(data, 2));
 				} else if (buffer.stride === 4) {
 					/** half-float data type */
 					const ptr = buffer.ptr / 2;
-					const data = module.HEAPU16.subarray(ptr, ptr + (vertexCount * 2));
+					const data = module.HEAPU16.slice(ptr, ptr + (vertexCount * 2));
 					geometry.setAttribute('uv', new THREE.Float16BufferAttribute(data, 2));
 				} else {
 					unexpectedStride(typeStr, buffer.stride);
@@ -2996,7 +3023,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 					break;
 				}
 				// Use "_color" because NOTE this is what the FFL-Testing exports and existing shaders do
-				const data = module.HEAPU8.subarray(buffer.ptr, buffer.ptr + buffer.size);
+				const data = module.HEAPU8.slice(buffer.ptr, buffer.ptr + buffer.size);
 				geometry.setAttribute('_color', new THREE.Uint8BufferAttribute(data, buffer.stride, true));
 				break;
 			}
@@ -4716,7 +4743,6 @@ export {
 
 	// Begin public methods
 	initializeFFL,
-	initializeFFLWithResource,
 	exitFFL,
 	CharModel, // CharModel class
 	verifyCharInfo,

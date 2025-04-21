@@ -2,7 +2,7 @@
 /*
 import * as THREE from 'three';
 import {
-	initializeFFLWithResource, initializeFFL, createCharModel,
+	initializeFFL, createCharModel,
 	initCharModelTextures, parseHexOrB64ToUint8Array,
 	FFLCharModelDescDefault, CharModel, exitFFL
 } from '../ffl.js';
