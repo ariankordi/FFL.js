@@ -233,7 +233,7 @@ class ResourceLoadHelper {
 			await this.onLoad(loaded); // Invoke the onLoad callback with the loaded resource.
 			this._updateWidgetStatus(); // Update status indicating success.
 		} catch (error) {
-			const errorMsg = error.message || 'Unknown error';
+			const errorMsg = `${error instanceof Error ? error.message : error}` || 'Unknown error';
 			this._displayError(errorMsg);
 		}
 	}
@@ -265,7 +265,7 @@ class ResourceLoadHelper {
 			await this.onLoad(loadedResource); // Call user callback.
 			this._updateWidgetStatus(); // Toggle "Not Loaded" to "Loaded"
 		} catch (error) {
-			this._displayError(error.message);
+			this._displayError(`${error instanceof Error ? error.message : error}`);
 		}
 	}
 

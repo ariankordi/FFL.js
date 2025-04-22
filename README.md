@@ -6,8 +6,8 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 * Full rendering of Mii heads using the Wii U (`FFLShaderMaterial`) and Miitomo (`LUTShaderMaterial`) shaders.
 * Implemented in JSDoc annotated JavaScript (_compatible with TypeScript!_) directly calling into the FFL library.
 * Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and exporting FFLStoreData.
-* Supported FFL features: Expressions, mipmaps, ~~bounding box~~, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, basic head only icon creation
-* Tested from Three.js r109 up to r173, latest as of writing
+* Supported FFL features: Expressions, mipmaps, bounding box, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, basic head only icon creation
+* Tested from Three.js r109 up to r174, latest as of writing
   - Both included shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy.](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
   - If you are using built-in Three.js materials and need colors to be linear, try: `moduleFFL._FFLSetLinearGammaMode(1)`
 
@@ -94,21 +94,19 @@ The library is using eslint, so I recommend linting if you ever want to contribu
 
 Install it with `npm install -D` then use `npm run-script lint`. Additionally use `npm run-script check-types` to validate types, and `npm run-script build` to build a `.d.ts` definition for TypeScript.
 
-### TODO: Improvements
-
-* **Major**: Decide on whether functions should be exported via UMD or ESM (currently using neither)
-* All console.debug statements should be stripped out when not debugging because they will LEAK! objects that are printed. Can that be automated?
-* Implement optimization to update CharModel's faceline/mask only: `FFL_MODEL_FLAG_NEW_MASK_ONLY`, `transferCharModelTex` _(dependency: CharInfo editing demo)_
-
-### Wishlist
+### Wishlist for improvements to be made
 * Need more demos: body model, CharInfo editing, glTF export?, mass icons
 
 * Add an option to switch color space (`FFLSetLinearGammaMode`), needs to be kept track of per-CharModel.
 * Improve resource loading by either not loading all resource in WASM heap or in memory in general. (IndexedDB streaming?)
+* Find out how to easily strip out/disable all console.debug statements when not debugging, if possible.
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
-* **Refactor**: Split code into files, use ESM imports/exports, consider refactoring to TypeScript(?????)
-  - Can someone harshly criticize my code? Style, naming conventions, ease of use and import, low quality sections...?
-* Port `TextureShaderMaterial` to TSL and use NodeMaterial for WebGPURenderer support?????
+* **Needed refactoring:** Split code into files, use ESM imports/exports, _MAAAYBE_ consider switching to TypeScript??
+* **More refactoring?**
+  - Refactor into classes/true OOP. Should functionality be implemented in class patterns?
+  - Improve documentation as code (TypeDoc output). Add JSDoc @example tags? Or write real docs/tutorial?
+  - 🤔 Can someone scrutinize my code? Style, naming conventions, ease of use and import, low quality sections...?
+* Port `TextureShaderMaterial` to TSL and use NodeMaterial for WebGPURenderer support?
 
 # Acknowledgements
 * [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).

@@ -5,8 +5,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import {
 	initializeFFL, createCharModel, textureToCanvas, initCharModelTextures,
-	matSupportsFFL, updateCharModel, makeExpressionFlag, makeIconFromCharModel,
-	parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
+	matSupportsFFL, updateCharModel, makeExpressionFlag, checkExpressionChangesShapes,
+	makeIconFromCharModel, parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel, ViewType
 } from '../ffl.js';
 // All UMDs below:
@@ -154,6 +154,7 @@ function getSceneWithLights() {
 	return scene;
 }
 
+/** Initializes the Three.js {@link renderer} instance. */
 async function initializeThreeRenderer() {
 	// renderer = new THREE.WebGPURenderer({
 	renderer = new THREE.WebGLRenderer({
@@ -330,10 +331,11 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string|null} data - Data as Uint8Array or hex or Base64 string.
- * @param {Object|Array|null} descOrExpFlag - Either a new FFLCharModelDesc object or an array of expressions.
+ * @param {Object|Array|number|null} [descOrExpFlag] - Either a new FFLCharModelDesc object or an array of expressions.
+ * @param {boolean} [texOnly] - Whether to only update the mask and faceline textures in the CharModel.
  * @throws {Error} cannot exclude modelDesc if no model was initialized yet
  */
-function updateCharModelInScene(data, descOrExpFlag = null) {
+function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
 	// Decode data.
 	if (typeof data === 'string') {
 		data = parseHexOrB64ToUint8Array(data);
@@ -347,7 +349,8 @@ function updateCharModelInScene(data, descOrExpFlag = null) {
 			currentCharModel.meshes && scene.remove(currentCharModel.meshes);
 			// Update existing model via updateCharModel.
 			// (will also dispose it for us)
-			currentCharModel = updateCharModel(currentCharModel, data, renderer, descOrExpFlag);
+			currentCharModel = updateCharModel(currentCharModel,
+				data, renderer, descOrExpFlag, { texOnly });
 		} else {
 			// Create a new CharModel.
 			if (!descOrExpFlag || !data) {
@@ -596,7 +599,10 @@ function updateExpression() {
 		console.log(`Expression fixed to ${val}.`);
 	}
 	if (currentCharModel) {
-		updateCharModelInScene(null, currentExpressionFlag);
+		/** Update CharModel textures if the old or new expression doesn't change shapes. */
+		const texOnly = !(checkExpressionChangesShapes(val) ||
+			checkExpressionChangesShapes(currentCharModel.expression));
+		updateCharModelInScene(null, currentExpressionFlag, texOnly);
 	}
 }
 
@@ -726,8 +732,8 @@ function initAndUpdateScene(charData) {
 		initializeScene();
 	}
 
-	// Define the FFLCharModelDesc.
-	const modelDesc = FFLCharModelDescDefault;
+	/** Define the CharModelDesc by cloning the default. */
+	const modelDesc = Object.assign({}, FFLCharModelDescDefault);
 	modelDesc.resolution = defaultTextureResolution;
 	modelDesc.allExpressionFlag = currentExpressionFlag;
 
