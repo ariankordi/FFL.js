@@ -144,7 +144,7 @@ export default [
 			'ffl-emscripten.js', // Do not lint Emscripten-emitted code.
 			'struct-fu*.js', // Assume struct-fu is already linted.
 			'docs/**/*', // TypeDoc output
-			'three*.js',
+			'three-r*.js',
 
 			// Defaults
 			'**/dist/', // Common build output directory

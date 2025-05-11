@@ -4,7 +4,7 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 ## Features
 
 * Full rendering of Mii heads using the Wii U (`FFLShaderMaterial`) and Miitomo (`LUTShaderMaterial`) shaders.
-* Implemented in JSDoc annotated JavaScript (_compatible with TypeScript!_) directly calling into the FFL library.
+* Implemented in JSDoc annotated JavaScript (fully typed) directly calling into the FFL library.
 * Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and exporting FFLStoreData.
 * Supported FFL features: Expressions, mipmaps, bounding box, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, basic head only icon creation
 * Tested from Three.js r109 up to r174, latest as of writing

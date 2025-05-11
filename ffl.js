@@ -369,7 +369,7 @@ const FFLAttributeBufferParam = _.struct([
 const FFLPrimitiveParam = _.struct([
 	_.uint32le('primitiveType'),
 	_.uint32le('indexCount'),
-	_uintptr('pAdjustMatrix'), // TODO: Not uintptr in 64-bit.
+	_uintptr('pAdjustMatrix'),
 	_uintptr('pIndexBuffer')
 ]);
 
@@ -448,81 +448,52 @@ const FFLCreateID = _.struct([
 ]);
 
 /**
- * @typedef {Object} FFLiCharInfo_faceline
- * @property {number} type
- * @property {number} color
- * @property {number} texture
- * @property {number} make
- */
-/**
- * @typedef {Object} FFLiCharInfo_hair
- * @property {number} type
- * @property {number} color
- * @property {number} flip
- */
-/**
- * @typedef {Object} FFLiCharInfo_eye
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} aspect
- * @property {number} rotate
- * @property {number} x
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_eyebrow
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} aspect
- * @property {number} rotate
- * @property {number} x
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_nose
- * @property {number} type
- * @property {number} scale
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_mouth
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} aspect
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_beard
- * @property {number} mustache
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_glass
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_mole
- * @property {number} type
- * @property {number} scale
- * @property {number} x
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_body
+ * @typedef {Object} FFLiCharInfo
+ * @property {number} miiVersion
+ * @property {number} faceType
+ * @property {number} faceColor
+ * @property {number} faceTex
+ * @property {number} faceMake
+ * @property {number} hairType
+ * @property {number} hairColor
+ * @property {number} hairFlip
+ * @property {number} eyeType
+ * @property {number} eyeColor
+ * @property {number} eyeScale
+ * @property {number} eyeAspect
+ * @property {number} eyeRotate
+ * @property {number} eyeX
+ * @property {number} eyeY
+ * @property {number} eyebrowType
+ * @property {number} eyebrowColor
+ * @property {number} eyebrowScale
+ * @property {number} eyebrowAspect
+ * @property {number} eyebrowRotate
+ * @property {number} eyebrowX
+ * @property {number} eyebrowY
+ * @property {number} noseType
+ * @property {number} noseScale
+ * @property {number} noseY
+ * @property {number} mouthType
+ * @property {number} mouthColor
+ * @property {number} mouthScale
+ * @property {number} mouthAspect
+ * @property {number} mouthY
+ * @property {number} beardMustache
+ * @property {number} beardType
+ * @property {number} beardColor
+ * @property {number} beardScale
+ * @property {number} beardY
+ * @property {number} glassType
+ * @property {number} glassColor
+ * @property {number} glassScale
+ * @property {number} glassY
+ * @property {number} moleType
+ * @property {number} moleScale
+ * @property {number} moleX
+ * @property {number} moleY
  * @property {number} height
  * @property {number} build
- */
-/**
- * @typedef {Object} FFLiCharInfo_personal
  * @property {string} name
  * @property {string} creator
  * @property {number} gender
@@ -538,21 +509,6 @@ const FFLCreateID = _.struct([
  * @property {number} roomIndex
  * @property {number} positionInRoom
  * @property {number} birthPlatform
- */
-/**
- * @typedef {Object} FFLiCharInfo
- * @property {number} miiVersion
- * @property {FFLiCharInfo_faceline} faceline
- * @property {FFLiCharInfo_hair} hair
- * @property {FFLiCharInfo_eye} eye
- * @property {FFLiCharInfo_eyebrow} eyebrow
- * @property {FFLiCharInfo_nose} nose
- * @property {FFLiCharInfo_mouth} mouth
- * @property {FFLiCharInfo_beard} beard
- * @property {FFLiCharInfo_glass} glass
- * @property {FFLiCharInfo_mole} mole
- * @property {FFLiCharInfo_body} body
- * @property {FFLiCharInfo_personal} personal
  * @property {FFLCreateID} createID
  * @property {number} padding_0
  * @property {number} authorType
@@ -561,46 +517,77 @@ const FFLCreateID = _.struct([
 /** @type {import('./struct-fu').StructInstance<FFLiCharInfo>} */
 const FFLiCharInfo = _.struct([
 	_.int32le('miiVersion'),
-	_.struct('faceline', [_.int32le('type'), _.int32le('color'),
-		_.int32le('texture'), _.int32le('make')]),
-	_.struct('hair', [_.int32le('type'), _.int32le('color'), _.int32le('flip')]),
-	_.struct('eye', [_.int32le('type'), _.int32le('color'), _.int32le('scale'),
-		_.int32le('aspect'), _.int32le('rotate'),
-		_.int32le('x'), _.int32le('y')]),
-	_.struct('eyebrow', [_.int32le('type'), _.int32le('color'),
-		_.int32le('scale'), _.int32le('aspect'),
-		_.int32le('rotate'), _.int32le('x'),
-		_.int32le('y')]),
-	_.struct('nose', [_.int32le('type'), _.int32le('scale'),
-		_.int32le('y')]),
-	_.struct('mouth', [_.int32le('type'), _.int32le('color'),
-		_.int32le('scale'), _.int32le('aspect'),
-		_.int32le('y')]),
-	_.struct('beard', [_.int32le('mustache'), _.int32le('type'),
-		_.int32le('color'), _.int32le('scale'),
-		_.int32le('y')]),
-	_.struct('glass', [_.int32le('type'), _.int32le('color'),
-		_.int32le('scale'), _.int32le('y')]),
-	_.struct('mole', [_.int32le('type'), _.int32le('scale'),
-		_.int32le('x'), _.int32le('y')]),
-	_.struct('body', [_.int32le('height'), _.int32le('build')]),
-	_.struct('personal', [
-		_.char16le('name', 22),
-		_.char16le('creator', 22),
-		_.int32le('gender'),
-		_.int32le('birthMonth'),
-		_.int32le('birthDay'),
-		_.int32le('favoriteColor'),
-		_.uint8('favorite'),
-		_.uint8('copyable'),
-		_.uint8('ngWord'),
-		_.uint8('localonly'),
-		_.int32le('regionMove'),
-		_.int32le('fontRegion'),
-		_.int32le('roomIndex'),
-		_.int32le('positionInRoom'),
-		_.int32le('birthPlatform')
-	]),
+	// faceline
+	_.int32le('faceType'),
+	_.int32le('faceColor'),
+	_.int32le('faceTex'),
+	_.int32le('faceMake'),
+	// hair
+	_.int32le('hairType'),
+	_.int32le('hairColor'),
+	_.int32le('hairFlip'),
+	// eye
+	_.int32le('eyeType'),
+	_.int32le('eyeColor'),
+	_.int32le('eyeScale'),
+	_.int32le('eyeAspect'),
+	_.int32le('eyeRotate'),
+	_.int32le('eyeX'),
+	_.int32le('eyeY'),
+	// eyebrow
+	_.int32le('eyebrowType'),
+	_.int32le('eyebrowColor'),
+	_.int32le('eyebrowScale'),
+	_.int32le('eyebrowAspect'),
+	_.int32le('eyebrowRotate'),
+	_.int32le('eyebrowX'),
+	_.int32le('eyebrowY'),
+	// nose
+	_.int32le('noseType'),
+	_.int32le('noseScale'),
+	_.int32le('noseY'),
+	// mouth
+	_.int32le('mouthType'),
+	_.int32le('mouthColor'),
+	_.int32le('mouthScale'),
+	_.int32le('mouthAspect'),
+	_.int32le('mouthY'),
+	// beard
+	_.int32le('beardMustache'),
+	_.int32le('beardType'),
+	_.int32le('beardColor'),
+	_.int32le('beardScale'),
+	_.int32le('beardY'),
+	// glass
+	_.int32le('glassType'),
+	_.int32le('glassColor'),
+	_.int32le('glassScale'),
+	_.int32le('glassY'),
+	// mole
+	_.int32le('moleType'),
+	_.int32le('moleScale'),
+	_.int32le('moleX'),
+	_.int32le('moleY'),
+	// body
+	_.int32le('height'),
+	_.int32le('build'),
+	// personal
+	_.char16le('name', 22),
+	_.char16le('creator', 22),
+	_.int32le('gender'),
+	_.int32le('birthMonth'),
+	_.int32le('birthDay'),
+	_.int32le('favoriteColor'),
+	_.uint8('favorite'),
+	_.uint8('copyable'),
+	_.uint8('ngWord'),
+	_.uint8('localonly'),
+	_.int32le('regionMove'),
+	_.int32le('fontRegion'),
+	_.int32le('roomIndex'),
+	_.int32le('positionInRoom'),
+	_.int32le('birthPlatform'),
+	// other
 	_.struct('createID', [FFLCreateID]),
 	_.uint16le('padding_0'),
 	_.int32le('authorType'),
@@ -1479,7 +1466,7 @@ async function _loadDataIntoHeap(resource, module) {
 			// Comes in as Uint8Array, allocate and set it.
 			heapSize = resource.length;
 			heapPtr = module._malloc(heapSize);
-			console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, pointer: ${heapPtr}`);
+			console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
 			// Allocate and set this area in the heap as the passed buffer.
 			module.HEAPU8.set(resource, heapPtr);
 		} else if (resource instanceof Response) {
@@ -1909,7 +1896,7 @@ class CharModel {
 		// const color = this.additionalInfo.skinColor;
 		// return new THREE.Color(color.r, color.g, color.b);
 		const mod = this._module;
-		const facelineColor = this._model.charInfo.faceline.color;
+		const facelineColor = this._model.charInfo.faceColor;
 		/** Allocate return pointer. */
 		const colorPtr = mod._malloc(FFLColor.size);
 		mod._FFLGetFacelineColor(colorPtr, facelineColor);
@@ -1925,7 +1912,7 @@ class CharModel {
 	 */
 	_getFavoriteColor() {
 		const mod = this._module;
-		const favoriteColor = this._model.charInfo.personal.favoriteColor;
+		const favoriteColor = this._model.charInfo.favoriteColor;
 		/** Allocate return pointer. */
 		const colorPtr = mod._malloc(FFLColor.size);
 		mod._FFLGetFavoriteColor(colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
@@ -2271,7 +2258,7 @@ class CharModel {
 	 * @public
 	 */
 	get gender() {
-		return this._model.charInfo.personal.gender;
+		return this._model.charInfo.gender;
 	}
 
 	/**
@@ -2321,8 +2308,8 @@ class CharModel {
 	 */
 	getBodyScale(scaleMode = CharModel.BodyScaleMode.Apply) {
 		/* eslint-enable jsdoc/no-undefined-types -- BodyScaleMode */
-		const build = this._model.charInfo.body.build;
-		const height = this._model.charInfo.body.height;
+		const build = this._model.charInfo.build;
+		const height = this._model.charInfo.height;
 
 		const bodyScale = new THREE.Vector3();
 		switch (scaleMode) {
@@ -2730,7 +2717,7 @@ function createCharModel(data, descOrExpFlag, materialClass, module, verify = tr
 	/** @private */
 	charModel._data = data; // Store original data passed to function.
 
-	console.debug(`createCharModel: Initialized for "${charModel._model.charInfo.personal.name}", ptr =`, charModelPtr);
+	console.debug(`createCharModel: Initialized for "${charModel._model.charInfo.name}", ptr =`, charModelPtr);
 	return charModel;
 }
 
@@ -2806,7 +2793,7 @@ function updateCharModel(charModel, newData, renderer,
 		charModel.dispose();
 	} else {
 		// Updating textures only. Set respective flag.
-		console.debug(`updateCharModel: Updating ONLY textures for model "${charModel._model.charInfo.personal.name}", ptr =`, charModel._ptr);
+		console.debug(`updateCharModel: Updating ONLY textures for model "${charModel._model.charInfo.name}", ptr =`, charModel._ptr);
 		// NOTE: This flag will only take effect if your FFL is built with -DFFL_ENABLE_NEW_MASK_ONLY_FLAG=ON.
 		newModelDesc.modelFlag |= FFLModelFlag.NEW_MASK_ONLY;
 	}
@@ -4498,87 +4485,65 @@ const StudioCharInfo = _.struct([
 function convertStudioCharInfoToFFLiCharInfo(src) {
 	return {
 		miiVersion: 0,
-		faceline: {
-			type: src.facelineType,
-			color: src.facelineColor,
-			texture: src.facelineWrinkle,
-			make: src.facelineMake
-		},
-		hair: {
-			type: src.hairType,
-			color: commonColorMask(src.hairColor),
-			flip: src.hairFlip
-		},
-		eye: {
-			type: src.eyeType,
-			color: commonColorMask(src.eyeColor),
-			scale: src.eyeScale,
-			aspect: src.eyeAspect,
-			rotate: src.eyeRotate,
-			x: src.eyeX,
-			y: src.eyeY
-		},
-		eyebrow: {
-			type: src.eyebrowType,
-			color: commonColorMask(src.eyebrowColor),
-			scale: src.eyebrowScale,
-			aspect: src.eyebrowAspect,
-			rotate: src.eyebrowRotate,
-			x: src.eyebrowX,
-			y: src.eyebrowY
-		},
-		nose: {
-			type: src.noseType,
-			scale: src.noseScale,
-			y: src.noseY
-		},
-		mouth: {
-			type: src.mouthType,
-			color: commonColorMask(src.mouthColor),
-			scale: src.mouthScale,
-			aspect: src.mouthAspect,
-			y: src.mouthY
-		},
-		beard: {
-			mustache: src.mustacheType,
-			type: src.beardType,
-			color: commonColorMask(src.beardColor),
-			scale: src.mustacheScale,
-			y: src.mustacheY
-		},
-		glass: {
-			type: src.glassType,
-			color: commonColorMask(src.glassColor),
-			scale: src.glassScale,
-			y: src.glassY
-		},
-		mole: {
-			type: src.moleType,
-			scale: src.moleScale,
-			x: src.moleX,
-			y: src.moleY
-		},
-		body: {
-			height: src.height,
-			build: src.build
-		},
-		personal: {
-			name: '',
-			creator: '',
-			gender: src.gender,
-			birthMonth: 0,
-			birthDay: 0,
-			favoriteColor: src.favoriteColor,
-			favorite: 0,
-			copyable: 0,
-			ngWord: 0,
-			localonly: 0,
-			regionMove: 0,
-			fontRegion: 0,
-			roomIndex: 0,
-			positionInRoom: 0,
-			birthPlatform: 3
-		},
+		faceType: src.facelineType,
+		faceColor: src.facelineColor,
+		faceTex: src.facelineWrinkle,
+		faceMake: src.facelineMake,
+		hairType: src.hairType,
+		hairColor: commonColorMask(src.hairColor),
+		hairFlip: src.hairFlip,
+		eyeType: src.eyeType,
+		eyeColor: commonColorMask(src.eyeColor),
+		eyeScale: src.eyeScale,
+		eyeAspect: src.eyeAspect,
+		eyeRotate: src.eyeRotate,
+		eyeX: src.eyeX,
+		eyeY: src.eyeY,
+		eyebrowType: src.eyebrowType,
+		eyebrowColor: commonColorMask(src.eyebrowColor),
+		eyebrowScale: src.eyebrowScale,
+		eyebrowAspect: src.eyebrowAspect,
+		eyebrowRotate: src.eyebrowRotate,
+		eyebrowX: src.eyebrowX,
+		eyebrowY: src.eyebrowY,
+		noseType: src.noseType,
+		noseScale: src.noseScale,
+		noseY: src.noseY,
+		mouthType: src.mouthType,
+		mouthColor: commonColorMask(src.mouthColor),
+		mouthScale: src.mouthScale,
+		mouthAspect: src.mouthAspect,
+		mouthY: src.mouthY,
+		beardMustache: src.mustacheType,
+		beardType: src.beardType,
+		beardColor: commonColorMask(src.beardColor),
+		beardScale: src.mustacheScale,
+		beardY: src.mustacheY,
+		glassType: src.glassType,
+		glassColor: commonColorMask(src.glassColor),
+		glassScale: src.glassScale,
+		glassY: src.glassY,
+		moleType: src.moleType,
+		moleScale: src.moleScale,
+		moleX: src.moleX,
+		moleY: src.moleY,
+		height: src.height,
+		build: src.build,
+		name: '',
+		creator: '',
+		gender: src.gender,
+		birthMonth: 0,
+		birthDay: 0,
+		favoriteColor: src.favoriteColor,
+		favorite: 0,
+		copyable: 0,
+		ngWord: 0,
+		localonly: 0,
+		regionMove: 0,
+		fontRegion: 0,
+		roomIndex: 0,
+		positionInRoom: 0,
+		birthPlatform: 3, // FFL_BIRTH_PLATFORM_CTR
 		createID: {
 			data: new Array(10).fill(0)
 		},
@@ -4618,52 +4583,52 @@ function studioURLObfuscationDecode(data) {
  */
 function convertFFLiCharInfoToStudioCharInfo(src) {
 	return {
-		beardColor: commonColorUnmask(src.beard.color),
-		beardType: src.beard.type,
-		build: src.body.build,
-		eyeAspect: src.eye.aspect,
-		eyeColor: commonColorUnmask(src.eye.color),
-		eyeRotate: src.eye.rotate,
-		eyeScale: src.eye.scale,
-		eyeType: src.eye.type,
-		eyeX: src.eye.x,
-		eyeY: src.eye.y,
-		eyebrowAspect: src.eyebrow.aspect,
-		eyebrowColor: commonColorUnmask(src.eyebrow.color),
-		eyebrowRotate: src.eyebrow.rotate,
-		eyebrowScale: src.eyebrow.scale,
-		eyebrowType: src.eyebrow.type,
-		eyebrowX: src.eyebrow.x,
-		eyebrowY: src.eyebrow.y,
-		facelineColor: src.faceline.color,
-		facelineMake: src.faceline.make,
-		facelineType: src.faceline.type,
-		facelineWrinkle: src.faceline.texture,
-		favoriteColor: src.personal.favoriteColor,
-		gender: src.personal.gender,
-		glassColor: commonColorUnmask(src.glass.color),
-		glassScale: src.glass.scale,
-		glassType: src.glass.type,
-		glassY: src.glass.y,
-		hairColor: commonColorUnmask(src.hair.color),
-		hairFlip: src.hair.flip,
-		hairType: src.hair.type,
-		height: src.body.height,
-		moleScale: src.mole.scale,
-		moleType: src.mole.type,
-		moleX: src.mole.x,
-		moleY: src.mole.y,
-		mouthAspect: src.mouth.aspect,
-		mouthColor: commonColorUnmask(src.mouth.color),
-		mouthScale: src.mouth.scale,
-		mouthType: src.mouth.type,
-		mouthY: src.mouth.y,
-		mustacheScale: src.beard.scale,
-		mustacheType: src.beard.mustache,
-		mustacheY: src.beard.y,
-		noseScale: src.nose.scale,
-		noseType: src.nose.type,
-		noseY: src.nose.y
+		beardColor: commonColorUnmask(src.beardColor),
+		beardType: src.beardType,
+		build: src.build,
+		eyeAspect: src.eyeAspect,
+		eyeColor: commonColorUnmask(src.eyeColor),
+		eyeRotate: src.eyeRotate,
+		eyeScale: src.eyeScale,
+		eyeType: src.eyeType,
+		eyeX: src.eyeX,
+		eyeY: src.eyeY,
+		eyebrowAspect: src.eyebrowAspect,
+		eyebrowColor: commonColorUnmask(src.eyebrowColor),
+		eyebrowRotate: src.eyebrowRotate,
+		eyebrowScale: src.eyebrowScale,
+		eyebrowType: src.eyebrowType,
+		eyebrowX: src.eyebrowX,
+		eyebrowY: src.eyebrowY,
+		facelineColor: src.faceColor,
+		facelineMake: src.faceMake,
+		facelineType: src.faceType,
+		facelineWrinkle: src.faceTex,
+		favoriteColor: src.favoriteColor,
+		gender: src.gender,
+		glassColor: commonColorUnmask(src.glassColor),
+		glassScale: src.glassScale,
+		glassType: src.glassType,
+		glassY: src.glassY,
+		hairColor: commonColorUnmask(src.hairColor),
+		hairFlip: src.hairFlip,
+		hairType: src.hairType,
+		height: src.height,
+		moleScale: src.moleScale,
+		moleType: src.moleType,
+		moleX: src.moleX,
+		moleY: src.moleY,
+		mouthAspect: src.mouthAspect,
+		mouthColor: commonColorUnmask(src.mouthColor),
+		mouthScale: src.mouthScale,
+		mouthType: src.mouthType,
+		mouthY: src.mouthY,
+		mustacheScale: src.beardScale,
+		mustacheType: src.beardMustache,
+		mustacheY: src.beardY,
+		noseScale: src.noseScale,
+		noseType: src.noseType,
+		noseY: src.noseY
 	};
 }
 

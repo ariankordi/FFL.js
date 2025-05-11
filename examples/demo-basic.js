@@ -673,7 +673,7 @@ function updateCharModelInfo() {
 	}
 
 	// Update name from CharInfo.
-	let name = currentCharModel._model.charInfo.personal.name;
+	let name = currentCharModel._model.charInfo.name;
 	if (name.length === 0) {
 		// Make font bold when name is empty.
 		charModelNameElement.style.fontWeight = 'bold';
@@ -900,7 +900,7 @@ function loadCharacterButtons() {
 
 /**
  * Event listener for clicking a preset character button.
- * @param {Event} event - The click event.
+ * @param {MouseEvent} event - The click event.
  */
 function onPresetCharacterClick(event) {
 	event.preventDefault();

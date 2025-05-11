@@ -4,17 +4,65 @@ export type FFLResourceDesc = {
 };
 export type FFLiCharInfo = {
     miiVersion: number;
-    faceline: FFLiCharInfo_faceline;
-    hair: FFLiCharInfo_hair;
-    eye: FFLiCharInfo_eye;
-    eyebrow: FFLiCharInfo_eyebrow;
-    nose: FFLiCharInfo_nose;
-    mouth: FFLiCharInfo_mouth;
-    beard: FFLiCharInfo_beard;
-    glass: FFLiCharInfo_glass;
-    mole: FFLiCharInfo_mole;
-    body: FFLiCharInfo_body;
-    personal: FFLiCharInfo_personal;
+    faceType: number;
+    faceColor: number;
+    faceTex: number;
+    faceMake: number;
+    hairType: number;
+    hairColor: number;
+    hairFlip: number;
+    eyeType: number;
+    eyeColor: number;
+    eyeScale: number;
+    eyeAspect: number;
+    eyeRotate: number;
+    eyeX: number;
+    eyeY: number;
+    eyebrowType: number;
+    eyebrowColor: number;
+    eyebrowScale: number;
+    eyebrowAspect: number;
+    eyebrowRotate: number;
+    eyebrowX: number;
+    eyebrowY: number;
+    noseType: number;
+    noseScale: number;
+    noseY: number;
+    mouthType: number;
+    mouthColor: number;
+    mouthScale: number;
+    mouthAspect: number;
+    mouthY: number;
+    beardMustache: number;
+    beardType: number;
+    beardColor: number;
+    beardScale: number;
+    beardY: number;
+    glassType: number;
+    glassColor: number;
+    glassScale: number;
+    glassY: number;
+    moleType: number;
+    moleScale: number;
+    moleX: number;
+    moleY: number;
+    height: number;
+    build: number;
+    name: string;
+    creator: string;
+    gender: number;
+    birthMonth: number;
+    birthDay: number;
+    favoriteColor: number;
+    favorite: number;
+    copyable: number;
+    ngWord: number;
+    localonly: number;
+    regionMove: number;
+    fontRegion: number;
+    roomIndex: number;
+    positionInRoom: number;
+    birthPlatform: number;
     createID: FFLCreateID;
     padding_0: number;
     authorType: number;
@@ -240,87 +288,6 @@ export type FFLDrawParam = {
 };
 export type FFLCreateID = {
     data: Array<number>;
-};
-export type FFLiCharInfo_faceline = {
-    type: number;
-    color: number;
-    texture: number;
-    make: number;
-};
-export type FFLiCharInfo_hair = {
-    type: number;
-    color: number;
-    flip: number;
-};
-export type FFLiCharInfo_eye = {
-    type: number;
-    color: number;
-    scale: number;
-    aspect: number;
-    rotate: number;
-    x: number;
-    y: number;
-};
-export type FFLiCharInfo_eyebrow = {
-    type: number;
-    color: number;
-    scale: number;
-    aspect: number;
-    rotate: number;
-    x: number;
-    y: number;
-};
-export type FFLiCharInfo_nose = {
-    type: number;
-    scale: number;
-    y: number;
-};
-export type FFLiCharInfo_mouth = {
-    type: number;
-    color: number;
-    scale: number;
-    aspect: number;
-    y: number;
-};
-export type FFLiCharInfo_beard = {
-    mustache: number;
-    type: number;
-    color: number;
-    scale: number;
-    y: number;
-};
-export type FFLiCharInfo_glass = {
-    type: number;
-    color: number;
-    scale: number;
-    y: number;
-};
-export type FFLiCharInfo_mole = {
-    type: number;
-    scale: number;
-    x: number;
-    y: number;
-};
-export type FFLiCharInfo_body = {
-    height: number;
-    build: number;
-};
-export type FFLiCharInfo_personal = {
-    name: string;
-    creator: string;
-    gender: number;
-    birthMonth: number;
-    birthDay: number;
-    favoriteColor: number;
-    favorite: number;
-    copyable: number;
-    ngWord: number;
-    localonly: number;
-    regionMove: number;
-    fontRegion: number;
-    roomIndex: number;
-    positionInRoom: number;
-    birthPlatform: number;
 };
 export type FFLAdditionalInfo = {
     name: string;
@@ -557,81 +524,52 @@ export namespace FFLResourceType {
 /** @type {import('./struct-fu').StructInstance<FFLResourceDesc>} */
 export const FFLResourceDesc: import("./struct-fu").StructInstance<FFLResourceDesc>;
 /**
- * @typedef {Object} FFLiCharInfo_faceline
- * @property {number} type
- * @property {number} color
- * @property {number} texture
- * @property {number} make
- */
-/**
- * @typedef {Object} FFLiCharInfo_hair
- * @property {number} type
- * @property {number} color
- * @property {number} flip
- */
-/**
- * @typedef {Object} FFLiCharInfo_eye
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} aspect
- * @property {number} rotate
- * @property {number} x
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_eyebrow
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} aspect
- * @property {number} rotate
- * @property {number} x
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_nose
- * @property {number} type
- * @property {number} scale
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_mouth
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} aspect
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_beard
- * @property {number} mustache
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_glass
- * @property {number} type
- * @property {number} color
- * @property {number} scale
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_mole
- * @property {number} type
- * @property {number} scale
- * @property {number} x
- * @property {number} y
- */
-/**
- * @typedef {Object} FFLiCharInfo_body
+ * @typedef {Object} FFLiCharInfo
+ * @property {number} miiVersion
+ * @property {number} faceType
+ * @property {number} faceColor
+ * @property {number} faceTex
+ * @property {number} faceMake
+ * @property {number} hairType
+ * @property {number} hairColor
+ * @property {number} hairFlip
+ * @property {number} eyeType
+ * @property {number} eyeColor
+ * @property {number} eyeScale
+ * @property {number} eyeAspect
+ * @property {number} eyeRotate
+ * @property {number} eyeX
+ * @property {number} eyeY
+ * @property {number} eyebrowType
+ * @property {number} eyebrowColor
+ * @property {number} eyebrowScale
+ * @property {number} eyebrowAspect
+ * @property {number} eyebrowRotate
+ * @property {number} eyebrowX
+ * @property {number} eyebrowY
+ * @property {number} noseType
+ * @property {number} noseScale
+ * @property {number} noseY
+ * @property {number} mouthType
+ * @property {number} mouthColor
+ * @property {number} mouthScale
+ * @property {number} mouthAspect
+ * @property {number} mouthY
+ * @property {number} beardMustache
+ * @property {number} beardType
+ * @property {number} beardColor
+ * @property {number} beardScale
+ * @property {number} beardY
+ * @property {number} glassType
+ * @property {number} glassColor
+ * @property {number} glassScale
+ * @property {number} glassY
+ * @property {number} moleType
+ * @property {number} moleScale
+ * @property {number} moleX
+ * @property {number} moleY
  * @property {number} height
  * @property {number} build
- */
-/**
- * @typedef {Object} FFLiCharInfo_personal
  * @property {string} name
  * @property {string} creator
  * @property {number} gender
@@ -647,21 +585,6 @@ export const FFLResourceDesc: import("./struct-fu").StructInstance<FFLResourceDe
  * @property {number} roomIndex
  * @property {number} positionInRoom
  * @property {number} birthPlatform
- */
-/**
- * @typedef {Object} FFLiCharInfo
- * @property {number} miiVersion
- * @property {FFLiCharInfo_faceline} faceline
- * @property {FFLiCharInfo_hair} hair
- * @property {FFLiCharInfo_eye} eye
- * @property {FFLiCharInfo_eyebrow} eyebrow
- * @property {FFLiCharInfo_nose} nose
- * @property {FFLiCharInfo_mouth} mouth
- * @property {FFLiCharInfo_beard} beard
- * @property {FFLiCharInfo_glass} glass
- * @property {FFLiCharInfo_mole} mole
- * @property {FFLiCharInfo_body} body
- * @property {FFLiCharInfo_personal} personal
  * @property {FFLCreateID} createID
  * @property {number} padding_0
  * @property {number} authorType
@@ -681,6 +604,7 @@ export const FFLCharModelDesc: import("./struct-fu").StructInstance<FFLCharModel
 /**
  * Static default for FFLCharModelDesc.
  * @type {FFLCharModelDesc}
+ * @readonly
  * @public
  */
 export const FFLCharModelDescDefault: FFLCharModelDesc;
@@ -1070,6 +994,14 @@ export function getRandomCharInfo(module: Module, gender?: FFLGender, age?: FFLA
  * @throws {Error} expressions must be in range and less than {@link FFLExpression.MAX}.
  */
 export function makeExpressionFlag(expressions: Array<FFLExpression> | FFLExpression): Uint32Array;
+/**
+ * Checks if the expression index disables any shapes in the
+ * CharModel, meant to be used when setting multiple indices.
+ * @param {FFLExpression} i - Expression index to check.
+ * @param {boolean} [warn] - Whether to log using {@link console.warn}.
+ * @returns {boolean} Whether the expression changes shapes.
+ */
+export function checkExpressionChangesShapes(i: FFLExpression, warn?: boolean): boolean;
 export type PantsColor = number;
 export namespace PantsColor {
     let GrayNormal: number;
@@ -1116,21 +1048,17 @@ export function createCharModel(data: Uint8Array | FFLiCharInfo, descOrExpFlag: 
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
  * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
  * an array of expressions, a single expression, or an expression flag (Uint32Array).
- * @param {boolean} verify - Whether the CharInfo provided should be verified.
+ * @param {Object} [options] - Options for updating the model.
+ * @param {boolean} [options.texOnly] - Whether to only update the mask and faceline textures in the CharModel.
+ * @param {boolean} [options.verify] - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The updated CharModel instance.
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
  */
-export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: import("three").WebGLRenderer, descOrExpFlag?: CharModelDescOrExpressionFlag, texOnly?: boolean, verify?: boolean): CharModel;
-/**
- * Copies faceline and mask render targets from `src`
- * to the `dst` CharModel, disposing textures from `dst`
- * and disposing shapes from `src`, effectively transferring.
- * @param {CharModel} src - The source {@link CharModel} from which to copy textures from and dispose shapes.
- * @param {CharModel} dst - The destination {@link CharModel} receiving the textures.
- * @todo TODO: Completely untested.
- */
-export function transferCharModelTex(src: CharModel, dst: CharModel, disposeSrc?: boolean): void;
+export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: import("three").WebGLRenderer, descOrExpFlag?: CharModelDescOrExpressionFlag, { texOnly, verify }?: {
+    texOnly?: boolean | undefined;
+    verify?: boolean | undefined;
+}): CharModel;
 /**
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
