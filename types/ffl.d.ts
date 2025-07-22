@@ -955,6 +955,14 @@ export class CharModel {
     /** @private */
     private _boundingBox;
     /**
+     * Gets the ColorInfo object needed for SampleShaderMaterial.
+     * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.
+     * @returns {import('./SampleShaderMaterial').SampleShaderMaterialColorInfo}
+     * The colorInfo object needed by SampleShaderMaterial.
+     * @public
+     */
+    public getColorInfo(isSpecial?: boolean): import("./SampleShaderMaterial").SampleShaderMaterialColorInfo;
+    /**
      * Gets a vector in which to scale the body model for this CharModel.
      * @param {BodyScaleMode} scaleMode - Mode in which to create the scale vector.
      * @returns {import('three').Vector3} Scale vector for the body model.
@@ -1051,13 +1059,15 @@ export function createCharModel(data: Uint8Array | FFLiCharInfo, descOrExpFlag: 
  * @param {Object} [options] - Options for updating the model.
  * @param {boolean} [options.texOnly] - Whether to only update the mask and faceline textures in the CharModel.
  * @param {boolean} [options.verify] - Whether the CharInfo provided should be verified.
+ * @param {MaterialConstructor|null} [options.materialTextureClass] - The new materialTextureClass to change to.
  * @returns {CharModel} The updated CharModel instance.
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
  */
-export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: import("three").WebGLRenderer, descOrExpFlag?: CharModelDescOrExpressionFlag, { texOnly, verify }?: {
+export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: import("three").WebGLRenderer, descOrExpFlag?: CharModelDescOrExpressionFlag, { texOnly, verify, materialTextureClass }?: {
     texOnly?: boolean | undefined;
     verify?: boolean | undefined;
+    materialTextureClass?: MaterialConstructor | null | undefined;
 }): CharModel;
 /**
  * Returns an ortho camera that is effectively the same as

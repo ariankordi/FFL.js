@@ -1,29 +1,23 @@
 declare namespace _exports {
-    export { FFLModulateMode, FFLModulateType, THREE, FFLShaderMaterialParameters };
+    export { FFLModulateMode, FFLModulateType, THREE, SampleShaderMaterialColorInfo, SampleShaderMaterialParameters };
 }
 declare const _exports: {
-    new (options?: import("three").ShaderMaterialParameters & FFLShaderMaterialParameters): {
+    new (options?: import("three").ShaderMaterialParameters & SampleShaderMaterialParameters): {
         /** @type {FFLModulateType} */
         _modulateType: FFLModulateType;
+        /** @package */
+        _sssColorTable: (number[] | null)[];
+        /** @package */
+        _specularColorTable: (number[] | null)[];
         /**
-         * Gets the value for whether to override specular mode with 0.
-         * @returns {boolean|undefined} The useSpecularModeBlinn value.
-         */
-        get useSpecularModeBlinn(): boolean | undefined;
-        /**
-         * Sets whether to override specular mode with 0.
-         * @param {boolean} value - The useSpecularModeBlinn value.
-         */
-        set useSpecularModeBlinn(value: boolean);
-        /**
-         * Gets the constant color (u_const1) uniform as THREE.Color.
+         * Gets the constant color (constColor1) uniform as THREE.Color.
          * @returns {import('three').Color|null} The constant color, or null if it is not set.
          */
         get color(): import("three").Color | null;
         /**
          * Sets the constant color uniforms from THREE.Color.
          * @param {import('three').Color|Array<import('three').Color>} value - The
-         * constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
+         * constant color (constColor1), or multiple (constColor1/2/3) to set the uniforms for.
          */
         set color(value: import("three").Color | Array<import("three").Color>);
         _color3: import("three").Color | undefined;
@@ -53,7 +47,6 @@ declare const _exports: {
          * @param {boolean} value - The lightEnable value.
          */
         set lightEnable(value: boolean);
-        _useSpecularModeBlinn: boolean | undefined;
         /**
          * Gets the modulateType value.
          * @returns {FFLModulateType|undefined} The modulateType value if it is set.
@@ -64,13 +57,22 @@ declare const _exports: {
          * @param {FFLModulateType} value - The new modulateType value.
          */
         set modulateType(value: FFLModulateType);
+        setUniformsFromMatParam(matParam: {
+            halfLambertFactor: number;
+            sssSpecularBlendFactor: number;
+            specularFactorA: number;
+            specularFactorB: number;
+            specularShinness: number;
+            rimLightPower: number;
+            rimLightWidth: number;
+        }): void;
         /**
          * Gets the texture map if it is set.
          * @returns {import('three').Texture|null} The texture map, or null if it is unset.
          */
         get map(): import("three").Texture | null;
         /**
-         * Sets the texture map (s_texture uniform).
+         * Sets the texture map (s_Tex uniform).
          * @param {import('three').Texture} value - The new texture map.
          */
         set map(value: import("three").Texture);
@@ -79,6 +81,7 @@ declare const _exports: {
          * @returns {import('three').Vector3} The light direction.
          */
         lightDirection: import("three").Vector3;
+        colorInfo: SampleShaderMaterialColorInfo;
         readonly isShaderMaterial: true;
         defines: {
             [key: string]: any;
@@ -173,59 +176,55 @@ declare const _exports: {
             dispose: {};
         }[T]): void;
     };
+    /** Indicates that this material requires an alpha value of 0 in the faceline color. */
+    needsFacelineAlpha: boolean;
     /**
      * Default ambient light color.
      * @type {import('three').Color}
      */
-    defaultLightAmbient: import("three").Color;
-    /**
-     * Default diffuse light color.
-     * @type {import('three').Color}
-     */
-    defaultLightDiffuse: import("three").Color;
-    /**
-     * Default specular light color.
-     * @type {import('three').Color}
-     */
-    defaultLightSpecular: import("three").Color;
+    defaultLightColor: import("three").Color;
     /**
      * Default light direction.
      * @type {import('three').Vector3}
      */
     defaultLightDir: import("three").Vector3;
     /**
-     * Default rim color.
-     * @type {import('three').Color}
-     */
-    defaultRimColor: import("three").Color;
-    /**
-     * Default rim power (intensity).
-     * @type {number}
-     */
-    defaultRimPower: number;
-    /**
      * Alias for default light direction.
      * @type {import('three').Vector3}
      */
     defaultLightDirection: import("three").Vector3;
     /**
-     * Material uniform table mapping to FFLModulateType.
-     * Reference: https://github.com/aboood40091/FFL-Testing/blob/master/src/Shader.cpp
-     * @package
+     * Method to get colorInfo from FFLiCharInfo included in glTFs.
+     * @param {string} base64 - Base64-encoded FFLiCharInfo from glTF.
+     * @returns {SampleShaderMaterialColorInfo} The colorInfo for use in this material.
+     * @throws {Error} Throws if the input's size does not match.
      */
-    materialParams: {
-        ambient: import("three").Color;
-        diffuse: import("three").Color;
-        specular: import("three").Color;
-        specularPower: number;
-        specularMode: number;
-    }[];
+    getColorInfoFromCharInfoB64(base64: string): SampleShaderMaterialColorInfo;
+    /**
+     * Re-assigns normal attribute on the glass mesh to the
+     * normals for glass found in ShapeHigh.dat.
+     * @param {import('three').BufferGeometry} geometry -
+     * The geometry in which to re-assign the normal attribute.
+     */
+    assignNormalsForGlass(geometry: import("three").BufferGeometry): void;
+    /**
+     * @param {import('./ffl').FFLDrawParam} drawParam - The DrawParam for the mesh to check.
+     * @param {import('three').BufferGeometry} geometry - BufferGeometry to modify.
+     */
+    modifyBufferGeometry(drawParam: import("./ffl").FFLDrawParam, geometry: import("three").BufferGeometry): void;
 };
 export = _exports;
 type FFLModulateMode = number;
 type FFLModulateType = number;
 type THREE = typeof import("three");
-type FFLShaderMaterialParameters = {
+type SampleShaderMaterialColorInfo = {
+    facelineColor: number;
+    favoriteColor: number;
+    hairColor: number;
+    beardColor: number;
+    pantsColor: import("./ffl").PantsColor;
+};
+type SampleShaderMaterialParameters = {
     /**
      * - Modulate mode.
      */
@@ -236,7 +235,7 @@ type FFLShaderMaterialParameters = {
     modulateType?: number | undefined;
     /**
      * -
-     * Constant color assigned to u_const1/2/3 depending on single or array.
+     * Constant color assigned to constColor1/2/3 depending on single or array.
      */
     color?: import("three").Color | import("three").Color[] | undefined;
     /**
@@ -248,12 +247,14 @@ type FFLShaderMaterialParameters = {
      */
     lightDirection?: import("three").Vector3 | undefined;
     /**
-     * - Whether to override
-     * specular mode on all materials with 0 (Blinn-Phong specular).
-     */
-    useSpecularModeBlinn?: boolean | undefined;
-    /**
      * - Texture map.
      */
     map?: import("three").Texture | undefined;
+    /**
+     * -
+     * Info needed to resolve shader uniforms. This is required
+     * or else lighting will not be applied. It can come from
+     * CharModel.getColorInfo, or getColorInfoFromCharInfoB64 for glTFs.
+     */
+    colorInfo?: SampleShaderMaterialColorInfo | undefined;
 };

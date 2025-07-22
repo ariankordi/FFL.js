@@ -1797,6 +1797,14 @@ class CharModel {
 		if (!this.meshes) {
 			throw new Error('_addCharModelMeshes: this.meshes is null or undefined, was this CharModel disposed?');
 		}
+
+		/** @type {import('./SampleShaderMaterial').SampleShaderMaterialColorInfo|null} */
+		let colorInfo = null;
+		// Prepare colorInfo from CharModel if it is needed on the mesh's material.
+		if ('colorInfo' in this._materialClass.prototype) {
+			colorInfo = this.getColorInfo();
+		}
+
 		// Add all meshes in the CharModel to the class instance.
 		for (let shapeType = 0; shapeType < FFLiShapeType.MAX; shapeType++) {
 			// Iterate through all DrawParams and convert to THREE.Mesh.
@@ -1812,6 +1820,12 @@ class CharModel {
 			}
 			// Use FFLModulateType to indicate render order.
 			mesh.renderOrder = drawParam.modulateParam.type;
+
+			// Assign colorInfo from the CharModel.
+			if ('colorInfo' in mesh.material) {
+				mesh.material.colorInfo = colorInfo;
+			}
+
 			// Set faceline and mask meshes to use later.
 			switch (shapeType) {
 				case FFLiShapeType.OPA_FACELINE:
@@ -2286,6 +2300,26 @@ class CharModel {
 			this._boundingBox = this._getBoundingBox();
 		}
 		return this._boundingBox;
+	}
+
+	/**
+	 * Gets the ColorInfo object needed for SampleShaderMaterial.
+	 * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.
+	 * @returns {import('./SampleShaderMaterial').SampleShaderMaterialColorInfo}
+	 * The colorInfo object needed by SampleShaderMaterial.
+	 * @public
+	 */
+	getColorInfo(isSpecial = false) {
+		const info = this._model.charInfo;
+		return {
+			facelineColor: info.faceColor,
+			favoriteColor: info.favoriteColor,
+			hairColor: info.hairColor,
+			beardColor: info.beardColor,
+			pantsColor: isSpecial
+				? PantsColor.GoldSpecial
+				: PantsColor.GrayNormal
+		};
 	}
 
 	// -------------------------------- Body Scale --------------------------------
@@ -2773,12 +2807,14 @@ function _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDesc
  * @param {Object} [options] - Options for updating the model.
  * @param {boolean} [options.texOnly] - Whether to only update the mask and faceline textures in the CharModel.
  * @param {boolean} [options.verify] - Whether the CharInfo provided should be verified.
+ * @param {MaterialConstructor|null} [options.materialTextureClass] - The new materialTextureClass to change to.
  * @returns {CharModel} The updated CharModel instance.
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
  */
 function updateCharModel(charModel, newData, renderer,
-	descOrExpFlag = null, { texOnly = false, verify = true } = {}) {
+	descOrExpFlag = null, { texOnly = false, verify = true,
+		materialTextureClass = null } = {}) {
 	newData = newData || charModel._data;
 	if (!newData) {
 		throw new Error('updateCharModel: newData is null. It should be retrieved from charModel._data which is set by createCharModel.');
@@ -2803,7 +2839,8 @@ function updateCharModel(charModel, newData, renderer,
 		charModel._materialClass, charModel._module, verify);
 
 	// Initialize its textures unconditionally.
-	initCharModelTextures(newCharModel, renderer, charModel._materialTextureClass);
+	initCharModelTextures(newCharModel, renderer,
+		materialTextureClass ? materialTextureClass : charModel._materialTextureClass);
 
 	// Handle textures only case, where new CharModel has textures and old one has shapes.
 	if (texOnly) {
@@ -2871,6 +2908,13 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 	}
 	// Bind geometry data.
 	const geometry = _bindDrawParamGeometry(drawParam, module);
+
+	// HACK: Allow the material class to modify the geometry if it needs to.
+	if ('modifyBufferGeometry' in materialClass && // Static function
+		typeof materialClass.modifyBufferGeometry === 'function') {
+		materialClass.modifyBufferGeometry(drawParam, geometry);
+	}
+
 	// Determine cull mode by mapping FFLCullMode to THREE.Side.
 	/** @type {Object<FFLCullMode, import('three').Side>} */
 	const cullModeToThreeSide = {
@@ -3382,9 +3426,20 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
 
 	// Get the faceline color from CharModel.
 	const bgColor = charModel.facelineColor;
+
 	// Create an offscreen scene.
 	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, bgColor,
 		materialClass, charModel._module, charModel._textureManager);
+
+	// Determine if the alpha value needs to be 0.
+	if ('needsFacelineAlpha' in materialClass && materialClass.needsFacelineAlpha) {
+		// Three.js does not allow setting an RGB color with alpha value to 0.
+		// Therefore, we need to use a plane with a color and opacity of 0.
+		const mesh = _getBGClearMesh(bgColor);
+		mesh.renderOrder = -1; // Render this before anything else.
+		offscreenScene.add(mesh);
+	}
+
 	// Render scene to texture.
 	const width = charModel._getResolution() / 2;
 	const height = charModel._getResolution();
@@ -3396,6 +3451,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
 		wrapS: THREE.MirroredRepeatWrapping,
 		wrapT: THREE.MirroredRepeatWrapping
 	};
+
 	const target = createAndRenderToTarget(offscreenScene,
 		getIdentCamera(), renderer, width, height, options);
 
@@ -3535,6 +3591,28 @@ function _setFaceline(charModel, target) {
 // TODO PATH: src/ModulateTextureConversion.js
 
 /**
+ * Gets a plane whose color and opacity can be set.
+ * This can be used to simulate background clear, or specifically
+ * to set the background's color to a value but alpha to 0.
+ * @param {import('three').Color} color - The color of the plane.
+ * @param {number} [opacity] - The opacity of the plane, default is transparent.
+ * @returns {import('three').Mesh} The plane with the color and opacity specified.
+ * @package
+ */
+function _getBGClearMesh(color, opacity = 0.0) {
+	const plane = new THREE.PlaneGeometry(2, 2);
+	// Create mesh that has color but arbitrary alpha value.
+	return new THREE.Mesh(plane,
+		new THREE.MeshBasicMaterial({
+			color: color,
+			transparent: true,
+			opacity: opacity,
+			blending: THREE.NoBlending
+		})
+	);
+}
+
+/**
  * Takes the texture in `material` and draws it using `materialTextureClass`, using
  * the modulateMode property in `userData`, using the `renderer` and sets it back
  * in the `material`. So it converts a swizzled (using modulateMode) texture to RGBA.
@@ -3548,17 +3626,9 @@ function _setFaceline(charModel, target) {
  * @throws {Error} material.map is null or undefined
  */
 function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) {
-	const plane = new THREE.PlaneGeometry(2, 2);
 	const scene = new THREE.Scene();
-	// Create mesh that has color but alpha value of 0.
-	const bgClearRGBMesh = new THREE.Mesh(plane,
-		new THREE.MeshBasicMaterial({
-			color: material.color,
-			transparent: true,
-			opacity: 0.0,
-			blending: THREE.NoBlending
-		})
-	);
+	// Simulate clearing the background with this color, but opacity of 0.
+	const bgClearRGBMesh = _getBGClearMesh(material.color);
 	scene.add(bgClearRGBMesh); // Must be drawn first.
 
 	if (!material.map) {
@@ -3576,6 +3646,8 @@ function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) 
 	});
 	texMat.blending = THREE.NoBlending;
 	texMat.transparent = true;
+
+	const plane = new THREE.PlaneGeometry(2, 2);
 	const textureMesh = new THREE.Mesh(plane, texMat);
 	scene.add(textureMesh);
 

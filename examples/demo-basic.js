@@ -13,6 +13,8 @@ import {
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
 import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
 import * as LUTShaderMaterialImport from '../LUTShaderMaterial.js';
+import * as SampleShaderMaterialImport from '../SampleShaderMaterial.js';
+import { ResourceLoadHelper } from './ResourceLoadHelper.js';
 */
 
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
@@ -20,6 +22,7 @@ import * as LUTShaderMaterialImport from '../LUTShaderMaterial.js';
  * @typedef {import('../ffl-emscripten.js')} ModuleFFL
  * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
  * @typedef {import('../LUTShaderMaterial.js')} LUTShaderMaterial
+ * @typedef {import('../SampleShaderMaterial.js')} SampleShaderMaterial
  * @typedef {import('three')} THREE
  */
 /* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
@@ -33,6 +36,10 @@ FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMa
 /** @type {LUTShaderMaterial} */
 let LUTShaderMaterial = /** @type {*} */ (globalThis).LUTShaderMaterial;
 LUTShaderMaterial = (!LUTShaderMaterial) ? LUTShaderMaterialImport : LUTShaderMaterial;
+/** @type {SampleShaderMaterial} */
+let SampleShaderMaterial = /** @type {*} */ (globalThis).SampleShaderMaterial;
+SampleShaderMaterial = (!SampleShaderMaterial) ? SampleShaderMaterialImport : SampleShaderMaterial;
+
 globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 /* globals FFLShaderMaterial LUTShaderMaterial THREE -- Imported materials whose names are set above. */
@@ -105,7 +112,8 @@ class FFLShaderBlinnMaterial extends FFLShaderMaterial {
  */
 const materials = {
 	// from ffl.js
-	FFLShaderMaterial, FFLShaderBlinnMaterial, LUTShaderMaterial,
+	FFLShaderMaterial, FFLShaderBlinnMaterial,
+	LUTShaderMaterial, SampleShaderMaterial,
 	// Three.js default shader materials
 	MeshStandardMaterial: THREE.MeshStandardMaterial, // same as Standard/Lambert/Physical?
 	MeshBasicMaterial: THREE.MeshBasicMaterial, // no lighting
@@ -329,6 +337,18 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 }
 
 /**
+ * If the input material supports drawing textures, this function
+ * will either return it, otherwise it will return the default texture material.
+ * @param {import('../ffl').MaterialConstructor} mat - The input material.
+ * @returns {import('../ffl').MaterialConstructor} The material that supports textures.
+ */
+function getTextureMaterial(mat) {
+	return matSupportsFFL(mat)
+		? mat
+		: FFLShaderMaterial;
+}
+
+/**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string|null} data - Data as Uint8Array or hex or Base64 string.
  * @param {Object|Array|number|null} [descOrExpFlag] - Either a new FFLCharModelDesc object or an array of expressions.
@@ -350,7 +370,9 @@ function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
 			// Update existing model via updateCharModel.
 			// (will also dispose it for us)
 			currentCharModel = updateCharModel(currentCharModel,
-				data, renderer, descOrExpFlag, { texOnly });
+				data, renderer, descOrExpFlag, {
+					texOnly, materialTextureClass: getTextureMaterial(mat)
+				});
 		} else {
 			// Create a new CharModel.
 			if (!descOrExpFlag || !data) {
@@ -360,7 +382,7 @@ function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
 			// Initialize textures for the new CharModel.
 			// This is explicitly called with FFLShaderMaterial, which
 			// would be the material drawing only the mask/faceline textures.
-			initCharModelTextures(currentCharModel, renderer, FFLShaderMaterial);
+			initCharModelTextures(currentCharModel, renderer, getTextureMaterial(mat));
 		}
 		if (!currentCharModel.meshes) {
 			throw new Error('updateCharModelInScene: currentCharModel.meshes is null or undefined after initialization');
@@ -496,17 +518,32 @@ function onShaderMaterialChange() {
 		return;
 	}
 
+	const newMatClass = materials[activeMaterialClassName];
+	const curMat = /** @type {THREE.Mesh} */ (currentCharModel.meshes.children[0]).material;
 	// Update _materialClass property used by updateCharModel.
-	currentCharModel._materialClass = materials[activeMaterialClassName];
+	currentCharModel._materialClass = newMatClass;
 
 	/** Whether the new material supports FFL swizzling. */
-	const forFFLMaterial = matSupportsFFL(materials[activeMaterialClassName]);
-	/** Whether the model is currently using a material with FFL swizzling. */
-	const isModelUsingFFLMaterial =
-		'modulateMode' in /** @type {THREE.Mesh} */ (currentCharModel.meshes.children[0]).material;
-	// In this case, the CharModel should be recreated.
-	if (!forFFLMaterial && isModelUsingFFLMaterial) {
-		console.log('Switching to non-FFL material from FFL material. Recreating CharModel.');
+	const forFFLMaterial = matSupportsFFL(newMatClass);
+
+	const isSampleMaterial = (/** @type {Object} */ mat) => 'colorInfo' in mat;
+
+	/** @returns {boolean} Whether textures should be re-rendered and CharModel should be recreated. */
+	function shouldRecreateCharModel() {
+		if (!forFFLMaterial && 'modulateMode' in curMat) {
+			return true; // Current is FFL material, but new one isn't.
+		}
+
+		if (isSampleMaterial(curMat) !== isSampleMaterial(newMatClass.prototype)) {
+			console.log('The new or old material is SampleShaderMaterial, but both aren\'t.');
+			return true;
+		}
+
+		return false;
+	}
+
+	if (shouldRecreateCharModel()) {
+		console.log('New material requires recreating CharModel.');
 		updateCharModelInScene(null);
 		// The work done in this function will already be done.
 		return;
@@ -528,6 +565,12 @@ function onShaderMaterialChange() {
 			}
 			: {};
 
+		/**
+		 * Parameters for the shader material. Using SampleShaderMaterialParameters
+		 * as a lowest common denominator, but others can also be used.
+		 * @type {import('three').MeshBasicMaterialParameters
+		 * & import('../SampleShaderMaterial').SampleShaderMaterialParameters}
+		 */
 		const params = {
 			// _side = original side from LUTShaderMaterial, must be set first
 			side: (oldMat._side !== undefined) ? oldMat._side : oldMat.side,
@@ -536,6 +579,9 @@ function onShaderMaterialChange() {
 			map: oldMat.map,
 			transparent: oldMat.transparent
 		};
+		if (isSampleMaterial(newMatClass.prototype) && currentCharModel) {
+			params.colorInfo = currentCharModel.getColorInfo();
+		}
 
 		mesh.material = new materials[activeMaterialClassName](params);
 	});
@@ -838,7 +884,8 @@ function loadCharacterButtons() {
 		try {
 			const dataU8 = parseHexOrB64ToUint8Array(data);
 			model = createCharModel(dataU8, null, materials[activeMaterialClassName], moduleFFL);
-			initCharModelTextures(model, renderer, FFLShaderMaterial);
+			initCharModelTextures(model, renderer,
+				getTextureMaterial(materials[activeMaterialClassName]));
 
 			makeIconFromCharModel(model, renderer, {
 				canvas: el, viewType, scene: getSceneWithLights()

@@ -8,7 +8,7 @@
 
     "strict": true,
     "noImplicitAny": true,
-    "noUnusedLocals": false, // TODO enable when exports are added
+    "noUnusedLocals": true, // TODO enable when exports are added
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": false,
@@ -19,5 +19,5 @@
     "outDir": "types" // Emit .d.ts into types.
   },
   // Only include main sources.
-  "include": ["ffl.js", "*Material.js"]
+  "include": ["ffl.js", "*Material.js", "examples/ResourceLoadHelper.js"]
 }
