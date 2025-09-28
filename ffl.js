@@ -14,9 +14,8 @@ import * as _Import from './struct-fu.js';
 /* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
 globalThis._ = /** @type {_} */ (/** @type {*} */ (globalThis)._);
 // eslint-disable-next-line @stylistic/max-statements-per-line --  Hack to use either UMD or browser ESM import.
-let _ = globalThis._; _ = (!_) ? /** @type {*} */ (_Import).default || _Import : _; // Uncomment for ESM
+let _ = globalThis._; _ = (!_) ? /** @type {*} */ (_Import).default || _Import : _;
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
-/* globals _ THREE -- Global dependencies. */
 
 // // ---------------------------------------------------------------------
 // //  Emscripten Types
@@ -342,15 +341,6 @@ const FFLAttributeBuffer = _.struct([
 ]);
 
 /**
- * @typedef {Object} FFLAttributeBufferParam
- * @property {Array<FFLAttributeBuffer>} attributeBuffers
- */
-/** @type {import('./struct-fu').StructInstance<FFLAttributeBufferParam>} */
-const FFLAttributeBufferParam = _.struct([
-	_.struct('attributeBuffers', [FFLAttributeBuffer], 5)
-]);
-
-/**
  * @typedef {Object} FFLPrimitiveParam
  * @property {number} primitiveType
  * @property {number} indexCount
@@ -414,14 +404,14 @@ const FFLModulateParam = _.struct([
 
 /**
  * @typedef {Object} FFLDrawParam
- * @property {FFLAttributeBufferParam} attributeBufferParam
+ * @property {Array<FFLAttributeBuffer>} attributeBuffers
  * @property {FFLModulateParam} modulateParam
  * @property {FFLCullMode} cullMode
  * @property {FFLPrimitiveParam} primitiveParam
  */
 /** @type {import('./struct-fu').StructInstance<FFLDrawParam>} */
 const FFLDrawParam = _.struct([
-	_.struct('attributeBufferParam', [FFLAttributeBufferParam]),
+	_.struct('attributeBuffers', [FFLAttributeBuffer], 5),
 	_.struct('modulateParam', [FFLModulateParam]),
 	_.uint32le('cullMode'),
 	_.struct('primitiveParam', [FFLPrimitiveParam])
@@ -429,15 +419,6 @@ const FFLDrawParam = _.struct([
 
 // ---------------------- Begin FFLiCharInfo Definition ----------------------
 // TODO PATH: src/StructFFLiCharModel.js
-
-/**
- * @typedef {Object} FFLCreateID
- * @property {Array<number>} data
- */
-/** @type {import('./struct-fu').StructInstance<FFLCreateID>} */
-const FFLCreateID = _.struct([
-	_.uint8('data', 10)
-]);
 
 /**
  * @typedef {Object} FFLiCharInfo
@@ -501,7 +482,7 @@ const FFLCreateID = _.struct([
  * @property {number} roomIndex
  * @property {number} positionInRoom
  * @property {number} birthPlatform
- * @property {FFLCreateID} createID
+ * @property {Array<number>} createID
  * @property {number} padding_0
  * @property {number} authorType
  * @property {Array<number>} authorID
@@ -580,7 +561,7 @@ const FFLiCharInfo = _.struct([
 	_.int32le('positionInRoom'),
 	_.int32le('birthPlatform'),
 	// other
-	_.struct('createID', [FFLCreateID]),
+	_.uint8('createID', 10),
 	_.uint16le('padding_0'),
 	_.int32le('authorType'),
 	_.uint8('authorID', 8) // stub
@@ -619,114 +600,59 @@ const commonColorUnmask = color => (color & ~commonColorEnableMask) === 0
 
 // --------------------- Begin FFLiCharModel Definitions ---------------------
 
-/**
- * @typedef {Object} FFLAdditionalInfo
- * @property {string} name
- * @property {string} creator
- * @property {FFLCreateID} createID
- * @property {FFLColor} skinColor
- * @property {number} flags
- * @property {number} facelineType
- * @property {number} hairType
- */
-/** @type {import('./struct-fu').StructInstance<FFLAdditionalInfo>} */
-const FFLAdditionalInfo = _.struct([
-	_.char16le('name', 22),
-	_.char16le('creator', 22),
-	_.struct('createID', [FFLCreateID]),
-	_.byte('_padding0', 2), // alignment
-	_.struct('skinColor', [FFLColor]),
-	_.uint32le('flags'),
-	// _.ubitLE('hairFlip', 1),
-	// _.ubitLE('fontRegion', 2),
-	// _.ubitLE('ngWord', 1),
-	// _.ubitLE('build', 7),
-	// _.ubitLE('height', 7),
-	// _.ubitLE('favoriteColor', 4),
-	// _.ubitLE('birthDay', 5),
-	// _.ubitLE('birthMonth', 4),
-	// _.ubitLE('gender', 1),
-	_.uint8('facelineType'),
-	_.uint8('hairType'),
-	_.byte('_padding1', 2) // alignment
-]);
+/** @enum {number} */
+const facelinePartType = {
+	/** Wrinkle */
+	Line: 0,
+	Make: 1,
+	Beard: 2,
+	Count: 3
+};
 
-const FFLiRenderTexture = _.struct([
-	// STUB: four pointers in one field
-	_uintptr('pTexture2DRenderBufferColorTargetDepthTarget', 4)
-]);
-
-/**
- * @typedef {Object} FFLiFacelineTextureTempObject
- * @property {number} pTextureFaceLine
- * @property {FFLDrawParam} drawParamFaceLine
- * @property {number} pTextureFaceMake
- * @property {FFLDrawParam} drawParamFaceMake
- * @property {number} pTextureFaceBeard
- * @property {FFLDrawParam} drawParamFaceBeard
- * @property {Array<number>} pRenderTextureCompressorParam
- */
-/** @type {import('./struct-fu').StructInstance<FFLiFacelineTextureTempObject>} */
+/** @type {import('./struct-fu').StructInstance<Array<FFLDrawParam>>} */
 const FFLiFacelineTextureTempObject = _.struct([
-	_uintptr('pTextureFaceLine'),
-	_.struct('drawParamFaceLine', [FFLDrawParam]),
-	_uintptr('pTextureFaceMake'),
-	_.struct('drawParamFaceMake', [FFLDrawParam]),
-	_uintptr('pTextureFaceBeard'),
-	_.struct('drawParamFaceBeard', [FFLDrawParam]),
-	_uintptr('pRenderTextureCompressorParam', 2) // stub
+	_.struct([_uintptr(''), FFLDrawParam], facelinePartType.Count),
+	_uintptr('_', 2) // stub
 ]);
 
-/**
- * @typedef {Object} FFLiRawMaskDrawParam
- * @property {Array<FFLDrawParam>} drawParamRawMaskPartsEye - 2
- * @property {Array<FFLDrawParam>} drawParamRawMaskPartsEyebrow - 2
- * @property {FFLDrawParam} drawParamRawMaskPartsMouth
- * @property {Array<FFLDrawParam>} drawParamRawMaskPartsMustache - 2
- * @property {FFLDrawParam} drawParamRawMaskPartsMole
- * @property {FFLDrawParam} drawParamRawMaskPartsFill
- */
-/** @type {import('./struct-fu').StructInstance<FFLiRawMaskDrawParam>} */
-const FFLiRawMaskDrawParam = _.struct([
-	_.struct('drawParamRawMaskPartsEye', [FFLDrawParam], 2),
-	_.struct('drawParamRawMaskPartsEyebrow', [FFLDrawParam], 2),
-	_.struct('drawParamRawMaskPartsMouth', [FFLDrawParam]),
-	_.struct('drawParamRawMaskPartsMustache', [FFLDrawParam], 2),
-	_.struct('drawParamRawMaskPartsMole', [FFLDrawParam]),
-	_.struct('drawParamRawMaskPartsFill', [FFLDrawParam])
-]);
+/** @enum {number} */
+const maskPartType = {
+	EyeR: 0,
+	EyeL: 1,
+	EyebrowR: 2,
+	EyebrowL: 3,
+	Mouth: 4,
+	MustacheR: 5,
+	MustacheL: 6,
+	Mole: 7,
+	/** Alpha clear. Can be skipped. */
+	Fill: 8,
+	End: 8
+};
+
+/** @type {import('./struct-fu').StructInstance<Array<FFLDrawParam>>} */
+const FFLiRawMaskDrawParam = _.struct([FFLDrawParam], maskPartType.End);
 
 /**
  * @typedef {Object} FFLiMaskTexturesTempObject
- * @property {Array<number>} partsTextures
  * @property {Array<number>} pRawMaskDrawParam
- * @property {Uint8Array} _remaining
  */
 /** @type {import('./struct-fu').StructInstance<FFLiMaskTexturesTempObject>} */
 const FFLiMaskTexturesTempObject = _.struct([
-	_.uint8('partsTextures', 0x154),
+	_.byte(0x154),
 	_uintptr('pRawMaskDrawParam', FFLExpression.MAX),
-	_.byte('_remaining', 0x388 - 620) // stub
+	_.byte(0x388 - 620) // stub
 ]);
 
 /**
  * @typedef {Object} FFLiTextureTempObject
  * @property {FFLiMaskTexturesTempObject} maskTextures
- * @property {FFLiFacelineTextureTempObject} facelineTexture
+ * @property {Array<FFLDrawParam>} facelineTexture
  */
 /** @type {import('./struct-fu').StructInstance<FFLiTextureTempObject>} */
 const FFLiTextureTempObject = _.struct([
 	_.struct('maskTextures', [FFLiMaskTexturesTempObject]),
 	_.struct('facelineTexture', [FFLiFacelineTextureTempObject])
-]);
-
-/**
- * @typedef {Object} FFLiMaskTextures
- * @property {Array<number>} pRenderTextures
- */
-/** @type {import('./struct-fu').StructInstance<FFLiMaskTextures>} */
-const FFLiMaskTextures = _.struct([
-	_uintptr('pRenderTextures', FFLExpression.MAX)
 ]);
 
 /** @package */
@@ -763,17 +689,6 @@ const FFLCharModelDescDefault = {
 };
 
 /** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
-
-/**
- * @typedef {Object<string, FFLVec3>} FFLBoundingBox
- * @property {FFLVec3} min
- * @property {FFLVec3} max
- */
-/** @type {import('./struct-fu').StructInstance<FFLBoundingBox>} */
-const FFLBoundingBox = _.struct([
-	_.struct('min', [FFLVec3]),
-	_.struct('max', [FFLVec3])
-]);
 
 /**
  * @typedef {Object<string, FFLVec3>} FFLPartsTransform
@@ -815,14 +730,9 @@ const FFLPartsTransform = _.struct([
  * @property {FFLExpression} expression
  * @property {number} pTextureTempObject
  * @property {Array<FFLDrawParam>} drawParam
- * @property {Array<number>} pShapeData
- * @property {Array<Object>} facelineRenderTexture
- * @property {Array<number>} pCapGlassNoselineTextures
- * @property {FFLiMaskTextures} maskTextures
- * @property {Array<FFLVec3>} beardHairFaceCenterPos
+ * @property {Array<number>} pMaskRenderTextures
  * @property {FFLPartsTransform} partsTransform
  * @property {number} modelType - FFLModelType
- * @property {Array<FFLBoundingBox>} boundingBox
  */
 /** @type {import('./struct-fu').StructInstance<FFLiCharModel>} */
 const FFLiCharModel = _.struct([
@@ -832,14 +742,13 @@ const FFLiCharModel = _.struct([
 	_uintptr('pTextureTempObject'), // stub
 	_.struct('drawParam', [FFLDrawParam], FFLiShapeType.MAX),
 	_uintptr('pShapeData', FFLiShapeType.MAX),
-	_.struct('facelineRenderTexture', [FFLiRenderTexture]),
+	_uintptr('facelineRenderTexture', 4), // stub
 	_uintptr('pCapGlassNoselineTextures', 3),
-	_.struct('maskTextures', [FFLiMaskTextures]),
-	_.struct('beardHairFaceCenterPos', [FFLVec3], 3),
+	_uintptr('pMaskRenderTextures', FFLExpression.MAX),
+	_.byte('beardHairFaceCenterPos', 0x18 * 3), // [FFLVec3], 3
 	_.struct('partsTransform', [FFLPartsTransform]),
 	_.uint32le('modelType'), // enum FFLModelType
-	// FFLBoundingBox[FFL_MODEL_TYPE_MAX = 3]
-	_.struct('boundingBox', [FFLBoundingBox], 3)
+	_.byte(0x18 * 3) // FFLBoundingBox[FFL_MODEL_TYPE_MAX = 3]
 ]);
 
 /** @enum {number} */
@@ -1768,8 +1677,6 @@ class CharModel {
 		// NOTE: The only property SET in _model is expression.
 		// Everything else is read.
 
-		// this.additionalInfo = this._getAdditionalInfo();
-
 		// Add RenderTargets for faceline and mask.
 		/**
 		 * @type {import('three').RenderTarget|null}
@@ -1880,23 +1787,6 @@ class CharModel {
 	}
 
 	/**
-	 * Get the unpacked result of FFLGetAdditionalInfo.
-	 * @returns {FFLAdditionalInfo} The FFLAdditionalInfo object.
-	 * @private
-	 */
-	/*
-	_getAdditionalInfo() {
-		const mod = this._module;
-		const addInfoPtr = mod._malloc(FFLAdditionalInfo.size);
-		const result = mod._FFLGetAdditionalInfo(addInfoPtr, FFLDataSource.BUFFER, this._ptr, 0, false);
-		FFLResultException.handleResult(result, 'FFLGetAdditionalInfo');
-		const info = FFLAdditionalInfo.unpack(mod.HEAPU8.subarray(addInfoPtr, addInfoPtr + FFLAdditionalInfo.size));
-		mod._free(addInfoPtr);
-		return info;
-	}
-	*/
-
-	/**
 	 * Accesses partsTransform in FFLiCharModel,
 	 * converting every FFLVec3 to THREE.Vector3.
 	 * @returns {PartsTransform} PartsTransform using THREE.Vector3 as keys.
@@ -1997,23 +1887,12 @@ class CharModel {
 	}
 
 	/**
-	 * Either gets the boundingBox in the CharModel or calculates it from the meshes.
+	 * Calculates the bounding box from the meshes.
 	 * @returns {import('three').Box3} The bounding box.
 	 * @throws {Error} Throws if this.meshes is null.
 	 * @private
 	 */
 	_getBoundingBox() {
-		const bbox = this._model.boundingBox[this._model.modelType];
-		// The bounding box in the CharModel can only be used if the values are not NaN.
-		// Seems that the NaN values do not transfer over when deserializing, they are just zeroes.
-		if (!(bbox.max.x === 0 && bbox.max.y === 0 && bbox.max.z === 0)) {
-			// Return from CharModel bounding box.
-			const min = new THREE.Vector3(bbox.min.x, bbox.min.y, bbox.min.z);
-			const max = new THREE.Vector3(bbox.max.x, bbox.max.y, bbox.max.z);
-			return new THREE.Box3(min, max);
-		}
-		// Bounding box is invalid, create one manually.
-
 		// Note: FFL includes three different bounding boxes for each
 		// FFLModelType. This only creates one box per CharModel.
 		const excludeFromBox = [FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS];
@@ -2341,59 +2220,24 @@ class CharModel {
 
 	// -------------------------------- Body Scale --------------------------------
 
-	/** @enum {number} */
-	static BodyScaleMode = {
-		/** Applies scale normally. */
-		Apply: 0,
-		/** Limits scale so that the pants are not visible. */
-		Limit: 1
-	};
-
-	/* eslint-disable jsdoc/no-undefined-types -- BodyScaleMode */
 	/**
 	 * Gets a vector in which to scale the body model for this CharModel.
-	 * @param {BodyScaleMode} scaleMode - Mode in which to create the scale vector.
-	 * @returns {import('three').Vector3} Scale vector for the body model.
-	 * @throws {Error} Unexpected value for scaleMode
+	 * @returns {import('three').Vector3Like} Scale vector for the body model.
 	 * @public
 	 */
-	getBodyScale(scaleMode = CharModel.BodyScaleMode.Apply) {
-		/* eslint-enable jsdoc/no-undefined-types -- BodyScaleMode */
+	getBodyScale() {
 		const build = this._model.charInfo.build;
 		const height = this._model.charInfo.height;
 
-		const bodyScale = new THREE.Vector3();
-		switch (scaleMode) {
-			case CharModel.BodyScaleMode.Apply: {
-				// calculated here in libnn_mii/draw/src/detail/mii_VariableIconBodyImpl.cpp:
-				// void nn::mii::detail::`anonymous namespace'::GetBodyScale(struct nn::util::Float3 *, int, int)
-				// also in ffl_app.rpx: FUN_020ec380 (FFLUtility), FUN_020737b8 (mii maker US)
-				// ScaleApply
-				// 0.47 / 128.0 = 0.003671875
-				bodyScale.x = (build * (height * 0.003671875 + 0.4)) / 128.0 +
-				// 0.23 / 128.0 = 0.001796875
-					height * 0.001796875 + 0.4;
-				// 0.77 / 128.0 = 0.006015625
-				bodyScale.y = (height * 0.006015625) + 0.5;
-				break;
-			}
-			case CharModel.BodyScaleMode.Limit: {
-				// ScaleLimit
-				const heightFactor = height / 128.0;
-				bodyScale.y = heightFactor * 0.55 + 0.6;
-				bodyScale.x = heightFactor * 0.3 + 0.6;
-				bodyScale.x = ((heightFactor * 0.6 + 0.8) - bodyScale.x) *
-					(build / 128.0) + bodyScale.x;
-				break;
-			}
-			default:
-				throw new Error(`getBodyScale: Unexpected value for scaleMode: ${scaleMode}`);
-		}
+		// calculated here in libnn_mii/draw/src/detail/mii_VariableIconBodyImpl.cpp:
+		// void nn::mii::detail::`anonymous namespace'::GetBodyScale(struct nn::util::Float3 *, int, int)
+		// also in Mii Maker USA (0x000500101004A100 v50 ffl_app.rpx): FUN_020737b8
+		const m = 128.0;
+		const x = (build * (height * (0.47 / m) + 0.4)) / m +
+			height * (0.23 / m) + 0.4;
+		const y = (height * (0.77 / m)) + 0.5;
 
-		// z is always set to x for either set
-		bodyScale.z = bodyScale.x;
-
-		return bodyScale;
+		return { x, y, z: x }; // z is always set to x
 	}
 }
 
@@ -2830,8 +2674,10 @@ function _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDesc
  * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
  */
 function updateCharModel(charModel, newData, renderer,
-	descOrExpFlag = null, { texOnly = false, verify = true,
-		materialTextureClass = null } = {}) {
+	descOrExpFlag = null, {
+		texOnly = false, verify = true,
+		materialTextureClass = null
+	} = {}) {
 	newData = newData || charModel._data;
 	if (!newData) {
 		throw new Error('updateCharModel: newData is null. It should be retrieved from charModel._data which is set by createCharModel.');
@@ -3012,7 +2858,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 	}
 
 	// Access FFLAttributeBufferParam.
-	const attributes = drawParam.attributeBufferParam.attributeBuffers;
+	const attributes = drawParam.attributeBuffers;
 	const positionBuffer = attributes[FFLAttributeBufferType.POSITION];
 	// There should always be positions.
 	if (positionBuffer.size === 0) {
@@ -3428,9 +3274,9 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
 	module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
 	// Gather the drawParams that make up the faceline texture.
 	const drawParams = [
-		textureTempObject.facelineTexture.drawParamFaceMake,
-		textureTempObject.facelineTexture.drawParamFaceLine,
-		textureTempObject.facelineTexture.drawParamFaceBeard
+		textureTempObject.facelineTexture[facelinePartType.Make],
+		textureTempObject.facelineTexture[facelinePartType.Line],
+		textureTempObject.facelineTexture[facelinePartType.Beard]
 	].filter(dp => dp && dp.modulateParam.pTexture2D !== 0);
 	// Note that for faceline DrawParams to not be empty,
 	// it must have a texture. For other DrawParams to not
@@ -3498,10 +3344,10 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
 	/** @type {Array<import('three').Scene>} */
 	const scenes = [];
 
-	// Iterate through pRenderTextures to find out which masks are needed.
-	for (let i = 0; i < charModel._model.maskTextures.pRenderTextures.length; i++) {
+	// Iterate through pMaskRenderTextures to find out which masks are needed.
+	for (let i = 0; i < charModel._model.pMaskRenderTextures.length; i++) {
 		// pRenderTexture will be set to 1 if mask is meant to be drawn there.
-		if (charModel._model.maskTextures.pRenderTextures[i] === 0) {
+		if (charModel._model.pMaskRenderTextures[i] === 0) {
 			continue;
 		}
 		const rawMaskDrawParamPtr = textureTempObject.maskTextures.pRawMaskDrawParam[i];
@@ -3534,7 +3380,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
  * Draws a single mask texture based on a RawMaskDrawParam.
  * Note that the caller needs to dispose meshes within the returned scene.
  * @param {CharModel} charModel - The CharModel.
- * @param {FFLiRawMaskDrawParam} rawMaskParam - The RawMaskDrawParam.
+ * @param {Array<FFLDrawParam>} rawMaskParam - The RawMaskDrawParam.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
@@ -3545,14 +3391,14 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
  */
 function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialClass) {
 	const drawParams = [
-		rawMaskParam.drawParamRawMaskPartsMustache[0],
-		rawMaskParam.drawParamRawMaskPartsMustache[1],
-		rawMaskParam.drawParamRawMaskPartsMouth,
-		rawMaskParam.drawParamRawMaskPartsEyebrow[0],
-		rawMaskParam.drawParamRawMaskPartsEyebrow[1],
-		rawMaskParam.drawParamRawMaskPartsEye[0],
-		rawMaskParam.drawParamRawMaskPartsEye[1],
-		rawMaskParam.drawParamRawMaskPartsMole
+		rawMaskParam[maskPartType.MustacheR],
+		rawMaskParam[maskPartType.MustacheL],
+		rawMaskParam[maskPartType.Mouth],
+		rawMaskParam[maskPartType.EyebrowR],
+		rawMaskParam[maskPartType.EyebrowL],
+		rawMaskParam[maskPartType.EyeR],
+		rawMaskParam[maskPartType.EyeL],
+		rawMaskParam[maskPartType.Mole]
 	].filter(dp => dp && dp.primitiveParam.indexCount !== 0);
 	if (drawParams.length === 0) {
 		throw new Error('_drawMaskTexture: All DrawParams are empty.');
@@ -4632,12 +4478,10 @@ function convertStudioCharInfoToFFLiCharInfo(src) {
 		roomIndex: 0,
 		positionInRoom: 0,
 		birthPlatform: 3, // FFL_BIRTH_PLATFORM_CTR
-		createID: {
-			data: new Array(10).fill(0)
-		},
+		createID: new Array(10),
 		padding_0: 0,
 		authorType: 0,
-		authorID: new Array(8).fill(0)
+		authorID: new Array(8)
 	};
 }
 
