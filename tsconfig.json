@@ -17,7 +17,7 @@
     "declaration": true, // Generate only declarations.
     //"declarationMap": true, // Emits .d.ts.map.
     "emitDeclarationOnly": true,
-    "outDir": "types" // Emit .d.ts into types.
+    "outDir": "dist" // Emit .d.ts into dist so it can be found by TypeScript.
   },
   // Only include main sources.
   "include": ["ffl.js", "*Material.js", "examples/ResourceLoadHelper.js"]
