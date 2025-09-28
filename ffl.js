@@ -955,7 +955,6 @@ class TextureManager {
 	/**
 	 * @param {number} format - Enum value for FFLTextureFormat.
 	 * @returns {import('three').PixelFormat} Three.js texture format constant.
-	 * @throws {Error} Unexpected FFLTextureFormat value
 	 * Note that this function won't work on WebGL1Renderer in Three.js r137-r162
 	 * since R and RG textures need to use Luminance(Alpha)Format
 	 * (you'd somehow need to detect which renderer is used)
@@ -986,9 +985,7 @@ class TextureManager {
 
 		// Determine the data format from the table.
 		const dataFormat = textureFormatToThreeFormat[format];
-		if (dataFormat === undefined) {
-			throw new Error(`_textureCreateFunc: Unexpected FFLTextureFormat value: ${format}`);
-		}
+		console.assert(dataFormat !== undefined, `_textureCreateFunc: Unexpected FFLTextureFormat value: ${format}`);
 		return dataFormat;
 	}
 
@@ -1054,14 +1051,11 @@ class TextureManager {
 	/**
 	 * @param {import('three').Texture} texture - Texture to upload mipmaps into.
 	 * @param {FFLTextureInfo} textureInfo - FFLTextureInfo object representing this texture.
-	 * @throws {Error} Throws if mipPtr is null.
 	 * @private
 	 */
 	_addMipmaps(texture, textureInfo) {
 		// Make sure mipPtr is not null.
-		if (textureInfo.mipPtr === 0) {
-			throw new Error('_addMipmaps: mipPtr is null, so the caller incorrectly assumed this texture has mipmaps');
-		}
+		console.assert(textureInfo.mipPtr, '_addMipmaps: mipPtr is null, so the caller incorrectly assumed this texture has mipmaps');
 
 		// Iterate through mip levels starting from 1 (base level is mip level 0).
 		for (let mipLevel = 1; mipLevel < textureInfo.mipCount; mipLevel++) {
@@ -1632,7 +1626,7 @@ class CharModel {
 	 * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
 	 * @param {Module} module - The Emscripten module.
 	 * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
-	 * @param {TextureManager|null} texManager - The {@link TextureManager} instance for this CharModel.
+	 * @param {TextureManager} texManager - The {@link TextureManager} instance for this CharModel.
 	 */
 	constructor(ptr, module, materialClass, texManager) {
 		/** @package */
@@ -1714,13 +1708,10 @@ class CharModel {
 	 * This is the method that populates meshes
 	 * from the internal FFLiCharModel instance.
 	 * @param {Module} module - Module to pass to drawParamToMesh to access mesh data.
-	 * @throws {Error} Throws if this.meshes is null or undefined.
 	 * @private
 	 */
 	_addCharModelMeshes(module) {
-		if (!this.meshes) {
-			throw new Error('_addCharModelMeshes: this.meshes is null or undefined, was this CharModel disposed?');
-		}
+		console.assert(this.meshes, '_addCharModelMeshes: this.meshes is null or undefined, was this CharModel disposed?');
 
 		/** @type {import('./SampleShaderMaterial').SampleShaderMaterialColorInfo|null} */
 		let colorInfo = null;
@@ -1762,7 +1753,7 @@ class CharModel {
 					break;
 			}
 
-			this.meshes.add(mesh); // Add the mesh or null.
+			/** @type {import('three').Group} */ (this.meshes).add(mesh); // Add the mesh or null.
 		}
 	}
 
@@ -1790,7 +1781,6 @@ class CharModel {
 	 * Accesses partsTransform in FFLiCharModel,
 	 * converting every FFLVec3 to THREE.Vector3.
 	 * @returns {PartsTransform} PartsTransform using THREE.Vector3 as keys.
-	 * @throws {Error} Throws if this._model.partsTransform has objects that do not have "x" property.
 	 * @private
 	 */
 	_getPartsTransform() {
@@ -1800,9 +1790,7 @@ class CharModel {
 		for (const key in obj) {
 			const vec = obj[key];
 			// sanity check make sure there is "x"
-			if (vec.x === undefined) {
-				throw new Error();
-			}
+			console.assert(vec.x);
 			// convert to THREE.Vector3
 			newPartsTransform[key] = new THREE.Vector3(vec.x, vec.y, vec.z);
 		}
@@ -1898,10 +1886,8 @@ class CharModel {
 		const excludeFromBox = [FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS];
 		// Create bounding box selectively excluding mask and glass.
 		const box = new THREE.Box3();
-		if (!this.meshes) {
-			throw new Error('_getBoundingBox: this.meshes is null.');
-		}
-		this.meshes.traverse((child) => {
+		console.assert(this.meshes, '_getBoundingBox: this.meshes is null.');
+		/** @type {import('three').Group} */ (this.meshes).traverse((child) => {
 			if (!(child instanceof THREE.Mesh) ||
 				// Exclude meshes whose modulateType are in excludeFromBox.
 				excludeFromBox.indexOf(child.geometry.userData.modulateType) !== -1) {
@@ -2566,11 +2552,8 @@ function createCharModel(data, descOrExpFlag, materialClass, module, verify = tr
 	const modelDescBuffer = FFLCharModelDesc.pack(modelDesc);
 	module.HEAPU8.set(modelDescBuffer, modelDescPtr);
 
-	/**
-	 * Local TextureManager instance.
-	 * @type {TextureManager|null}
-	 */
-	let textureManager = null;
+	/** Local TextureManager instance. */
+	let textureManager;
 	try {
 		// Verify CharInfo before creating.
 		if (verify) {
@@ -2747,22 +2730,15 @@ function matSupportsFFL(material) {
  * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
  * @param {MaterialConstructor} materialClass - Class for the material (constructor).
  * @param {Module} module - The Emscripten module.
- * @param {TextureManager|null} texManager - The {@link TextureManager} instance
+ * @param {TextureManager} texManager - The {@link TextureManager} instance
  * for which to look for textures referenced by the DrawParam.
  * @returns {import('three').Mesh|null} The THREE.Mesh instance, or
  * null if the index count is 0 indicating no shape data.
- * @throws {Error} drawParam may be null, Unexpected value for FFLCullMode, Passed in TextureManager is invalid
  */
 function drawParamToMesh(drawParam, materialClass, module, texManager) {
-	if (!drawParam) {
-		throw new Error('drawParamToMesh: drawParam may be null.');
-	}
-	if (!texManager) {
-		throw new Error('drawParamToMesh: Passed in TextureManager is null or undefined, is it constructed?');
-	}
-	if (typeof materialClass !== 'function') {
-		throw new Error('drawParamToMesh: materialClass is unexpectedly not a function.');
-	}
+	console.assert(drawParam, 'drawParamToMesh: drawParam may be null.');
+	console.assert(texManager, 'drawParamToMesh: Passed in TextureManager is null or undefined, is it constructed?');
+	console.assert(typeof materialClass === 'function', 'drawParamToMesh: materialClass is unexpectedly not a function.');
 
 	// Skip if the index count is 0, indicating no shape data.
 	if (drawParam.primitiveParam.indexCount === 0) {
@@ -2787,9 +2763,7 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 		[FFLCullMode.MAX]: THREE.DoubleSide
 	};
 	const side = cullModeToThreeSide[drawParam.cullMode];
-	if (side === undefined) {
-		throw new Error(`drawParamToMesh: Unexpected value for FFLCullMode: ${drawParam.cullMode}`);
-	}
+	console.assert(side !== undefined, `drawParamToMesh: Unexpected value for FFLCullMode: ${drawParam.cullMode}`);
 	// Get texture.
 	const texture = _getTextureFromModulateParam(drawParam.modulateParam, texManager);
 
@@ -2843,7 +2817,6 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
  * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
  * @param {Module} module - The Emscripten module from which to read the heap.
  * @returns {import('three').BufferGeometry} The geometry.
- * @throws {Error} Position buffer must not have size of 0
  * @package
  * @todo Does not yet handle color stride = 0
  */
@@ -2861,9 +2834,7 @@ function _bindDrawParamGeometry(drawParam, module) {
 	const attributes = drawParam.attributeBuffers;
 	const positionBuffer = attributes[FFLAttributeBufferType.POSITION];
 	// There should always be positions.
-	if (positionBuffer.size === 0) {
-		throw new Error('_bindDrawParamGeometry: Position buffer must not have size of 0');
-	}
+	console.assert(positionBuffer.size, '_bindDrawParamGeometry: Position buffer must not have size of 0');
 
 	// Get vertex count from position buffer.
 	const vertexCount = positionBuffer.size / positionBuffer.stride;
@@ -3137,12 +3108,9 @@ function _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
  * @param {number} colorPtr - The pointer to the color.
  * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
  * @returns {FFLColor} The converted Vector4.
- * @throws {Error} Received null pointer
  */
 function _getFFLColor(colorPtr, heapf32) {
-	if (!colorPtr) {
-		throw new Error('_getFFLColor: Received null pointer');
-	}
+	console.assert(colorPtr, '_getFFLColor: Received null pointer');
 	// Assign directly from HEAPF32.
 	const colorData = heapf32.subarray(colorPtr / 4, colorPtr / 4 + 4);
 	return { r: colorData[0], g: colorData[1], b: colorData[2], a: colorData[3] };
@@ -3212,13 +3180,11 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
- * @throws {Error} Throws if the type of `renderer` is unexpected.
  */
 function initCharModelTextures(charModel, renderer, materialClass = charModel._materialClass) {
 	// Check if the passed in renderer is valid by checking the "render" property.
-	if (renderer.render === undefined) {
-		throw new Error('initCharModelTextures: renderer is an unexpected type (cannot find .render).');
-	}
+	console.assert(renderer.render !== undefined,
+		'initCharModelTextures: renderer is an unexpected type (cannot find .render).');
 	const module = charModel._module;
 	// Set material class for render textures.
 	charModel._materialTextureClass = materialClass;
@@ -3386,7 +3352,6 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}}
  * The RenderTarget and scene of this mask texture.
- * @throws {Error} All DrawParams are empty.
  * @package
  */
 function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialClass) {
@@ -3400,9 +3365,7 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialCla
 		rawMaskParam[maskPartType.EyeL],
 		rawMaskParam[maskPartType.Mole]
 	].filter(dp => dp && dp.primitiveParam.indexCount !== 0);
-	if (drawParams.length === 0) {
-		throw new Error('_drawMaskTexture: All DrawParams are empty.');
-	}
+	console.assert(drawParams.length, '_drawMaskTexture: All DrawParams are empty.');
 	// Configure the RenderTarget for no depth/stencil.
 	const options = {
 		depthBuffer: false,
@@ -3485,7 +3448,6 @@ function _getBGClearMesh(color, opacity = 0.0) {
  * @param {Object<string, *>} userData - The original mesh.geometry.userData to get modulateMode/Type from.
  * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
  * @returns {import('three').RenderTarget} The RenderTarget of the final RGBA texture.
- * @throws {Error} material.map is null or undefined
  */
 function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) {
 	const scene = new THREE.Scene();
@@ -3493,11 +3455,9 @@ function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) 
 	const bgClearRGBMesh = _getBGClearMesh(material.color);
 	scene.add(bgClearRGBMesh); // Must be drawn first.
 
-	if (!material.map) {
-		throw new Error('_texDrawRGBATarget: material.map is null or undefined');
-	}
+	console.assert(material.map, '_texDrawRGBATarget: material.map is null or undefined');
 	/** Shortcut to the existing texture. */
-	const tex = material.map;
+	const tex = /** @type {import('three').Texture} */ (material.map);
 	// This material is solely for the texture itself and not the shape.
 	// It actually does not need color set on it, or modulate type (blending)
 	const texMat = new materialTextureClass({
@@ -3524,7 +3484,7 @@ function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) 
 		._target = target;
 
 	// Dispose previous texture and replace with this one.
-	material.map.dispose();
+	/** @type {import('three').Texture} */ (material.map).dispose();
 	material.map = target.texture;
 	// Set color to default and modulateMode to TEXTURE_DIRECT.
 	material.color = new THREE.Color(1, 1, 1);
@@ -3569,7 +3529,7 @@ function convertModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
  * CharModel can be exported using e.g., GLTFExporter.
  * @param {CharModel} charModel - The CharModel whose textures to convert.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
- * @throws {Error} charModel.meshes or mesh.material.map is null, texture is not THREE.RGBAFormat
+ * @throws {Error} charModel.meshes is null
  */
 function convModelTargetsToDataTex(charModel, renderer) {
 	if (!charModel.meshes) {
@@ -3580,9 +3540,8 @@ function convModelTargetsToDataTex(charModel, renderer) {
 			return;
 		}
 		const tex = mesh.material.map;
-		if (tex.format !== THREE.RGBAFormat) {
-			throw new Error('convModelTargetsToDataTex: found a texture that is not of format THREE.RGBAFormat, but, this function is only meant to be used if all textures in CharModel meshes are RGBA (so render targets)...');
-		}
+		console.assert(tex.format === THREE.RGBAFormat,
+			'convModelTargetsToDataTex: found a texture that is not of format THREE.RGBAFormat, but, this function is only meant to be used if all textures in CharModel meshes are RGBA (so render targets)...');
 		/** RGBA */
 		const data = new Uint8Array(tex.image.width * tex.image.height * 4);
 		const target = /** @type {import('three').RenderTarget|null|undefined} */ tex._target;
@@ -3960,7 +3919,7 @@ function convertSNORMToFloat32(src, count, srcItemSize, targetItemSize) {
  * to a new mesh. Used for one-time rendering of faceline/mask 2D planes.
  * @param {Array<FFLDrawParam>} drawParams - Array of FFLDrawParam.
  * @param {import('three').Color|null} bgColor - Optional background color.
- * @param {[MaterialConstructor, Module, TextureManager|null]} drawParamArgs - Arguments to pass to drawParamToMesh.
+ * @param {[MaterialConstructor, Module, TextureManager]} drawParamArgs - Arguments to pass to drawParamToMesh.
  * @returns {{scene: import('three').Scene, meshes: Array<import('three').Mesh|null>}}
  * An object containing the created scene and an array of meshes.
  */
@@ -4257,12 +4216,8 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
  * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
  * to draw into. Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the icon.
- * @throws {Error} CharModel.meshes is null or undefined, it may have been disposed.
  */
 function makeIconFromCharModel(charModel, renderer, options = {}) {
-	if (!charModel.meshes) {
-		throw new Error('CharModel.meshes is null or undefined, it may have been disposed.');
-	}
 	// Set locals from options object.
 	let {
 		viewType = ViewType.MakeIcon,
