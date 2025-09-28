@@ -665,6 +665,16 @@ export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: 
     resourceDesc: FFLResourceDesc;
 }>;
 /**
+ * Sets the state for whether or not WebGL 1.0 is being used.
+ * If this is not called in WebGL 1, textures will not appear properly.
+ * @param {boolean} isWebGL1 - Output of `!renderer.capabilities.isWebGL2`.
+ * @returns {boolean} isWebGL1 value.
+ * @example
+ * const renderer = new THREE.WebGLRenderer(...);
+ * setIsWebGL1State(!renderer.capabilities.isWebGL2);
+ */
+export function setIsWebGL1State(isWebGL1: boolean): boolean;
+/**
  * @param {Module} module - Emscripten module.
  * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
  * @public
@@ -1344,8 +1354,15 @@ declare namespace FFLTextureFormat {
 /**
  * Manages THREE.Texture objects created via FFL.
  * Must be instantiated after FFL is fully initialized.
+ * @package
  */
 declare class TextureManager {
+    /**
+     * Global that controls if texture creation should be changed
+     * to account for WebGL 1.0. (Shapes should be fine)
+     * @public
+     */
+    public static isWebGL1: boolean;
     /**
      * Creates and allocates an {@link FFLTextureCallback} instance from callback function pointers.
      * @param {Module} module - The Emscripten module.

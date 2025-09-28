@@ -208,10 +208,14 @@ declare const _exports: {
      */
     assignNormalsForGlass(geometry: import("three").BufferGeometry): void;
     /**
-     * @param {import('./ffl').FFLDrawParam} drawParam - The DrawParam for the mesh to check.
+     * @param {{modulateParam: {type: number}}} drawParam - The FFLDrawParam for the mesh to check.
      * @param {import('three').BufferGeometry} geometry - BufferGeometry to modify.
      */
-    modifyBufferGeometry(drawParam: import("./ffl").FFLDrawParam, geometry: import("three").BufferGeometry): void;
+    modifyBufferGeometry(drawParam: {
+        modulateParam: {
+            type: number;
+        };
+    }, geometry: import("three").BufferGeometry): void;
 };
 export = _exports;
 type FFLModulateMode = number;
@@ -222,7 +226,10 @@ type SampleShaderMaterialColorInfo = {
     favoriteColor: number;
     hairColor: number;
     beardColor: number;
-    pantsColor: import("./ffl").PantsColor;
+    /**
+     * - PantsColor from ffl.js, 0-4.
+     */
+    pantsColor: number;
 };
 type SampleShaderMaterialParameters = {
     /**

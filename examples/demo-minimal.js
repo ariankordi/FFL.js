@@ -2,7 +2,7 @@
 /*
 import * as THREE from 'three';
 import {
-	initializeFFL, createCharModel,
+	initializeFFL, setIsWebGL1State, createCharModel,
 	initCharModelTextures, parseHexOrB64ToUint8Array,
 	FFLCharModelDescDefault, CharModel, exitFFL
 } from '../ffl.js';
@@ -74,6 +74,8 @@ function initializeScene() {
 	renderer = new THREE.WebGLRenderer();
 	renderer.setSize(window.innerWidth, window.innerHeight - 256);
 	document.body.appendChild(renderer.domElement);
+	// Tell FFL.js whether or not WebGL 1.0 is being used.
+	setIsWebGL1State(!renderer.capabilities.isWebGL2);
 
 	// Create camera.
 	camera = new THREE.PerspectiveCamera(

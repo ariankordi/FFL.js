@@ -22,7 +22,7 @@ import * as _Import from './struct-fu.js';
 globalThis._ = /** @type {_} */ (/** @type {*} */ (globalThis)._);
 globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 // NOTeslint-disable-next-line @stylistic/max-statements-per-line --  Hack to use either UMD or browser ESM import.
-// let _ = globalThis._; _ = (!_) ? _Import : _; // Uncomment for ESM
+// let _ = globalThis._; _ = (!_) ? _Import.default || _Import : _; // Uncomment for ESM
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 /* globals _ THREE -- Global dependencies. */
 
@@ -960,14 +960,21 @@ const FFLTextureCallback = _.struct([
 	_uintptr('pDeleteFunc')
 ]);
 
-// TODO PATH: src/TextureManager.js
-
 // ------------------------ Class: TextureManager -----------------------------
+// TODO PATH: src/TextureManager.js
 /**
  * Manages THREE.Texture objects created via FFL.
  * Must be instantiated after FFL is fully initialized.
+ * @package
  */
 class TextureManager {
+	/**
+	 * Global that controls if texture creation should be changed
+	 * to account for WebGL 1.0. (Shapes should be fine)
+	 * @public
+	 */
+	static isWebGL1 = false;
+
 	/**
 	 * Constructs the TextureManager. This MUST be created after initializing FFL.
 	 * @param {Module} module - The Emscripten module.
@@ -1057,13 +1064,13 @@ class TextureManager {
 		// Map FFLTextureFormat to Three.js texture formats.
 
 		// THREE.RGFormat did not work for me on Three.js r136/older.
-		const useGLES2Formats = Number(THREE.REVISION) <= 136;
+		const useGLES2Formats = Number(THREE.REVISION) <= 136 || TextureManager.isWebGL1;
 		const r8 = useGLES2Formats
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
 		const r8g8 = useGLES2Formats
-		// NOTE: Using THREE.LuminanceAlphaFormat before
-		// it was removed, on WebGL 2.0, causes the texture
+		// NOTE: Using THREE.LuminanceAlphaFormat before it
+		// was removed on WebGL 1.0/2.0 causes the texture
 		// to be converted to RGBA resulting in two issues.
 		//     - There is a black outline around glasses
 		//     - For glasses that have an inner color, the color is wrongly applied to the frames as well.
@@ -1104,9 +1111,16 @@ class TextureManager {
 		const imageData = this._module.HEAPU8.slice(textureInfo.imagePtr,
 			textureInfo.imagePtr + textureInfo.imageSize);
 
-		// Mipmaps were not implemented before Three.js r136
-		// and they only began functioning properly on r138
-		const canUseMipmaps = Number(THREE.REVISION) >= 138;
+		/**
+		 * Determine whether mipmaps can be used at all.
+		 * Implemented in Three.js r137 and only works properly on r138.
+		 *
+		 * This is also disabled for WebGL 1.0, since there are some NPOT textures.
+		 * Those aren't supposed to have mipmaps e.g., glass, but I found that
+		 * while in GLES2, some textures that didn't wrap could have mips with
+		 * NPOT, this didn't work in WebGL 1.0.
+		 */
+		const canUseMipmaps = Number(THREE.REVISION) >= 138 && !TextureManager.isWebGL1;
 		// Actually use mipmaps if the mip count is over 1.
 		const useMipmaps = textureInfo.mipCount > 1 && canUseMipmaps;
 
@@ -1292,6 +1306,17 @@ class TextureManager {
 		this.disposeCallback();
 	}
 }
+
+/**
+ * Sets the state for whether or not WebGL 1.0 is being used.
+ * If this is not called in WebGL 1, textures will not appear properly.
+ * @param {boolean} isWebGL1 - Output of `!renderer.capabilities.isWebGL2`.
+ * @returns {boolean} isWebGL1 value.
+ * @example
+ * const renderer = new THREE.WebGLRenderer(...);
+ * setIsWebGL1State(!renderer.capabilities.isWebGL2);
+ */
+const setIsWebGL1State = isWebGL1 => TextureManager.isWebGL1 = isWebGL1;
 
 // // ---------------------------------------------------------------------
 // //  Classes for FFL Exceptions
@@ -2819,7 +2844,6 @@ function updateCharModel(charModel, newData, renderer,
 	if (!newData) {
 		throw new Error('updateCharModel: newData is null. It should be retrieved from charModel._data which is set by createCharModel.');
 	}
-
 
 	/** The new or updated CharModelDesc with the new expression specified. */
 	const newModelDesc = _descOrExpFlagToModelDesc(descOrExpFlag, charModel._model.charModelDesc);
@@ -4815,6 +4839,7 @@ export {
 
 	// Begin public methods
 	initializeFFL,
+	setIsWebGL1State,
 	exitFFL,
 	CharModel, // CharModel class
 	verifyCharInfo,

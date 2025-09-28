@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import {
-	initializeFFL, createCharModel, textureToCanvas, initCharModelTextures,
+	initializeFFL, setIsWebGL1State, createCharModel, textureToCanvas, initCharModelTextures,
 	matSupportsFFL, updateCharModel, makeExpressionFlag, checkExpressionChangesShapes,
 	makeIconFromCharModel, parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel, ViewType
@@ -164,10 +164,13 @@ function getSceneWithLights() {
 
 /** Initializes the Three.js {@link renderer} instance. */
 async function initializeThreeRenderer() {
-	// renderer = new THREE.WebGPURenderer({
+	// Uncomment the canvas/context lines to test WebGL 1.0.
+	// const canvas = document.createElement('canvas');
 	renderer = new THREE.WebGLRenderer({
+		// canvas, context: canvas.getContext('webgl'),
 		alpha: true // Needed for icons with transparent backgrounds.
 	});
+	// renderer = new THREE.WebGPURenderer({ alpha: true });
 	if (THREE.ColorManagement) {
 		THREE.ColorManagement.enabled = false; // Ensures Color3s will be treated as sRGB.
 	}
@@ -858,6 +861,9 @@ async function main() {	// Initialize FFL.
 
 	if (!isRendererInitialized) {
 		await initializeThreeRenderer();
+		// Tell FFL.js whether or not WebGL 1.0 is being used.
+		setIsWebGL1State(!renderer.capabilities.isWebGL2);
+		console.debug('Is WebGL 1.0 being used:', !renderer.capabilities.isWebGL2);
 	}
 }
 
