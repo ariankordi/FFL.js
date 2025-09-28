@@ -4,7 +4,8 @@
     "allowJs": true,
     //"checkJs": true, // Assumed from @ts-check.
     "target": "es2015", // but materials use ES2020 "??"
-    "module": "commonjs",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
 
     "strict": true,
     "noImplicitAny": true,

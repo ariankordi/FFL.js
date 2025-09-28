@@ -1,5 +1,4 @@
 // @ts-check
-/*
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -9,13 +8,12 @@ import {
 	makeIconFromCharModel, parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel, ViewType
 } from '../ffl.js';
+import ResourceLoadHelper from './ResourceLoadHelper.js';
 // All UMDs below:
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
 import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
 import * as LUTShaderMaterialImport from '../LUTShaderMaterial.js';
 import * as SampleShaderMaterialImport from '../SampleShaderMaterial.js';
-import { ResourceLoadHelper } from './ResourceLoadHelper.js';
-*/
 
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
 /**
@@ -39,17 +37,7 @@ LUTShaderMaterial = (!LUTShaderMaterial) ? LUTShaderMaterialImport : LUTShaderMa
 /** @type {SampleShaderMaterial} */
 let SampleShaderMaterial = /** @type {*} */ (globalThis).SampleShaderMaterial;
 SampleShaderMaterial = (!SampleShaderMaterial) ? SampleShaderMaterialImport : SampleShaderMaterial;
-
-globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
-/* globals FFLShaderMaterial LUTShaderMaterial THREE -- Imported materials whose names are set above. */
-
-if ('OrbitControls' in THREE) {
-	globalThis.OrbitControls =
-		/** @type {import('three/addons/controls/OrbitControls.js')} */
-		// eslint-disable-next-line import/namespace -- not explicitly imported
-		(THREE.OrbitControls);
-}
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 

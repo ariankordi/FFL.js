@@ -6,23 +6,15 @@
  * @author Arian Kordi <https://github.com/ariankordi>
  */
 
-// ------------------ ESM imports, uncomment if you use ESM ------------------
-/*
-// Also see the bottom of the script for corresponding exports.
 import * as THREE from 'three';
-// import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.167.0/+esm';
 import * as _Import from './struct-fu.js';
-*/
+
 // Hack to get library globals recognized throughout the file (remove for ESM).
-/**
- * @typedef {import('./struct-fu')} _
- * @typedef {import('three')} THREE
- */
+/** @typedef {import('./struct-fu')} _ */
 /* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
 globalThis._ = /** @type {_} */ (/** @type {*} */ (globalThis)._);
-globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
-// NOTeslint-disable-next-line @stylistic/max-statements-per-line --  Hack to use either UMD or browser ESM import.
-// let _ = globalThis._; _ = (!_) ? _Import.default || _Import : _; // Uncomment for ESM
+// eslint-disable-next-line @stylistic/max-statements-per-line --  Hack to use either UMD or browser ESM import.
+let _ = globalThis._; _ = (!_) ? /** @type {*} */ (_Import).default || _Import : _; // Uncomment for ESM
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 /* globals _ THREE -- Global dependencies. */
 
@@ -4815,7 +4807,6 @@ function parseHexOrB64ToUint8Array(text) {
 }
 
 // ------------------ ESM exports, uncomment if you use ESM ------------------
-/*
 export {
 	// Generic enums
 	FFLModulateMode,
@@ -4879,4 +4870,3 @@ export {
 	uint8ArrayToBase64,
 	parseHexOrB64ToUint8Array
 };
-*/

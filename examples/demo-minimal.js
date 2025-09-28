@@ -1,16 +1,16 @@
 // @ts-check
-/*
+
 import * as THREE from 'three';
 import {
 	initializeFFL, setIsWebGL1State, createCharModel,
 	initCharModelTextures, parseHexOrB64ToUint8Array,
 	FFLCharModelDescDefault, CharModel, exitFFL
 } from '../ffl.js';
-import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
+import ResourceLoadHelper from './ResourceLoadHelper.js';
 // All UMDs below:
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
-import FFLResourceLoader from './ResourceLoadHelper.js';
-*/
+import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
+
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
 /**
  * @typedef {import('../ffl-emscripten.js')} ModuleFFL
@@ -25,7 +25,6 @@ import FFLResourceLoader from './ResourceLoadHelper.js';
 /** @type {FFLShaderMaterial} */
 let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
 FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
-globalThis.THREE = /** @type {THREE} */ (/** @type {*} */ (globalThis).THREE);
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------

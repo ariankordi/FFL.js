@@ -1,26 +1,9 @@
 // @ts-check
 
-// import { unzipSync } from 'fflate';
-// const fflate = { unzipSync };
+import { unzipSync } from 'fflate';
+const fflate = { unzipSync };
 
 /** @typedef {Error & {responseStatus: number}} ErrorAndResponseStatus */
-
-// eslint-disable-next-line jsdoc/convert-to-jsdoc-comments -- not applicable
-/* global require, module -- UMD globals. */
-(function (root, factory) {
-	if (typeof module === 'object' && module.exports) {
-		// Node.js/CommonJS
-		module.exports = factory(require('fflate'));
-	} else {
-		// Browser globals
-		/** @type {*} */ (root).ResourceLoadHelper = factory(/** @type {*} */ (root).fflate);
-	}
-}(typeof self !== 'undefined' ? self : this,
-	/* eslint-disable jsdoc/require-returns -- Allow TS to predict return type. */
-	/** @param {import('fflate')} fflate - fflate namespace. */
-	function (fflate) {
-/* eslint-enable jsdoc/require-returns -- Allow TS to predict return type. */
-'use strict';
 
 /**
  * A helper component to load the FFL resource.
@@ -384,9 +367,4 @@ class ResourceLoadHelper {
 	}
 }
 
-/** @global */
-// window.ResourceLoadHelper = ResourceLoadHelper;
-// export { ResourceLoadHelper };
-
-return ResourceLoadHelper;
-}));
+export default ResourceLoadHelper;

@@ -7,7 +7,7 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 * Implemented in JSDoc annotated JavaScript (fully typed) directly calling into the FFL library.
 * Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and exporting FFLStoreData.
 * Supported FFL features: Expressions, mipmaps, bounding box, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, basic head only icon creation
-* Tested from Three.js r109 up to r174, latest as of writing
+* Tested from Three.js r109 up to r180 (latest as of writing), WebGL 1.0 (for servers) and 2.0
   - Both included shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy.](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
   - If you are using built-in Three.js materials and need colors to be linear, try: `moduleFFL._FFLSetLinearGammaMode(1)`
 
@@ -20,25 +20,61 @@ There are currently two demos within `examples`: `demo-basic.html` and `demo-min
 <img width="200" src="https://github.com/user-attachments/assets/2376e69b-ef53-49a9-a98f-29d4df0eb1c6">
 
 ## Usage
-This section is TBD because the library needs to be modularized - it's only made to work with browsers in global scope, making it obtuse to use for now.
-<details><summary>On your page, include these in order.</summary>
+This library is using ESM "import", meaning you have to use `script type="module"` until I eventually make a UMD build that'll work without it.
+
+<details><summary>Include the following on your page.</summary>
 
 ```html
 
 	<!-- Path/URL to the FFL resource file in `content` (FFLResHigh.dat, AFLResHigh_2_3.dat, etc.) -->
 	<meta itemprop="ffl-js-resource-fetch-path" content="AFLResHigh_2_3.dat">
-	<!-- Emscripten module (not modularized)/ffl-emscripten.js -->
+	<!-- Emscripten module (not an ES6 module)/ffl-emscripten.js -->
 	<script src="ffl-emscripten.js"></script>
 
-	<!-- Include Three.js. Outdated version 0.137.5 from 2022 included here: -->
-	<script src="https://unpkg.com/three@0.137.5/build/three.min.js"></script>
+	<!-- Import maps. This correlates "import" statements
+		 	 with the actual links for where to get them. -->
+	<script type="importmap">
+		{
+			"imports": {
+				"three": "https://esm.sh/three@0.180.0",
+				"three/": "https://esm.sh/three@0.180.0/",
+				"fflate": "https://esm.sh/fflate@0.8.2"
+			}
+		}
+	</script>
+	<script type="module">
+		// Export Three.js to window for shader material.
+		// This is not needed if you bundle the shader materials together with the library.
+		import * as THREE from 'three';
+		window.THREE = globalThis.THREE = THREE;
+	</script>
 
-	<script src="struct-fu.js"></script> <!-- Dependency for ffl.js. -->
-	<!-- Include shader materials here, such as FFLShaderMaterial. -->
-	<script src="FFLShaderMaterial.js"></script>
+	<!-- This is your JS code. It can be in a file too. -->
+	<script type="module">
+		import * as THREE from 'three'; // Include Three.js.
+		import {
+			// Add the functions that you need into here.
+			initializeFFL, setIsWebGL1State, createCharModel,
+			initCharModelTextures, parseHexOrB64ToUint8Array,
+			FFLCharModelDescDefault, CharModel, exitFFL
+		} from '../ffl.js'; // Include FFL.js.
+		import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
+		// Hack to get library globals recognized throughout the file.
+		/**
+		 * @typedef {import('../ffl-emscripten.js')} ModuleFFL
+		 * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
+		 * @typedef {import('three')} THREE
+		 */
+		/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
+		/** @type {FFLShaderMaterial} */
+		let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
+		FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
+		// You will need to repeat the above pattern for each shader material, for now.
+		/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 
-	<!-- Include ffl.js, must be after Three.js. -->
-	<script src="ffl.js"></script>
+		// The rest of your code goes here.
+	</script>
+
 ```
 
 </details>
@@ -101,7 +137,7 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 * Improve resource loading by either not loading all resource in WASM heap or in memory in general. (IndexedDB streaming?)
 * Find out how to easily strip out/disable all console.debug statements when not debugging, if possible.
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
-* **Needed refactoring:** Split code into files, use ESM imports/exports, _MAAAYBE_ consider switching to TypeScript??
+* **Code needs to be split into files.** This has already been planned, search: `// TODO PATH:`
 * **More refactoring?**
   - Refactor into classes/true OOP. Should functionality be implemented in class patterns?
   - Improve documentation as code (TypeDoc output). Add JSDoc @example tags? Or write real docs/tutorial?
@@ -111,5 +147,5 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 # Acknowledgements
 * [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).
 * [Nathan Vander Wilt](https://github.com/natevw) for [struct-fu](https://github.com/natevw/struct-fu) (this is using a [fork](https://github.com/ariankordi/struct-fu)).
-* [Mister F*cking Doob](https://github.com/mrdoob) himself for [Three.js](https://github.com/mrdoob/three.js).
+* [mrdoob](https://github.com/mrdoob) for [Three.js](https://github.com/mrdoob/three.js).
 * Nintendo for making FFL.
