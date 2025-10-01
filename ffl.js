@@ -966,6 +966,7 @@ class TextureManager {
 		// THREE.RGFormat did not work for me on Three.js r136/older.
 		const useGLES2Formats = Number(THREE.REVISION) <= 136 || TextureManager.isWebGL1;
 		const r8 = useGLES2Formats
+			// eslint-disable-next-line import/namespace -- deprecated, maybe deleted
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
 		const r8g8 = useGLES2Formats
@@ -974,6 +975,7 @@ class TextureManager {
 		// to be converted to RGBA resulting in two issues.
 		//     - There is a black outline around glasses
 		//     - For glasses that have an inner color, the color is wrongly applied to the frames as well.
+			// eslint-disable-next-line import/namespace -- deprecated, maybe deleted
 			? THREE.LuminanceAlphaFormat
 			: THREE.RGFormat;
 
@@ -1203,15 +1205,20 @@ class TextureManager {
 }
 
 /**
- * Sets the state for whether or not WebGL 1.0 is being used.
- * If this is not called in WebGL 1, textures will not appear properly.
- * @param {boolean} isWebGL1 - Output of `!renderer.capabilities.isWebGL2`.
- * @returns {boolean} isWebGL1 value.
- * @example
- * const renderer = new THREE.WebGLRenderer(...);
- * setIsWebGL1State(!renderer.capabilities.isWebGL2);
+ * Sets the state for whether WebGL 1.0 or WebGPU is being used.
+ * Otherwise, textures will appear wrong when not using WebGL 2.0.
+ * @param {Object} renderer - The WebGLRenderer or WebGPURenderer.
+ * @param {Module} module - The module. Must be initialized along with the renderer.
  */
-const setIsWebGL1State = isWebGL1 => TextureManager.isWebGL1 = isWebGL1;
+function setRendererState(renderer, module) {
+	console.assert(renderer && module, `setRendererState: The renderer and module must both be valid.`);
+	if ('capabilities' in renderer &&
+		!(/** @type {import('three').WebGLCapabilities} */ (renderer.capabilities).isWebGL2)) {
+		TextureManager.isWebGL1 = true;
+	} else if (_isWebGPU(renderer)) {
+		module._FFLSetTextureFlipY(false);
+	}
+}
 
 // // ---------------------------------------------------------------------
 // //  Classes for FFL Exceptions
@@ -3278,7 +3285,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
 	};
 
 	const target = createAndRenderToTarget(offscreenScene,
-		getIdentCamera(), renderer, width, height, options);
+		_getIdentCamera(), renderer, width, height, options);
 
 	console.debug(`Creating target ${target.texture.id} for faceline`);
 
@@ -3374,7 +3381,7 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialCla
 	const width = charModel._getResolution();
 
 	const target = createAndRenderToTarget(offscreenScene,
-		getIdentCamera(), renderer, width, width, options);
+		_getIdentCamera(), renderer, width, width, options);
 
 	return { target, scene: offscreenScene };
 	// Caller needs to dispose meshes in scene.
@@ -3458,6 +3465,7 @@ function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) 
 		map: tex,
 		modulateMode: userData.modulateMode,
 		color: material.color,
+		side: THREE.DoubleSide,
 		lightEnable: false
 	});
 	texMat.blending = THREE.NoBlending;
@@ -3467,8 +3475,9 @@ function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) 
 	const textureMesh = new THREE.Mesh(plane, texMat);
 	scene.add(textureMesh);
 
+	const flipY = _isWebGPU(renderer);
 	const target = createAndRenderToTarget(scene,
-		getIdentCamera(false), renderer,
+		_getIdentCamera(flipY), renderer,
 		tex.image.width, tex.image.height, {
 			wrapS: tex.wrapS, wrapT: tex.wrapT, // Preserve wrap.
 			depthBuffer: false, stencilBuffer: false
@@ -3897,6 +3906,13 @@ function convertSNORMToFloat32(src, count, srcItemSize, targetItemSize) {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/RenderTargetUtils.js
 
+/**
+ * @param {Object} renderer - The input renderer.
+ * @returns {boolean} Whether the renderer is THREE.WebGPURenderer.
+ * @package
+ */
+const _isWebGPU = renderer => 'isWebGPURenderer' in renderer;
+
 // TODO: private?
 // ----- createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) -----
 /**
@@ -3925,15 +3941,15 @@ function createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) {
 	return { scene, meshes };
 }
 
-// TODO: private?
 // -------------------------- getIdentCamera(flipY) --------------------------
 /**
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
  * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {import('three').OrthographicCamera} The orthographic camera.
+ * @package
  */
-function getIdentCamera(flipY = false) {
+function _getIdentCamera(flipY = false) {
 	// Create an orthographic camera with bounds [-1, 1] in x and y.
 	const camera = new THREE.OrthographicCamera(-1, 1,
 		// Use [1, -1] except when using flipY.
@@ -3962,9 +3978,9 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
 		...targetOptions
 	};
 
-	const renderTarget = /** @type {*} */ (renderer)['isWebGPURenderer'] === undefined
-		? new THREE.WebGLRenderTarget(width, height, options)
-		: new THREE.RenderTarget(width, height, options);
+	const renderTarget = _isWebGPU(renderer)
+		? new THREE.RenderTarget(width, height, options)
+		: new THREE.WebGLRenderTarget(width, height, options);
 	// Get previous render target to switch back to.
 	const prevTarget = renderer.getRenderTarget();
 	// Only works on Three.js r102 and above.
@@ -4115,7 +4131,7 @@ function textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
 	const mesh = new THREE.Mesh(plane, material);
 	scene.add(mesh);
 	/** Ortho camera filling whole screen. */
-	const camera = getIdentCamera(flipY);
+	const camera = _getIdentCamera(flipY);
 
 	// Get previous render target, color space, and size.
 	const state = _saveRendererState(renderer);
@@ -4614,7 +4630,7 @@ export {
 
 	// Begin public methods
 	initializeFFL,
-	setIsWebGL1State,
+	setRendererState,
 	exitFFL,
 	CharModel, // CharModel class
 	verifyCharInfo,
@@ -4630,7 +4646,6 @@ export {
 	_allocateModelSource,
 	createCharModel,
 	updateCharModel,
-	getIdentCamera,
 	createAndRenderToTarget,
 	matSupportsFFL,
 	initCharModelTextures,

@@ -46,7 +46,7 @@ declare class ResourceLoadHelper {
      * Sets up the widget UI and attempts initial resource load.
      * @throws {Error} Throws if detailsEl needs to be opened but is null or undefined.
      */
-    init(): void;
+    init(): Promise<void>;
     /**
      * Create the HTML widget using a multiline string.
      * The widget includes:

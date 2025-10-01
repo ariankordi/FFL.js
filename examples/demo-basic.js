@@ -3,17 +3,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import {
-	initializeFFL, setIsWebGL1State, createCharModel, textureToCanvas, initCharModelTextures,
+	initializeFFL, setRendererState, createCharModel, textureToCanvas, initCharModelTextures,
 	matSupportsFFL, updateCharModel, makeExpressionFlag, checkExpressionChangesShapes,
 	makeIconFromCharModel, parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel, ViewType
 } from '../ffl.js';
-import ResourceLoadHelper from './ResourceLoadHelper.js';
-// All UMDs below:
+// UMDs below:
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
 import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
 import * as LUTShaderMaterialImport from '../LUTShaderMaterial.js';
 import * as SampleShaderMaterialImport from '../SampleShaderMaterial.js';
+import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
 /**
@@ -152,13 +152,17 @@ function getSceneWithLights() {
 
 /** Initializes the Three.js {@link renderer} instance. */
 async function initializeThreeRenderer() {
-	// Uncomment the canvas/context lines to test WebGL 1.0.
-	// const canvas = document.createElement('canvas');
-	renderer = new THREE.WebGLRenderer({
-		// canvas, context: canvas.getContext('webgl'),
-		alpha: true // Needed for icons with transparent backgrounds.
-	});
-	// renderer = new THREE.WebGPURenderer({ alpha: true });
+	if ('WebGPURenderer' in THREE) {
+		console.info('Using THREE.WebGPURenderer.');
+		renderer = new THREE.WebGPURenderer({ alpha: true });
+	} else {
+		// Uncomment the canvas/context lines to test WebGL 1.0.
+		// const canvas = document.createElement('canvas');
+		renderer = new THREE.WebGLRenderer({
+			// canvas, context: canvas.getContext('webgl'),
+			alpha: true // Needed for icons with transparent backgrounds.
+		});
+	}
 	if (THREE.ColorManagement) {
 		THREE.ColorManagement.enabled = false; // Ensures Color3s will be treated as sRGB.
 	}
@@ -806,7 +810,6 @@ function setupCharModelForm() {
 	});
 }
 
-
 /**
  * Callback invoked once the FFL resource is loaded.
  * @param {Response | Uint8Array} resource - Resource data compatible with initializeFFL.
@@ -824,8 +827,6 @@ async function callInitializeFFL(resource) {
 	// Set globals from initialization result.
 	moduleFFL = initResult.module;
 	resourceDesc = initResult.resourceDesc;
-
-	loadCharacterButtons(); // Load character buttons after initializing FFL.
 }
 
 /**
@@ -838,21 +839,25 @@ async function main() {	// Initialize FFL.
 	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
 
 	setupCharModelForm();
+	let initFFLPromise = /** @type {Promise|null} */ (null);
 	// Container for the resource loader widget, if available.
 	const resourceContainer = document.getElementById('resourceContainer') || document.body;
 	const loader = new ResourceLoadHelper({
 		container: resourceContainer,
 		initialResource: null,
-		onLoad: callInitializeFFL
+		onLoad: r => initFFLPromise = callInitializeFFL(r)
 	});
-	loader.init(); // Initialize the resource loader to load the default resource.
+	await loader.init(); // Initialize the resource loader to load the default resource.
+	// console.info('set initFFLPromise:', initFFLPromise);
 
 	if (!isRendererInitialized) {
 		await initializeThreeRenderer();
-		// Tell FFL.js whether or not WebGL 1.0 is being used.
-		setIsWebGL1State(!renderer.capabilities.isWebGL2);
-		console.debug('Is WebGL 1.0 being used:', !renderer.capabilities.isWebGL2);
+		// Tell FFL.js if WebGL 1.0 or WebGPU is being used.
+		// console.info('awaiting this initFFLPromise:', initFFLPromise)
+		initFFLPromise && await initFFLPromise;
+		setRendererState(renderer, moduleFFL);
 	}
+	loadCharacterButtons(); // Load character buttons after initializing FFL.
 }
 
 // Call main when HTML is done loading.

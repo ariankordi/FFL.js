@@ -49,7 +49,7 @@ class ResourceLoadHelper {
 	 * Sets up the widget UI and attempts initial resource load.
 	 * @throws {Error} Throws if detailsEl needs to be opened but is null or undefined.
 	 */
-	init() {
+	async init() {
 		/** Query selector for default resource fetch path, where the path is in content. */
 		const DEFAULT_RESOURCE_FETCH_PATH_SELECTOR = 'meta[itemprop=ffl-js-resource-fetch-path]';
 
@@ -61,7 +61,7 @@ class ResourceLoadHelper {
 			// Open widget if no initial resource is specified.
 			if (defaultURL) {
 				(this.urlInput) && (this.urlInput.value = defaultURL);
-				this._loadResource(defaultURL);
+				await this._loadResource(defaultURL);
 				return;
 			}
 
@@ -72,7 +72,7 @@ class ResourceLoadHelper {
 			this.detailsEl.open = true;
 		} else {
 			// Attempt to load initial resource.
-			this._loadResource(this.initialResource);
+			await this._loadResource(this.initialResource);
 		}
 	}
 
@@ -213,7 +213,7 @@ class ResourceLoadHelper {
 				throw new Error('_loadResource: Unexpected type for resource passed in.');
 			}
 
-			await this.onLoad(loaded); // Invoke the onLoad callback with the loaded resource.
+			/* await */this.onLoad(loaded); // Invoke the onLoad callback with the loaded resource.
 			this._updateWidgetStatus(); // Update status indicating success.
 		} catch (error) {
 			const errorMsg = `${error instanceof Error ? error.message : error}` || 'Unknown error';

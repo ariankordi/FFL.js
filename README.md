@@ -54,7 +54,7 @@ This library is using ESM "import", meaning you have to use `script type="module
 		import * as THREE from 'three'; // Include Three.js.
 		import {
 			// Add the functions that you need into here.
-			initializeFFL, setIsWebGL1State, createCharModel,
+			initializeFFL, setRendererState, createCharModel,
 			initCharModelTextures, parseHexOrB64ToUint8Array,
 			FFLCharModelDescDefault, CharModel, exitFFL
 		} from '../ffl.js'; // Include FFL.js.
