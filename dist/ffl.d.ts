@@ -63,7 +63,7 @@ export type FFLiCharInfo = {
     roomIndex: number;
     positionInRoom: number;
     birthPlatform: number;
-    createID: FFLCreateID;
+    createID: Array<number>;
     padding_0: number;
     authorType: number;
     authorID: Array<number>;
@@ -243,9 +243,6 @@ export type FFLAttributeBuffer = {
     stride: number;
     ptr: number;
 };
-export type FFLAttributeBufferParam = {
-    attributeBuffers: Array<FFLAttributeBuffer>;
-};
 export type FFLPrimitiveParam = {
     primitiveType: number;
     indexCount: number;
@@ -281,65 +278,19 @@ export type FFLModulateParam = {
     pTexture2D: number;
 };
 export type FFLDrawParam = {
-    attributeBufferParam: FFLAttributeBufferParam;
+    attributeBuffers: Array<FFLAttributeBuffer>;
     modulateParam: FFLModulateParam;
     cullMode: FFLCullMode;
     primitiveParam: FFLPrimitiveParam;
 };
-export type FFLCreateID = {
-    data: Array<number>;
-};
-export type FFLAdditionalInfo = {
-    name: string;
-    creator: string;
-    createID: FFLCreateID;
-    skinColor: FFLColor;
-    flags: number;
-    facelineType: number;
-    hairType: number;
-};
-export type FFLiFacelineTextureTempObject = {
-    pTextureFaceLine: number;
-    drawParamFaceLine: FFLDrawParam;
-    pTextureFaceMake: number;
-    drawParamFaceMake: FFLDrawParam;
-    pTextureFaceBeard: number;
-    drawParamFaceBeard: FFLDrawParam;
-    pRenderTextureCompressorParam: Array<number>;
-};
-export type FFLiRawMaskDrawParam = {
-    /**
-     * - 2
-     */
-    drawParamRawMaskPartsEye: Array<FFLDrawParam>;
-    /**
-     * - 2
-     */
-    drawParamRawMaskPartsEyebrow: Array<FFLDrawParam>;
-    drawParamRawMaskPartsMouth: FFLDrawParam;
-    /**
-     * - 2
-     */
-    drawParamRawMaskPartsMustache: Array<FFLDrawParam>;
-    drawParamRawMaskPartsMole: FFLDrawParam;
-    drawParamRawMaskPartsFill: FFLDrawParam;
-};
 export type FFLiMaskTexturesTempObject = {
-    partsTextures: Array<number>;
     pRawMaskDrawParam: Array<number>;
-    _remaining: Uint8Array;
 };
 export type FFLiTextureTempObject = {
     maskTextures: FFLiMaskTexturesTempObject;
-    facelineTexture: FFLiFacelineTextureTempObject;
-};
-export type FFLiMaskTextures = {
-    pRenderTextures: Array<number>;
+    facelineTexture: Array<FFLDrawParam>;
 };
 export type CharModelDescOrExpressionFlag = FFLCharModelDesc | Array<FFLExpression> | FFLExpression | Uint32Array | null;
-export type FFLBoundingBox = {
-    [x: string]: FFLVec3;
-};
 export type FFLPartsTransform = {
     [x: string]: FFLVec3;
 };
@@ -358,17 +309,12 @@ export type FFLiCharModel = {
     expression: FFLExpression;
     pTextureTempObject: number;
     drawParam: Array<FFLDrawParam>;
-    pShapeData: Array<number>;
-    facelineRenderTexture: Array<Object>;
-    pCapGlassNoselineTextures: Array<number>;
-    maskTextures: FFLiMaskTextures;
-    beardHairFaceCenterPos: Array<FFLVec3>;
+    pMaskRenderTextures: Array<number>;
     partsTransform: FFLPartsTransform;
     /**
      * - FFLModelType
      */
     modelType: number;
-    boundingBox: Array<FFLBoundingBox>;
 };
 export type FFLTextureInfo = {
     width: number;
@@ -585,7 +531,7 @@ export const FFLResourceDesc: import("./struct-fu").StructInstance<FFLResourceDe
  * @property {number} roomIndex
  * @property {number} positionInRoom
  * @property {number} birthPlatform
- * @property {FFLCreateID} createID
+ * @property {Array<number>} createID
  * @property {number} padding_0
  * @property {number} authorType
  * @property {Array<number>} authorID
@@ -665,15 +611,12 @@ export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: 
     resourceDesc: FFLResourceDesc;
 }>;
 /**
- * Sets the state for whether or not WebGL 1.0 is being used.
- * If this is not called in WebGL 1, textures will not appear properly.
- * @param {boolean} isWebGL1 - Output of `!renderer.capabilities.isWebGL2`.
- * @returns {boolean} isWebGL1 value.
- * @example
- * const renderer = new THREE.WebGLRenderer(...);
- * setIsWebGL1State(!renderer.capabilities.isWebGL2);
+ * Sets the state for whether WebGL 1.0 or WebGPU is being used.
+ * Otherwise, textures will appear wrong when not using WebGL 2.0.
+ * @param {Object} renderer - The WebGLRenderer or WebGPURenderer.
+ * @param {Module} module - The module. Must be initialized along with the renderer.
  */
-export function setIsWebGL1State(isWebGL1: boolean): boolean;
+export function setRendererState(renderer: Object, module: Module): void;
 /**
  * @param {Module} module - Emscripten module.
  * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
@@ -692,20 +635,13 @@ export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
  * @public
  */
 export class CharModel {
-    /** @enum {number} */
-    static BodyScaleMode: {
-        /** Applies scale normally. */
-        Apply: number;
-        /** Limits scale so that the pants are not visible. */
-        Limit: number;
-    };
     /**
      * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
      * @param {Module} module - The Emscripten module.
      * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
-     * @param {TextureManager|null} texManager - The {@link TextureManager} instance for this CharModel.
+     * @param {TextureManager} texManager - The {@link TextureManager} instance for this CharModel.
      */
-    constructor(ptr: number, module: Module, materialClass: MaterialConstructor, texManager: TextureManager | null);
+    constructor(ptr: number, module: Module, materialClass: MaterialConstructor, texManager: TextureManager);
     /** @package */
     _module: Module;
     /**
@@ -726,7 +662,7 @@ export class CharModel {
      */
     public _materialTextureClass: MaterialConstructor;
     /** @package */
-    _textureManager: TextureManager | null;
+    _textureManager: TextureManager;
     /**
      * Pointer to the FFLiCharModel in memory, set to null when deleted.
      * @package
@@ -759,15 +695,14 @@ export class CharModel {
     expressions: Array<FFLExpression>;
     /**
      * Group of THREE.Mesh objects representing the CharModel.
-     * @type {import('three').Group|null}
+     * @type {import('three').Group}
      * @public
      */
-    public meshes: import("three").Group | null;
+    public meshes: import("three").Group;
     /**
      * This is the method that populates meshes
      * from the internal FFLiCharModel instance.
      * @param {Module} module - Module to pass to drawParamToMesh to access mesh data.
-     * @throws {Error} Throws if this.meshes is null or undefined.
      * @private
      */
     private _addCharModelMeshes;
@@ -786,15 +721,9 @@ export class CharModel {
      */
     _getTextureTempObject(): FFLiTextureTempObject;
     /**
-     * Get the unpacked result of FFLGetAdditionalInfo.
-     * @returns {FFLAdditionalInfo} The FFLAdditionalInfo object.
-     * @private
-     */
-    /**
      * Accesses partsTransform in FFLiCharModel,
      * converting every FFLVec3 to THREE.Vector3.
      * @returns {PartsTransform} PartsTransform using THREE.Vector3 as keys.
-     * @throws {Error} Throws if this._model.partsTransform has objects that do not have "x" property.
      * @private
      */
     private _getPartsTransform;
@@ -834,9 +763,8 @@ export class CharModel {
      */
     _getExpressionFlagPtr(): number;
     /**
-     * Either gets the boundingBox in the CharModel or calculates it from the meshes.
+     * Calculates the bounding box from the meshes.
      * @returns {import('three').Box3} The bounding box.
-     * @throws {Error} Throws if this.meshes is null.
      * @private
      */
     private _getBoundingBox;
@@ -974,12 +902,10 @@ export class CharModel {
     public getColorInfo(isSpecial?: boolean): import("./SampleShaderMaterial").SampleShaderMaterialColorInfo;
     /**
      * Gets a vector in which to scale the body model for this CharModel.
-     * @param {BodyScaleMode} scaleMode - Mode in which to create the scale vector.
-     * @returns {import('three').Vector3} Scale vector for the body model.
-     * @throws {Error} Unexpected value for scaleMode
+     * @returns {import('three').Vector3Like} Scale vector for the body model.
      * @public
      */
-    public getBodyScale(scaleMode?: number): import("three").Vector3;
+    public getBodyScale(): import("three").Vector3Like;
 }
 /**
  * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
@@ -1080,13 +1006,6 @@ export function updateCharModel(charModel: CharModel, newData: Uint8Array | null
     materialTextureClass?: MaterialConstructor | null | undefined;
 }): CharModel;
 /**
- * Returns an ortho camera that is effectively the same as
- * if you used identity MVP matrix, for rendering 2D planes.
- * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
- * @returns {import('three').OrthographicCamera} The orthographic camera.
- */
-export function getIdentCamera(flipY?: boolean): import("three").OrthographicCamera;
-/**
  * Creates a Three.js RenderTarget, renders the scene with
  * the given camera, and returns the render target.
  * @param {import('three').Scene} scene - The scene to render.
@@ -1111,7 +1030,6 @@ export function matSupportsFFL(material: Function): boolean;
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
- * @throws {Error} Throws if the type of `renderer` is unexpected.
  */
 export function initCharModelTextures(charModel: CharModel, renderer: import("three").WebGLRenderer, materialClass?: MaterialConstructor): void;
 /**
@@ -1192,7 +1110,6 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
  * @param {CharModel} charModel - The CharModel whose textures to convert.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
- * @throws {Error} charModel.meshes is null
  */
 export function convertModelTexturesToRGBA(charModel: CharModel, renderer: import("three").WebGLRenderer, materialTextureClass: MaterialConstructor): void;
 /**
@@ -1201,7 +1118,6 @@ export function convertModelTexturesToRGBA(charModel: CharModel, renderer: impor
  * CharModel can be exported using e.g., GLTFExporter.
  * @param {CharModel} charModel - The CharModel whose textures to convert.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
- * @throws {Error} charModel.meshes or mesh.material.map is null, texture is not THREE.RGBAFormat
  */
 export function convModelTargetsToDataTex(charModel: CharModel, renderer: import("three").WebGLRenderer): void;
 /**
@@ -1242,7 +1158,6 @@ export function getCameraForViewType(viewType: ViewType, width?: number, height?
  * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
  * to draw into. Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the icon.
- * @throws {Error} CharModel.meshes is null or undefined, it may have been disposed.
  */
 export function makeIconFromCharModel(charModel: CharModel, renderer: import("three").WebGLRenderer, options?: {
     viewType?: number | undefined;
@@ -1411,7 +1326,6 @@ declare class TextureManager {
     /**
      * @param {number} format - Enum value for FFLTextureFormat.
      * @returns {import('three').PixelFormat} Three.js texture format constant.
-     * @throws {Error} Unexpected FFLTextureFormat value
      * Note that this function won't work on WebGL1Renderer in Three.js r137-r162
      * since R and RG textures need to use Luminance(Alpha)Format
      * (you'd somehow need to detect which renderer is used)
@@ -1428,7 +1342,6 @@ declare class TextureManager {
     /**
      * @param {import('three').Texture} texture - Texture to upload mipmaps into.
      * @param {FFLTextureInfo} textureInfo - FFLTextureInfo object representing this texture.
-     * @throws {Error} Throws if mipPtr is null.
      * @private
      */
     private _addMipmaps;

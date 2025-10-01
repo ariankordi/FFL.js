@@ -1691,7 +1691,7 @@ class CharModel {
 
 		/**
 		 * Group of THREE.Mesh objects representing the CharModel.
-		 * @type {import('three').Group|null}
+		 * @type {import('three').Group}
 		 * @public
 		 */
 		this.meshes = new THREE.Group();
@@ -1753,7 +1753,7 @@ class CharModel {
 					break;
 			}
 
-			/** @type {import('three').Group} */ (this.meshes).add(mesh); // Add the mesh or null.
+			this.meshes.add(mesh); // Add the mesh or null.
 		}
 	}
 
@@ -1877,7 +1877,6 @@ class CharModel {
 	/**
 	 * Calculates the bounding box from the meshes.
 	 * @returns {import('three').Box3} The bounding box.
-	 * @throws {Error} Throws if this.meshes is null.
 	 * @private
 	 */
 	_getBoundingBox() {
@@ -1886,8 +1885,8 @@ class CharModel {
 		const excludeFromBox = [FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS];
 		// Create bounding box selectively excluding mask and glass.
 		const box = new THREE.Box3();
-		console.assert(this.meshes, '_getBoundingBox: this.meshes is null.');
-		/** @type {import('three').Group} */ (this.meshes).traverse((child) => {
+
+		this.meshes.traverse((child) => {
 			if (!(child instanceof THREE.Mesh) ||
 				// Exclude meshes whose modulateType are in excludeFromBox.
 				excludeFromBox.indexOf(child.geometry.userData.modulateType) !== -1) {
@@ -1978,6 +1977,7 @@ class CharModel {
 			this._facelineMesh = null;
 			this._maskMesh = null;
 			disposeMeshes(this.meshes);
+			// @ts-expect-error - null not assignable. Always non-null except disposed.
 			this.meshes = null;
 		}
 		// Dispose render textures.
@@ -1988,6 +1988,7 @@ class CharModel {
 			this._textureManager.dispose();
 			// Null out reference to TextureManager, assuming
 			// all textures within are already deleted by now.
+			// @ts-expect-error - null not assignable. Always non-null except disposed.
 			this._textureManager = null;
 		}
 	}
@@ -2522,7 +2523,7 @@ function makeExpressionFlag(expressions) {
 function createCharModel(data, descOrExpFlag, materialClass, module, verify = true) {
 	// Verify arguments.
 	if (!module || !module._malloc) {
-		throw new Error('createCharModel: module is null not initialized properly (cannot find ._malloc).');
+		throw new Error('createCharModel: module is null or not initialized properly (cannot find ._malloc).');
 	}
 	if (!data) {
 		throw new Error('createCharModel: data is null or undefined.');
@@ -2824,11 +2825,10 @@ function _bindDrawParamGeometry(drawParam, module) {
 	/**
 	 * @param {string} typeStr - The type of the attribute.
 	 * @param {number} stride - The stride to display.
-	 * @throws {Error} Unexpected stride for attribute ...
+	 * @returns {void}
 	 */
-	function unexpectedStride(typeStr, stride) {
-		throw new Error(`_bindDrawParamGeometry: Unexpected stride for attribute ${typeStr}: ${stride}`);
-	}
+	const unexpectedStride = (typeStr, stride) =>
+		console.assert(false, `_bindDrawParamGeometry: Unexpected stride for attribute ${typeStr}: ${stride}`);
 
 	// Access FFLAttributeBufferParam.
 	const attributes = drawParam.attributeBuffers;
@@ -2935,7 +2935,6 @@ function _bindDrawParamGeometry(drawParam, module) {
  * @param {TextureManager} textureManager - The {@link TextureManager} instance
  * for which to look for the texture referenced.
  * @returns {import('three').Texture|null} The texture if found.
- * @throws {Error} Throws if pTexture2D refers to a texture that was not found in the TextureManager
  * @package
  */
 function _getTextureFromModulateParam(modulateParam, textureManager) {
@@ -2948,10 +2947,8 @@ function _getTextureFromModulateParam(modulateParam, textureManager) {
 		return null; // No texture to bind.
 	}
 	const texturePtr = modulateParam.pTexture2D;
-	const texture = textureManager.get(texturePtr);
-	if (!texture) {
-		throw new Error(`_getTextureFromModulateParam: Texture not found for ${texturePtr}.`);
-	}
+	const texture = /** @type {import('three').Texture} */ (textureManager.get(texturePtr));
+	console.assert(texture, `_getTextureFromModulateParam: Texture not found for ${texturePtr}.`);
 	// Selective apply mirrored repeat (not supported on NPOT/mipmap textures for WebGL 1.0)
 	const applyMirrorTypes = [
 		FFLModulateType.SHAPE_FACELINE, FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_GLASS];
@@ -3387,14 +3384,11 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialCla
  * Sets the faceline texture of the given CharModel from the RenderTarget.
  * @param {CharModel} charModel - The CharModel instance.
  * @param {import('three').RenderTarget} target - RenderTarget for the faceline texture.
- * @throws {Error} target must be a valid THREE.RenderTarget with "texture" property
- * and CharModel must be initialized with OPA_FACELINE in meshes.
+ * @throws {Error} CharModel must be initialized with OPA_FACELINE in meshes.
  * @package
  */
 function _setFaceline(charModel, target) {
-	if (!target || !target.texture) {
-		throw new Error('setFaceline: passed in RenderTarget is invalid');
-	}
+	console.assert(target && target.texture, 'setFaceline: passed in RenderTarget is invalid');
 	charModel._facelineTarget = target; // Store for later disposal.
 	if (charModel._isTexOnly()) {
 		return;
@@ -3500,14 +3494,11 @@ function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) 
  * @param {CharModel} charModel - The CharModel whose textures to convert.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
  * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
- * @throws {Error} charModel.meshes is null
  */
 function convertModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
 	const convertTextureForTypes = [
 		FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_NOSELINE, FFLModulateType.SHAPE_GLASS];
-	if (!charModel.meshes) {
-		throw new Error('convertModelTexturesToRGBA: charModel.meshes is null.');
-	}
+
 	charModel.meshes.traverse((mesh) => {
 		if (!(mesh instanceof THREE.Mesh) ||
 			!mesh.geometry.userData.modulateType ||
@@ -3529,12 +3520,8 @@ function convertModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
  * CharModel can be exported using e.g., GLTFExporter.
  * @param {CharModel} charModel - The CharModel whose textures to convert.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
- * @throws {Error} charModel.meshes is null
  */
 function convModelTargetsToDataTex(charModel, renderer) {
-	if (!charModel.meshes) {
-		throw new Error('convModelTargetsToDataTex: charModel.meshes is null.');
-	}
 	charModel.meshes.traverse((mesh) => {
 		if (!(mesh instanceof THREE.Mesh) || !mesh.material.map) {
 			return;
@@ -3544,10 +3531,8 @@ function convModelTargetsToDataTex(charModel, renderer) {
 			'convModelTargetsToDataTex: found a texture that is not of format THREE.RGBAFormat, but, this function is only meant to be used if all textures in CharModel meshes are RGBA (so render targets)...');
 		/** RGBA */
 		const data = new Uint8Array(tex.image.width * tex.image.height * 4);
-		const target = /** @type {import('three').RenderTarget|null|undefined} */ tex._target;
-		if (!target) {
-			throw new Error('convModelTargetsToDataTex: mesh.material.map (texture)._target is null or undefined.');
-		}
+		const target = /** @type {import('three').RenderTarget} */ tex._target;
+		console.assert(target, 'convModelTargetsToDataTex: mesh.material.map (texture)._target is null or undefined.');
 		renderer.readRenderTargetPixels(target, 0, 0,
 			tex.image.width, tex.image.height, data);
 		// Construct new THREE.DataTexture from the read data.

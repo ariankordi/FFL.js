@@ -357,7 +357,7 @@ function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
 	try {
 		if (currentCharModel) {
 			// Remove current CharModel from the scene.
-			currentCharModel.meshes && scene.remove(currentCharModel.meshes);
+			scene.remove(currentCharModel.meshes);
 			// Update existing model via updateCharModel.
 			// (will also dispose it for us)
 			currentCharModel = updateCharModel(currentCharModel,
@@ -434,7 +434,7 @@ function updateLightDirection(normalize = true) {
 	}
 
 	// Update lightDirection on each mesh that uses our shader.
-	if (!currentCharModel || !currentCharModel.meshes) {
+	if (!currentCharModel) {
 		return;
 	}
 	// currentCharModel.meshes.forEach((mesh) => {
@@ -454,7 +454,7 @@ const resetLightButtonElement = document.getElementById('resetLightButton');
  * The default is taken from the shader class's static property "defaultLightDirection".
  */
 function resetLightDirection() {
-	if (!currentCharModel || !currentCharModel.meshes) {
+	if (!currentCharModel) {
 		return;
 	}
 	const mat = materials[activeMaterialClassName];
@@ -505,7 +505,7 @@ function onShaderMaterialChange() {
 	activeMaterialClassName = shaderMaterialSelectElement.value;
 	console.log(`Material class changed to: ${activeMaterialClassName}`);
 	// For each mesh in the current CharModel, update its material:
-	if (!currentCharModel || !currentCharModel.meshes) {
+	if (!currentCharModel) {
 		return;
 	}
 

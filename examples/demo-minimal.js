@@ -47,7 +47,7 @@ let scene;
 let renderer;
 /** @type {THREE.Camera} */
 let camera;
-/** @type {CharModel} */
+/** @type {CharModel|null} */
 let currentCharModel;
 
 /** @type {THREE.Box3Helper|null} */
@@ -141,8 +141,9 @@ function updateCharModelInScene(data, modelDesc) {
 	// If an existing CharModel exists, update it.
 	if (currentCharModel) {
 		// Remove current CharModel from the scene, then dispose it.
-		currentCharModel.meshes && scene.remove(currentCharModel.meshes);
+		scene.remove(currentCharModel.meshes);
 		currentCharModel.dispose();
+		currentCharModel = null;
 	}
 
 	// Create a new CharModel.
@@ -151,9 +152,6 @@ function updateCharModelInScene(data, modelDesc) {
 	initCharModelTextures(currentCharModel, renderer);
 
 	// Add CharModel meshes to scene.
-	if (!currentCharModel.meshes) {
-		throw new Error('updateCharModelInScene: currentCharModel.meshes is null.');
-	}
 	scene.add(currentCharModel.meshes);
 	updateBoxHelper(currentCharModel); // Update boxHelper.
 }
