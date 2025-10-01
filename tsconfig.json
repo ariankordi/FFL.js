@@ -14,11 +14,11 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": false,
 
+    "skipLibCheck": true,
     "declaration": true, // Generate only declarations.
     //"declarationMap": true, // Emits .d.ts.map.
     "emitDeclarationOnly": true,
     "outDir": "dist" // Emit .d.ts into dist so it can be found by TypeScript.
   },
-  // Only include main sources.
-  "include": ["ffl.js", "*Material.js", "examples/ResourceLoadHelper.js"]
+  "exclude": ["dist/"]
 }

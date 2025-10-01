@@ -10,17 +10,17 @@ import {
 } from '../ffl.js';
 // UMDs below:
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
-import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
-import * as LUTShaderMaterialImport from '../LUTShaderMaterial.js';
-import * as SampleShaderMaterialImport from '../SampleShaderMaterial.js';
+import * as FFLShaderMaterialImport from '../materials/FFLShaderMaterial.js';
+import * as LUTShaderMaterialImport from '../materials/LUTShaderMaterial.js';
+import * as SampleShaderMaterialImport from '../materials/SampleShaderMaterial.js';
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
 /**
  * @typedef {import('../ffl-emscripten.js')} ModuleFFL
- * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
- * @typedef {import('../LUTShaderMaterial.js')} LUTShaderMaterial
- * @typedef {import('../SampleShaderMaterial.js')} SampleShaderMaterial
+ * @typedef {import('../materials/FFLShaderMaterial.js')} FFLShaderMaterial
+ * @typedef {import('../materials/LUTShaderMaterial.js')} LUTShaderMaterial
+ * @typedef {import('../materials/SampleShaderMaterial.js')} SampleShaderMaterial
  * @typedef {import('three')} THREE
  */
 /* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */

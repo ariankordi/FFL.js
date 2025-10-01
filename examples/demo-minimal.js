@@ -6,15 +6,15 @@ import {
 	initCharModelTextures, parseHexOrB64ToUint8Array,
 	FFLCharModelDescDefault, CharModel, exitFFL
 } from '../ffl.js';
+import * as FFLShaderMaterialImport from '../materials/FFLShaderMaterial.js';
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 // All UMDs below:
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
-import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
 
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
 /**
  * @typedef {import('../ffl-emscripten.js')} ModuleFFL
- * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
+ * @typedef {import('../materials/FFLShaderMaterial.js')} FFLShaderMaterial
  * @typedef {import('three')} THREE
  */
 /* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
@@ -197,7 +197,8 @@ function setupCharModelForm() {
 				startAnimationLoop();
 			}
 		} catch (error) {
-			alert('Error creating/updating CharModel: ' + error.message);
+			const e = error instanceof Error ? error.message : error;
+			alert('Error creating/updating CharModel: ' + e);
 			console.error(error);
 			throw error;
 		}

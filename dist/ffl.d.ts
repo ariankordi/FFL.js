@@ -895,11 +895,11 @@ export class CharModel {
     /**
      * Gets the ColorInfo object needed for SampleShaderMaterial.
      * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.
-     * @returns {import('./SampleShaderMaterial').SampleShaderMaterialColorInfo}
+     * @returns {import('./materials/SampleShaderMaterial').SampleShaderMaterialColorInfo}
      * The colorInfo object needed by SampleShaderMaterial.
      * @public
      */
-    public getColorInfo(isSpecial?: boolean): import("./SampleShaderMaterial").SampleShaderMaterialColorInfo;
+    public getColorInfo(isSpecial?: boolean): import("./materials/SampleShaderMaterial").SampleShaderMaterialColorInfo;
     /**
      * Gets a vector in which to scale the body model for this CharModel.
      * @returns {import('three').Vector3Like} Scale vector for the body model.

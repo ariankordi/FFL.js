@@ -12,7 +12,14 @@
     "type": "git",
     "url": "git://github.com/ariankordi/FFL.js.git"
   },
+  "exports": {
+    ".": "./ffl.js"
+  },
   "author": "Arian Kordi",
+  "license": "AGPL-3.0-only",
+  "bugs": {
+    "url": "https://github.com/ariankordi/FFL.js/issues"
+  },
   "homepage": "https://github.com/ariankordi/FFL.js",
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "^4.4.1",

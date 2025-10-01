@@ -36,7 +36,7 @@ declare class ResourceLoadHelper {
     /** The container element in which to place the widget inside. */
     container: HTMLElement;
     /** The initial resource to load when calling {@link this.init} */
-    initialResource: string | Uint8Array<ArrayBufferLike> | Response | Promise<Response> | null;
+    initialResource: string | Response | Promise<Response> | Uint8Array<ArrayBufferLike> | null;
     /** The callback to load the resource back into. */
     onLoad: (arg0: (Response | Uint8Array)) => Promise<void>;
     /** The HTML ID of the widget including a timestamp. */
