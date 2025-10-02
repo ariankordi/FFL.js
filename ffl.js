@@ -732,7 +732,6 @@ const FFLPartsTransform = _.struct([
  * @property {Array<FFLDrawParam>} drawParam
  * @property {Array<number>} pMaskRenderTextures
  * @property {FFLPartsTransform} partsTransform
- * @property {number} modelType - FFLModelType
  */
 /** @type {import('./struct-fu').StructInstance<FFLiCharModel>} */
 const FFLiCharModel = _.struct([
@@ -831,7 +830,6 @@ const FFLTextureFormat = {
  * @property {number} height
  * @property {number} mipCount
  * @property {FFLTextureFormat} format
- * @property {number} isGX2Tiled
  * @property {number} imageSize
  * @property {number} imagePtr
  * @property {number} mipSize
@@ -1705,7 +1703,7 @@ class CharModel {
 		// Set boundingBox getter ("this" = CharModel), dummy geometry needed
 		// this.meshes.geometry = { }; // NOTE: is this a good idea?
 		// Object.defineProperty(this.meshes.geometry, 'boundingBox',
-		// { get: () => this.boundingBox }); // TODO: box is too large using this
+		// { get: () => this.boundingBox }); // NOTE: box is too large using this
 
 		this._addCharModelMeshes(module); // Populate this.meshes.
 	}
@@ -1732,14 +1730,12 @@ class CharModel {
 			// Iterate through all DrawParams and convert to THREE.Mesh.
 			const drawParam = this._model.drawParam[shapeType];
 
-			// This will be null if there is no shape data,
-			// but it will be added anyway so that the indexes
-			// of this group all match up with FFLiShapeType.
-			const mesh = drawParamToMesh(drawParam, this._materialClass,
-				module, this._textureManager);
-			if (!mesh) {
+			// Skip shape if it's not empty.
+			if (!drawParam.primitiveParam.indexCount) {
 				continue;
 			}
+			const mesh = drawParamToMesh(drawParam, this._materialClass,
+				module, this._textureManager);
 			// Use FFLModulateType to indicate render order.
 			mesh.renderOrder = drawParam.modulateParam.type;
 
@@ -1983,7 +1979,7 @@ class CharModel {
 			// Break these references first (still in meshes)
 			this._facelineMesh = null;
 			this._maskMesh = null;
-			disposeMeshes(this.meshes);
+			disposeMany(this.meshes);
 			// @ts-expect-error - null not assignable. Always non-null except disposed.
 			this.meshes = null;
 		}
@@ -2380,7 +2376,6 @@ function _allocateModelSource(data, module) {
  * @returns {void} Returns nothing if verification passes.
  * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
  * @public
- * @todo TODO: Should preferably return a custom error class.
  */
 function verifyCharInfo(data, module, verifyName = false) {
 	// Resolve charInfoPtr as pointer to CharInfo.
@@ -2730,7 +2725,6 @@ function matSupportsFFL(material) {
 	return ('modulateMode' in material.prototype);
 }
 
-// TODO: private?
 // ------ drawParamToMesh(drawParam, materialClass, module, texManager) ------
 /**
  * Converts FFLDrawParam into a THREE.Mesh.
@@ -2740,8 +2734,8 @@ function matSupportsFFL(material) {
  * @param {Module} module - The Emscripten module.
  * @param {TextureManager} texManager - The {@link TextureManager} instance
  * for which to look for textures referenced by the DrawParam.
- * @returns {import('three').Mesh|null} The THREE.Mesh instance, or
- * null if the index count is 0 indicating no shape data.
+ * @returns {import('three').Mesh} The THREE.Mesh instance.
+ * @package
  */
 function drawParamToMesh(drawParam, materialClass, module, texManager) {
 	console.assert(drawParam, 'drawParamToMesh: drawParam may be null.');
@@ -2749,9 +2743,8 @@ function drawParamToMesh(drawParam, materialClass, module, texManager) {
 	console.assert(typeof materialClass === 'function', 'drawParamToMesh: materialClass is unexpectedly not a function.');
 
 	// Skip if the index count is 0, indicating no shape data.
-	if (drawParam.primitiveParam.indexCount === 0) {
-		return null;
-	}
+	console.assert(drawParam.primitiveParam.indexCount, 'drawParamToMesh: Index count is 0, indicating shape is empty. Check that before it gets passed into this function.');
+
 	// Bind geometry data.
 	const geometry = _bindDrawParamGeometry(drawParam, module);
 
@@ -3260,8 +3253,12 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
 	const bgColor = charModel.facelineColor;
 
 	// Create an offscreen scene.
-	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams, bgColor,
-		materialClass, charModel._module, charModel._textureManager);
+	const offscreenScene = new THREE.Scene();
+	offscreenScene.background = bgColor;
+
+	drawParams.forEach(param => offscreenScene.add(
+		drawParamToMesh(param, materialClass, charModel._module, charModel._textureManager)
+	));
 
 	// Determine if the alpha value needs to be 0.
 	if ('needsFacelineAlpha' in materialClass && materialClass.needsFacelineAlpha) {
@@ -3294,7 +3291,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
 	// Delete temp faceline object to free resources.
 	module._FFLiDeleteTempObjectFacelineTexture(facelineTempObjectPtr,
 		charModel._ptr, charModel._model.charModelDesc.resourceType);
-	disposeMeshes(offscreenScene); // Dispose meshes in scene.
+	disposeMany(offscreenScene); // Dispose meshes in scene.
 }
 
 /**
@@ -3327,7 +3324,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
 		module._FFLiInvalidateRawMask(rawMaskDrawParamPtr);
 
 		const { target, scene } = _drawMaskTexture(charModel,
-			rawMaskDrawParam, renderer, module, materialClass);
+			rawMaskDrawParam, renderer, materialClass);
 		console.debug(`Creating target ${target.texture.id} for mask ${i}`);
 		charModel._maskTargets[i] = target;
 
@@ -3338,7 +3335,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
 	// needs to be done given that disposeMeshes
 	// unconditionally deletes textures.
 	scenes.forEach((scene) => {
-		disposeMeshes(scene);
+		disposeMany(scene);
 	});
 
 	module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr,
@@ -3352,13 +3349,12 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
  * @param {CharModel} charModel - The CharModel.
  * @param {Array<FFLDrawParam>} rawMaskParam - The RawMaskDrawParam.
  * @param {import('three').WebGLRenderer} renderer - The renderer.
- * @param {Module} module - The Emscripten module.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}}
  * The RenderTarget and scene of this mask texture.
  * @package
  */
-function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialClass) {
+function _drawMaskTexture(charModel, rawMaskParam, renderer, materialClass) {
 	const drawParams = [
 		rawMaskParam[maskPartType.MustacheR],
 		rawMaskParam[maskPartType.MustacheL],
@@ -3375,9 +3371,12 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, module, materialCla
 		depthBuffer: false,
 		stencilBuffer: false
 	};
-	// Create an offscreen scene with no background (for 2D mask rendering).
-	const { scene: offscreenScene } = createSceneFromDrawParams(drawParams,
-		null, materialClass, module, charModel._textureManager);
+	// Create an offscreen transparent scene for 2D mask rendering.
+	const offscreenScene = new THREE.Scene();
+	offscreenScene.background = null;
+	drawParams.forEach(param => offscreenScene.add(
+		drawParamToMesh(param, materialClass, charModel._module, charModel._textureManager)
+	));
 	const width = charModel._getResolution();
 
 	const target = createAndRenderToTarget(offscreenScene,
@@ -3913,34 +3912,6 @@ function convertSNORMToFloat32(src, count, srcItemSize, targetItemSize) {
  */
 const _isWebGPU = renderer => 'isWebGPURenderer' in renderer;
 
-// TODO: private?
-// ----- createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) -----
-/**
- * Creates an THREE.Scene from an array of drawParams, converting each
- * to a new mesh. Used for one-time rendering of faceline/mask 2D planes.
- * @param {Array<FFLDrawParam>} drawParams - Array of FFLDrawParam.
- * @param {import('three').Color|null} bgColor - Optional background color.
- * @param {[MaterialConstructor, Module, TextureManager]} drawParamArgs - Arguments to pass to drawParamToMesh.
- * @returns {{scene: import('three').Scene, meshes: Array<import('three').Mesh|null>}}
- * An object containing the created scene and an array of meshes.
- */
-function createSceneFromDrawParams(drawParams, bgColor, ...drawParamArgs) {
-	const scene = new THREE.Scene();
-	// For 2D plane rendering, set the background if provided.
-	scene.background = bgColor || null;
-	// TODO: use THREE.Group?
-	/** @type {Array<import('three').Mesh|null>} */
-	const meshes = [];
-	drawParams.forEach((param) => {
-		const mesh = drawParamToMesh(param, ...drawParamArgs);
-		if (mesh) {
-			scene.add(mesh);
-			meshes.push(mesh);
-		}
-	});
-	return { scene, meshes };
-}
-
 // -------------------------- getIdentCamera(flipY) --------------------------
 /**
  * Returns an ortho camera that is effectively the same as
@@ -3996,9 +3967,8 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
  * Disposes meshes in a {@link THREE.Object3D} and removes them from the {@link THREE.Scene} specified.
  * @param {import('three').Scene|import('three').Object3D} group - The scene or group to dispose meshes from.
  * @param {import('three').Scene} [scene] - The scene to remove the meshes from, if provided.
- * @todo TODO: Rename to disposeGroup/Scene or something
  */
-function disposeMeshes(group, scene) {
+function disposeMany(group, scene) {
 	// Taken from: https://github.com/igvteam/spacewalk/blob/21c0a9da27f121a54e0cf6c0d4a23a9cf80e6623/js/utils/utils.js#L135C10-L135C29
 
 	/**
@@ -4580,7 +4550,7 @@ function base64ToUint8Array(base64) {
 
 /**
  * Converts a Uint8Array to a Base64 string.
- * @param {Array<number>} data - The Uint8Array to convert. TODO: check if Uint8Array truly can be used
+ * @param {Array<number>} data - The Uint8Array to convert.
  * @returns {string} The Base64-encoded string.
  */
 function uint8ArrayToBase64(data) {
