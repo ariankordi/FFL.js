@@ -135,7 +135,7 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 
 * Add an option to switch color space (`FFLSetLinearGammaMode`), needs to be kept track of per-CharModel.
 * Improve resource loading by either not loading all resource in WASM heap or in memory in general. (IndexedDB streaming?)
-* Find out how to easily strip out/disable all console.debug statements when not debugging, if possible.
+* Strip out console.debug/assert statements when not debugging, or for a build.
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
 * **Code needs to be split into files.** This has already been planned, search: `// TODO PATH:`
 * **More refactoring?**
