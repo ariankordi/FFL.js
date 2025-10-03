@@ -13,6 +13,8 @@ import {
 import * as FFLShaderMaterialImport from '../materials/FFLShaderMaterial.js';
 import * as LUTShaderMaterialImport from '../materials/LUTShaderMaterial.js';
 import * as SampleShaderMaterialImport from '../materials/SampleShaderMaterial.js';
+// ESM
+import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js'; // For WebGPURenderer only.
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Hack to get library globals recognized throughout the file (uncomment for ESM).
@@ -107,6 +109,11 @@ const materials = {
 	MeshBasicMaterial: THREE.MeshBasicMaterial, // no lighting
 	MeshPhongMaterial: THREE.MeshPhongMaterial
 };
+
+if ('WebGPURenderer' in THREE) {
+	// Replace FFLShaderMaterial with WebGPURenderer-compatible equivalent.
+	materials.FFLShaderMaterial = FFLShaderNodeMaterial;
+}
 
 // Expression flag with default expression, blink, FFL_EXPRESSION_LIKE_WINK_LEFT
 const expressionFlagBlinking = makeExpressionFlag(
@@ -340,7 +347,7 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 function getTextureMaterial(mat) {
 	return matSupportsFFL(mat)
 		? mat
-		: FFLShaderMaterial;
+		: materials.FFLShaderMaterial;
 }
 
 /**
@@ -445,6 +452,7 @@ function updateLightDirection(normalize = true) {
 	currentCharModel.meshes.traverse((mesh) => {
 		// Make sure this mesh is non-null and has a compatible ShaderMaterial.
 		if (mesh instanceof THREE.Mesh && mesh.material.lightDirection) {
+			mesh.material.opacity = 0.1; // Test materials updating
 			// Set the lightDirection on the material.
 			mesh.material.lightDirection = newDir.clone();
 		}

@@ -1202,10 +1202,12 @@ class TextureManager {
 	}
 }
 
+/** @typedef {import('three/src/renderers/common/Renderer.js', {with:{'resolution-mode':'import'}}).default} Renderer */
+
 /**
  * Sets the state for whether WebGL 1.0 or WebGPU is being used.
  * Otherwise, textures will appear wrong when not using WebGL 2.0.
- * @param {Object} renderer - The WebGLRenderer or WebGPURenderer.
+ * @param {Renderer} renderer - The WebGLRenderer or WebGPURenderer.
  * @param {Module} module - The module. Must be initialized along with the renderer.
  */
 function setRendererState(renderer, module) {
@@ -2648,7 +2650,7 @@ function _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDesc
  * of the ModelDesc from the existing CharModel.
  * @param {CharModel} charModel - The existing CharModel instance.
  * @param {Uint8Array|null} newData - The new raw charInfo data, or null to use the original.
- * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
+ * @param {Renderer} renderer - The Three.js renderer.
  * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
  * an array of expressions, a single expression, or an expression flag (Uint32Array).
  * @param {Object} [options] - Options for updating the model.
@@ -3175,7 +3177,7 @@ function _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
  * At the end, calls setExpression to update the mask texture.
  * Note that this is a separate function due to needing renderer parameter.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
+ * @param {Renderer} renderer - The Three.js renderer.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  */
 function initCharModelTextures(charModel, renderer, materialClass = charModel._materialClass) {
@@ -3226,7 +3228,7 @@ function initCharModelTextures(charModel, renderer, materialClass = charModel._m
  * Draws and applies the faceline texture for the CharModel.
  * @param {CharModel} charModel - The CharModel.
  * @param {FFLiTextureTempObject} textureTempObject - The FFLiTextureTempObject containing faceline DrawParams.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
@@ -3298,7 +3300,7 @@ function _drawFacelineTexture(charModel, textureTempObject, renderer, module, ma
  * Iterates through mask textures and draws each mask texture.
  * @param {CharModel} charModel - The CharModel.
  * @param {FFLiTextureTempObject} textureTempObject - The temporary texture object.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {Module} module - The Emscripten module.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @package
@@ -3348,7 +3350,7 @@ function _drawMaskTextures(charModel, textureTempObject, renderer, module, mater
  * Note that the caller needs to dispose meshes within the returned scene.
  * @param {CharModel} charModel - The CharModel.
  * @param {Array<FFLDrawParam>} rawMaskParam - The RawMaskDrawParam.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}}
  * The RenderTarget and scene of this mask texture.
@@ -3443,7 +3445,7 @@ function _getBGClearMesh(color, opacity = 0.0) {
  * in the `material`. So it converts a swizzled (using modulateMode) texture to RGBA.
  * NOTE: Does NOT handle mipmaps. But these textures
  * usually do not have mipmaps anyway so it's fine
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {import('three').MeshBasicMaterial} material - The original material of the mesh.
  * @param {Object<string, *>} userData - The original mesh.geometry.userData to get modulateMode/Type from.
  * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
@@ -3500,7 +3502,7 @@ function _texDrawRGBATarget(renderer, material, userData, materialTextureClass) 
  * textures that are R/RG format, to RGBA and also applying colors, so that
  * the CharModel can be rendered without a material that supports modulateMode.
  * @param {CharModel} charModel - The CharModel whose textures to convert.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
  */
 function convertModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
@@ -3527,10 +3529,10 @@ function convertModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
  * with RenderTargets into THREE.DataTextures, so that the
  * CharModel can be exported using e.g., GLTFExporter.
  * @param {CharModel} charModel - The CharModel whose textures to convert.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  */
-function convModelTargetsToDataTex(charModel, renderer) {
-	charModel.meshes.traverse((mesh) => {
+async function convModelTargetsToDataTex(charModel, renderer) {
+	charModel.meshes.traverse(async (mesh) => {
 		if (!(mesh instanceof THREE.Mesh) || !mesh.material.map) {
 			return;
 		}
@@ -3541,8 +3543,8 @@ function convModelTargetsToDataTex(charModel, renderer) {
 		const data = new Uint8Array(tex.image.width * tex.image.height * 4);
 		const target = /** @type {import('three').RenderTarget} */ tex._target;
 		console.assert(target, 'convModelTargetsToDataTex: mesh.material.map (texture)._target is null or undefined.');
-		renderer.readRenderTargetPixels(target, 0, 0,
-			tex.image.width, tex.image.height, data);
+		await renderer.readRenderTargetPixelsAsync(target, 0, 0,
+			tex.image.width, tex.image.height);
 		// Construct new THREE.DataTexture from the read data.
 		// So... draw the texture, download it out, and upload it again.
 		const dataTex = new THREE.DataTexture(data, tex.image.width,
@@ -3906,7 +3908,7 @@ function convertSNORMToFloat32(src, count, srcItemSize, targetItemSize) {
 // TODO PATH: src/RenderTargetUtils.js
 
 /**
- * @param {Object} renderer - The input renderer.
+ * @param {Renderer} renderer - The input renderer.
  * @returns {boolean} Whether the renderer is THREE.WebGPURenderer.
  * @package
  */
@@ -3935,7 +3937,7 @@ function _getIdentCamera(flipY = false) {
  * the given camera, and returns the render target.
  * @param {import('three').Scene} scene - The scene to render.
  * @param {import('three').Camera} camera - The camera to use.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {number} width - Desired width of the target.
  * @param {number} height - Desired height of the target.
  * @param {Object} [targetOptions] - Optional options for the render target.
@@ -3956,7 +3958,7 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
 	const prevTarget = renderer.getRenderTarget();
 	// Only works on Three.js r102 and above.
 	renderer.setRenderTarget(
-		/** @type {import('three').WebGLRenderTarget} */ (renderTarget)); // Set new target.
+		/** @type {import('three').RenderTarget} */ (renderTarget)); // Set new target.
 	renderer.render(scene, camera); // Render.
 	renderer.setRenderTarget(prevTarget); // Set previous target.
 	return renderTarget; // This needs to be disposed when done.
@@ -4025,8 +4027,8 @@ function disposeMany(group, scene) {
 
 /**
  * Saves the current renderer state and returns an object to restore it later.
- * @param {import('three').WebGLRenderer} renderer - The renderer to save state from.
- * @returns {{target: import('three').WebGLRenderTarget|null,
+ * @param {Renderer} renderer - The renderer to save state from.
+ * @returns {{target: import('three').RenderTarget|null,
  * colorSpace: import('three').ColorSpace, size: import('three').Vector2}}
  * The saved state object.
  */
@@ -4043,8 +4045,8 @@ function _saveRendererState(renderer) {
 
 /**
  * Restores a renderer's state from a saved state object.
- * @param {import('three').WebGLRenderer} renderer - The renderer to restore state to.
- * @param {{target: import('three').WebGLRenderTarget|null,
+ * @param {Renderer} renderer - The renderer to restore state to.
+ * @param {{target: import('three').RenderTarget|null,
  * colorSpace: import('three').ColorSpace, size: import('three').Vector2}} state -
  * The saved state object.
  */
@@ -4056,7 +4058,7 @@ function _restoreRendererState(renderer, state) {
 
 /**
  * Copies the renderer's swapchain to a canvas.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
  * @returns {HTMLCanvasElement} The canvas containing the rendered output.
  * @throws {Error} Throws if the canvas is defined but invalid.
@@ -4081,7 +4083,7 @@ function _copyRendererToCanvas(renderer, canvas) {
 /**
  * Renders a texture to a canvas. If no canvas is provided, a new one is created.
  * @param {import('three').Texture} texture - The texture to render.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Options for canvas output.
  * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
  * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into.
@@ -4175,7 +4177,7 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
 /**
  * Creates an icon of the CharModel with the specified view type.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Optional settings for rendering the icon.
  * @param {ViewType} [options.viewType] - The view type that the camera derives from.
  * @param {number} [options.width] - Desired icon width in pixels.

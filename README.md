@@ -142,7 +142,7 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
   - Refactor into classes/true OOP. Should functionality be implemented in class patterns?
   - Improve documentation as code (TypeDoc output). Add JSDoc @example tags? Or write real docs/tutorial?
   - 🤔 Can someone scrutinize my code? Style, naming conventions, ease of use and import, low quality sections...?
-* Port `TextureShaderMaterial` to TSL and use NodeMaterial for WebGPURenderer support?
+* Port more shaders to TSL for WebGPU support? (+ Address TODOs in existing ones)
 
 # Acknowledgements
 * [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).

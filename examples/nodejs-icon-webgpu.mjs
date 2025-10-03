@@ -1,18 +1,31 @@
+/**
+ * @file Sample for rendering a Mii icon headlessly
+ * using Node.js and THREE.WebGPURenderer.
+ * Before running, install: npm install webgpu three fast-png
+ * (fast-png is used only because it's native JS, so probably less fuss)
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 // @ts-check
 
 import * as fs from 'fs/promises';
 import { create, globals } from 'webgpu';
 import { encode } from 'fast-png';
 import * as THREE from 'three/webgpu';
+// Standard non-Node dependencies:
 import {
 	initializeFFL, setRendererState, createCharModel,
 	initCharModelTextures, parseHexOrB64ToUint8Array,
 	getCameraForViewType, ViewType, exitFFL
 } from '../ffl.js';
-import TextureShaderNodeMaterial from '../materials/TextureShaderNodeMaterial.js';
+import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
 import ModuleFFL from './ffl-emscripten-single-file.js';
 
-// Configure WebGPU.
+/* globals process -- Node.js */
+
+// // ---------------------------------------------------------------------
+// //  WebGPU setup and helpers
+// // ---------------------------------------------------------------------
+
 Object.assign(globalThis, globals);
 // @ts-ignore -- Incomplete navigator type.
 globalThis.navigator = { gpu: create([]) };
@@ -21,40 +34,22 @@ globalThis.navigator = { gpu: create([]) };
  * function that does nothing.
  * If only render targets are used, no other functions are needed.
  */
-const webgpuCanvasContext = { configure() { } };
+const gpuCanvasContext = { configure() { } };
 // @ts-ignore -- Incomplete type. It is needed by Three.js.
 globalThis.VideoFrame ??= (class VideoFrame { });
 
-// --------------- Main Entrypoint (Scene & Animation) -----------------
-
 /**
- * Emscripten module instance returned after initialization.
- * @type {import('../ffl.js').Module}
- */
-//let moduleFFL;
-/**
- * FFLResourceDesc returned by {@link initializeFFL}, needed for calling {@link exitFFL}.
- * @type {import('../ffl.js').FFLResourceDesc}
- */
-//let resourceDesc;
-
-// Global GL context and renderer.
-/** @type {THREE.Scene} */
-//let scene;
-/** @type {THREE.WebGLRenderer} */
-//let renderer;
-
-/**
- * Create a mock canvas for Three.js to use.
- * @param {number} width
- * @param {number} height
- * @param {function(string, Object): WebGLRenderingContext|WebGL2RenderingContext} getContext -
+ * @param {number} width - Width of the canvas.
+ * @param {number} height - Height of the canvas.
+ * @param {typeof HTMLCanvasElement.prototype.getContext} getContext -
  * Function that gets the context from the canvas.
- * @returns {HTMLCanvasElement}
+ * @returns {HTMLCanvasElement} Mock canvas-like object for Three.js to use.
  */
 function getCanvas(width, height, getContext) {
 	return {
-		width, height, style: {},
+		width, height,
+		// @ts-expect-error -- Incomplete style type.
+		style: {},
 		addEventListener() { },
 		removeEventListener() { },
 		getContext
@@ -62,20 +57,23 @@ function getCanvas(width, height, getContext) {
 }
 
 /**
- * @param {number} width
- * @param {number} height
- * @returns {THREE.WebGPURenderer}
+ * Creates the renderer. The default sizes create a 1x1 swapchain texture.
+ * @param {number} [width] - Width for the canvas/renderer.
+ * @param {number} [height] - Height for the canvas/renderer.
+ * @returns {THREE.WebGPURenderer} The created renderer.
  */
-function createThreeRenderer(width, height) {
+function createThreeRenderer(width = 1, height = 1) {
 	const canvas = getCanvas(width, height,
+		// @ts-expect-error -- Does not return a real GPUCanvasContext.
 		type => type === 'webgpu'
-			? webgpuCanvasContext
+			? gpuCanvasContext
 			: console.assert(false, `unsupported canvas context type ${type}`)
 	);
 
 	// WebGLRenderer constructor sets "self" as the context. (which is window)
 	// Mock all functions called on it as of r162.
 	globalThis.self ??= {
+		// @ts-expect-error -- Incompatible no-op requestAnimationFrame.
 		requestAnimationFrame() { },
 		cancelAnimationFrame() { }
 	};
@@ -86,81 +84,85 @@ function createThreeRenderer(width, height) {
 	return renderer;
 }
 
-/**
- * @param {THREE.Scene} scene
- * @param {THREE.Camera} camera
- */
-/*
-function flipSceneY(scene, camera) {
-	// The pixels coming from WebGL are upside down.
-	camera.projectionMatrix.elements[5] *= -1; // Flip the camera Y axis.
-	// When flipping the camera, the triangles are in the wrong direction.
-	scene.traverse((mesh) => {
-		if (mesh.isMesh && mesh.material.side === THREE.FrontSide) {
-			// Fix triangle winding by changing the culling (side).
-			mesh.material.side = THREE.BackSide;
-		}
-	});
-}
-*/
-
 // // ---------------------------------------------------------------------
-// //  Scene Setup
+// //  CLI argument parsing.
 // // ---------------------------------------------------------------------
 
-/**
- * Adds {@link THREE.AmbientLight} and {@link THREE.DirectionalLight} to
- * a scene, using values similar to what the FFLShader is using.
- * @param {import('three').Scene} scene - The scene to add lights to.
- * @todo TODO: Why does it look worse when WebGLRenderer.useLegacyLights is not enabled?
- */
-function addLightsToScene(scene) {
-	const intensity = Number(THREE.REVISION) >= 155 ? Math.PI : 1.0;
-	const ambientLight = new THREE.AmbientLight(new THREE.Color(0.73, 0.73, 0.73), intensity);
-	const directionalLight = new THREE.DirectionalLight(
-		new THREE.Color(0.60, 0.60, 0.60), intensity);
-	directionalLight.position.set(-0.455, 0.348, 0.5);
-	scene.add(ambientLight, directionalLight);
+/** Print usage info and exit. */
+function usage() {
+	console.error(`Usage:
+  node ${process.argv[1]} <resourceFile> <hexOrBase64Data> <outputFile> [width]
+
+Arguments:
+  resourceFile      Path to FFLResHigh.dat/AFLResHigh_2_3.dat.
+  hexOrBase64Data   Hex or Base64 Mii data. Most formats are supported.
+  outputFile        Path to write PNG image.
+  width             Optional. Image width and height in pixels (default: 256).
+
+Example:
+  node nodejs-icon-webgpu.mjs ../AFLResHigh_2_3.dat 000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1 mii.png 256
+`);
 }
+
+// Parse CLI arguments.
+const argv = process.argv.slice(2);
+if (argv.length < 3 || argv.length > 4) {
+	usage();
+	process.exit(1);
+}
+const [resourcePath, data, outFile, widthArg] = argv;
+/** Width, default = 256. */
+const width = widthArg ? parseInt(widthArg, 10) : 256;
+if (Number.isNaN(width) || width <= 0) {
+	console.error('Width must be a positive integer.');
+	process.exit(1);
+}
+/** Height = width for square icon. */
+const height = width;
+
+// // ---------------------------------------------------------------------
+// //  Rendering entrypoint
+// // ---------------------------------------------------------------------
 
 /** Entrypoint */
 async function main() {
-	const resource = fs.readFile('../AFLResHigh_2_3.dat');
+	/*
+	const resourceFile = fs.readFile('../AFLResHigh_2_3.dat');
 	const data = '000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1';
-
+	const outFile = 'mii.png';
 	const width = 256;
-	const height = 256;
+	const height = width;
+	*/
+	const resourceFile = fs.readFile(resourcePath);
+
+	/** The renderer. Dimensions are not passed, because render targets are used. */
+	const renderer = createThreeRenderer();
+	await renderer.init();
 
 	let ffl;
 	let currentCharModel;
-
-	/** Renderer created with 1px small "swapchain" texture. */
-	const renderer = createThreeRenderer(1, 1);
-	await renderer.init();
 	try {
-		ffl = await initializeFFL(await resource, ModuleFFL);
+		ffl = await initializeFFL(await resourceFile, ModuleFFL);
 
 		setRendererState(renderer, ffl.module); // Tell FFL.js we are WebGPU
 
 		const scene = new THREE.Scene();
 		scene.background = null; // Transparent background.
-		addLightsToScene(scene);
 
 		// Create Mii model and add to the scene.
 		const studioRaw = parseHexOrB64ToUint8Array(data);
 		currentCharModel = createCharModel(studioRaw, null,
-			THREE.MeshStandardMaterial, ffl.module);
+			FFLShaderNodeMaterial, ffl.module);
 
-		initCharModelTextures(currentCharModel, renderer, TextureShaderNodeMaterial);
+		initCharModelTextures(currentCharModel, renderer);
 		scene.add(currentCharModel.meshes); // Add to scene
 
 		// Use the camera for an icon pose.
 		const camera = getCameraForViewType(ViewType.MakeIcon);
-		// flipSceneY(scene, camera);
 
 		// Render the scene, and read the pixels into a buffer.
 		const rt = new THREE.RenderTarget(width, height, {
-			samples: 4, // Antialiasing
+			// samples: 4, // Uncomment for antialiasing.
 			minFilter: THREE.LinearFilter,
 			magFilter: THREE.LinearFilter
 		});
@@ -168,18 +170,26 @@ async function main() {
 
 		renderer.render(scene, camera);
 
+		// Read the pixels out and encode to PNG.
 		const pixels = await renderer.readRenderTargetPixelsAsync(rt, 0, 0, rt.width, rt.height);
 		const pngPixels = encode({
 			width: rt.width, height: rt.height,
 			channels: 4 /* RGBA */, data: /** @type {Uint8Array} */ (pixels)
 		});
-		fs.writeFile('/Volumes/shm/mii.png', pngPixels);
+
+		fs.writeFile(outFile, pngPixels);
 	} finally {
 		// Clean up.
 		(currentCharModel) && currentCharModel.dispose(); // Mii model
 		ffl && exitFFL(ffl.module, ffl.resourceDesc); // Free fflRes from memory.
 		renderer.dispose(); // Dispose Three.js renderer.
-		console.warn('WARNING: There\'s currently a weird bug with this script where it doesn\'t exit, so you can hit CTRL-C now')
+
+		// Destroy the GPUDevice.
+		const device = /** @type {Object<string, *>} */ (renderer.backend).device;
+		if (device instanceof GPUDevice) {
+			await device.queue.onSubmittedWorkDone();
+			device.destroy();
+		}
 	}
 }
 
