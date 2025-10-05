@@ -176,7 +176,7 @@ async function initializeThreeRenderer() {
 	renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // Makes shaders work in sRGB
 
 	// Call renderer.init in case it is WebGPURenderer.
-	if (renderer['init'] !== undefined) {
+	if ('init' in renderer) {
 		await /** @type {*} */ (renderer).init();
 	}
 

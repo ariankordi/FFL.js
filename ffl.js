@@ -1739,7 +1739,8 @@ class CharModel {
 			const mesh = drawParamToMesh(drawParam, this._materialClass,
 				module, this._textureManager);
 			// Use FFLModulateType to indicate render order.
-			mesh.renderOrder = drawParam.modulateParam.type;
+			mesh.renderOrder = drawParam.modulateParam.type + 1;
+			// renderOrder = 0 is sometimes unexpected, so let's make this one-indexed.
 
 			// Assign colorInfo from the CharModel.
 			if ('colorInfo' in mesh.material) {
@@ -1757,6 +1758,7 @@ class CharModel {
 					this._maskMesh = mesh;
 					break;
 			}
+			// mesh.name = Object.keys(FFLiShapeType)[shapeType];
 
 			this.meshes.add(mesh); // Add the mesh or null.
 		}

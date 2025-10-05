@@ -136,6 +136,7 @@ export type StudioCharInfo = {
     noseType: number;
     noseY: number;
 };
+export type Renderer = import("three/src/renderers/common/Renderer.js", { with: { "resolution-mode": "import" } }).default;
 export type _ = {
     struct(name: string | Array<Field>, fields?: Array<Field | StructInstance<any>> | number, count?: number): StructInstance<any>;
     padTo(off: number): Field & {
@@ -311,17 +312,12 @@ export type FFLiCharModel = {
     drawParam: Array<FFLDrawParam>;
     pMaskRenderTextures: Array<number>;
     partsTransform: FFLPartsTransform;
-    /**
-     * - FFLModelType
-     */
-    modelType: number;
 };
 export type FFLTextureInfo = {
     width: number;
     height: number;
     mipCount: number;
     format: FFLTextureFormat;
-    isGX2Tiled: number;
     imageSize: number;
     imagePtr: number;
     mipSize: number;
@@ -610,13 +606,14 @@ export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: 
     module: Module;
     resourceDesc: FFLResourceDesc;
 }>;
+/** @typedef {import('three/src/renderers/common/Renderer.js', {with:{'resolution-mode':'import'}}).default} Renderer */
 /**
  * Sets the state for whether WebGL 1.0 or WebGPU is being used.
  * Otherwise, textures will appear wrong when not using WebGL 2.0.
- * @param {Object} renderer - The WebGLRenderer or WebGPURenderer.
+ * @param {Renderer} renderer - The WebGLRenderer or WebGPURenderer.
  * @param {Module} module - The module. Must be initialized along with the renderer.
  */
-export function setRendererState(renderer: Object, module: Module): void;
+export function setRendererState(renderer: Renderer, module: Module): void;
 /**
  * @param {Module} module - Emscripten module.
  * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
@@ -915,7 +912,6 @@ export class CharModel {
  * @returns {void} Returns nothing if verification passes.
  * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
  * @public
- * @todo TODO: Should preferably return a custom error class.
  */
 export function verifyCharInfo(data: Uint8Array | number, module: Module, verifyName?: boolean): void;
 /**
@@ -989,7 +985,7 @@ export function createCharModel(data: Uint8Array | FFLiCharInfo, descOrExpFlag: 
  * of the ModelDesc from the existing CharModel.
  * @param {CharModel} charModel - The existing CharModel instance.
  * @param {Uint8Array|null} newData - The new raw charInfo data, or null to use the original.
- * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
+ * @param {Renderer} renderer - The Three.js renderer.
  * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
  * an array of expressions, a single expression, or an expression flag (Uint32Array).
  * @param {Object} [options] - Options for updating the model.
@@ -1000,7 +996,7 @@ export function createCharModel(data: Uint8Array | FFLiCharInfo, descOrExpFlag: 
  * @throws {Error} Unexpected type for descOrExpFlag, newData is null
  * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
  */
-export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: import("three").WebGLRenderer, descOrExpFlag?: CharModelDescOrExpressionFlag, { texOnly, verify, materialTextureClass }?: {
+export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: Renderer, descOrExpFlag?: CharModelDescOrExpressionFlag, { texOnly, verify, materialTextureClass }?: {
     texOnly?: boolean | undefined;
     verify?: boolean | undefined;
     materialTextureClass?: MaterialConstructor | null | undefined;
@@ -1010,13 +1006,13 @@ export function updateCharModel(charModel: CharModel, newData: Uint8Array | null
  * the given camera, and returns the render target.
  * @param {import('three').Scene} scene - The scene to render.
  * @param {import('three').Camera} camera - The camera to use.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {number} width - Desired width of the target.
  * @param {number} height - Desired height of the target.
  * @param {Object} [targetOptions] - Optional options for the render target.
  * @returns {import('three').RenderTarget} The render target (which contains .texture).
  */
-export function createAndRenderToTarget(scene: import("three").Scene, camera: import("three").Camera, renderer: import("three").WebGLRenderer, width: number, height: number, targetOptions?: Object): import("three").RenderTarget;
+export function createAndRenderToTarget(scene: import("three").Scene, camera: import("three").Camera, renderer: Renderer, width: number, height: number, targetOptions?: Object): import("three").RenderTarget;
 /**
  * @param {Function} material - Class constructor for the material to test.
  * @returns {boolean} Whether or not the material class supports FFL swizzled (modulateMode) textures.
@@ -1028,21 +1024,21 @@ export function matSupportsFFL(material: Function): boolean;
  * At the end, calls setExpression to update the mask texture.
  * Note that this is a separate function due to needing renderer parameter.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {import('three').WebGLRenderer} renderer - The Three.js renderer.
+ * @param {Renderer} renderer - The Three.js renderer.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
  */
-export function initCharModelTextures(charModel: CharModel, renderer: import("three").WebGLRenderer, materialClass?: MaterialConstructor): void;
+export function initCharModelTextures(charModel: CharModel, renderer: Renderer, materialClass?: MaterialConstructor): void;
 /**
  * Renders a texture to a canvas. If no canvas is provided, a new one is created.
  * @param {import('three').Texture} texture - The texture to render.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Options for canvas output.
  * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
  * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into.
  * Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
  */
-export function textureToCanvas(texture: import("three").Texture, renderer: import("three").WebGLRenderer, { flipY, canvas }?: {
+export function textureToCanvas(texture: import("three").Texture, renderer: Renderer, { flipY, canvas }?: {
     flipY?: boolean | undefined;
     canvas?: HTMLCanvasElement | undefined;
 }): HTMLCanvasElement;
@@ -1108,18 +1104,18 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
  * textures that are R/RG format, to RGBA and also applying colors, so that
  * the CharModel can be rendered without a material that supports modulateMode.
  * @param {CharModel} charModel - The CharModel whose textures to convert.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
  */
-export function convertModelTexturesToRGBA(charModel: CharModel, renderer: import("three").WebGLRenderer, materialTextureClass: MaterialConstructor): void;
+export function convertModelTexturesToRGBA(charModel: CharModel, renderer: Renderer, materialTextureClass: MaterialConstructor): void;
 /**
  * Converts all textures in the CharModel that are associated
  * with RenderTargets into THREE.DataTextures, so that the
  * CharModel can be exported using e.g., GLTFExporter.
  * @param {CharModel} charModel - The CharModel whose textures to convert.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  */
-export function convModelTargetsToDataTex(charModel: CharModel, renderer: import("three").WebGLRenderer): void;
+export function convModelTargetsToDataTex(charModel: CharModel, renderer: Renderer): Promise<void>;
 /**
  * Modifies a BufferGeometry in place to be compatible with glTF.
  * It currently: deinterleaves attributes, converts half-float to float,
@@ -1146,7 +1142,7 @@ export function getCameraForViewType(viewType: ViewType, width?: number, height?
 /**
  * Creates an icon of the CharModel with the specified view type.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Optional settings for rendering the icon.
  * @param {ViewType} [options.viewType] - The view type that the camera derives from.
  * @param {number} [options.width] - Desired icon width in pixels.
@@ -1159,7 +1155,7 @@ export function getCameraForViewType(viewType: ViewType, width?: number, height?
  * to draw into. Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the icon.
  */
-export function makeIconFromCharModel(charModel: CharModel, renderer: import("three").WebGLRenderer, options?: {
+export function makeIconFromCharModel(charModel: CharModel, renderer: Renderer, options?: {
     viewType?: number | undefined;
     width?: number | undefined;
     height?: number | undefined;
@@ -1237,7 +1233,7 @@ export function convertStudioCharInfoToFFLiCharInfo(src: StudioCharInfo): FFLiCh
 export function convertFFLiCharInfoToStudioCharInfo(src: FFLiCharInfo): StudioCharInfo;
 /**
  * Converts a Uint8Array to a Base64 string.
- * @param {Array<number>} data - The Uint8Array to convert. TODO: check if Uint8Array truly can be used
+ * @param {Array<number>} data - The Uint8Array to convert.
  * @returns {string} The Base64-encoded string.
  */
 export function uint8ArrayToBase64(data: Array<number>): string;
