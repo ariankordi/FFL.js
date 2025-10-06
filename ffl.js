@@ -3428,18 +3428,14 @@ function _setFaceline(charModel, target) {
  * @returns {import('three').Mesh} The plane with the color and opacity specified.
  * @package
  */
-function _getBGClearMesh(color, opacity = 0.0) {
-	const plane = new THREE.PlaneGeometry(2, 2);
-	// Create mesh that has color but arbitrary alpha value.
-	return new THREE.Mesh(plane,
+const _getBGClearMesh = (color, opacity = 0.0) =>
+	new THREE.Mesh(new THREE.PlaneGeometry(2, 2),
 		new THREE.MeshBasicMaterial({
-			color: color,
+			color, opacity,
 			transparent: true,
-			opacity: opacity,
 			blending: THREE.NoBlending
 		})
 	);
-}
 
 /**
  * Takes the texture in `material` and draws it using `materialTextureClass`, using
@@ -3966,7 +3962,7 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
 	return renderTarget; // This needs to be disposed when done.
 }
 
-// -------------------------- disposeMeshes(target) --------------------------
+// --------------------------- disposeMany(target) ----------------------------
 /**
  * Disposes meshes in a {@link THREE.Object3D} and removes them from the {@link THREE.Scene} specified.
  * @param {import('three').Scene|import('three').Object3D} group - The scene or group to dispose meshes from.
@@ -4135,44 +4131,13 @@ function textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/ModelIcon.js
 
-/** @enum {number} */
-const ViewType = {
-	/** Typical icon body view. */
-	Face: 0,
-	/** FFLMakeIcon matrix */
-	MakeIcon: 1,
-	/** Custom view with 45 degree field-of-view. */
-	IconFovy45: 2
-};
-
-// -------------- getCameraForViewType(viewType, width, height) --------------
-/**
- * @param {ViewType} viewType - The {@link ViewType} enum value.
- * @param {number} width - Width of the view.
- * @param {number} height - Height of the view.
- * @returns {import('three').PerspectiveCamera} The camera representing the view type specified.
- * @throws {Error} not implemented (ViewType.Face)
- */
-function getCameraForViewType(viewType, width = 1, height = 1) {
-	const aspect = width / height;
-	switch (viewType) {
-		case ViewType.MakeIcon: {
-			/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
-			const fovy = 9.8762;
-			const camera = new THREE.PerspectiveCamera(fovy, aspect, 500, 1000);
-			camera.position.set(0, 34.5, 600);
-			camera.lookAt(0, 34.5, 0.0);
-			return camera;
-		}
-		case ViewType.IconFovy45: {
-			const camera = new THREE.PerspectiveCamera(45, aspect, 50, 1000);
-			camera.position.set(0, 34, 110);
-			camera.lookAt(0, 34, 0);
-			return camera;
-		}
-		default:
-			throw new Error('getCameraForViewType: not implemented');
-	}
+/** @returns {import('three').PerspectiveCamera} The camera for FFLMakeIcon. */
+function getIconCamera() {
+	/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
+	const fovy = 9.8762;
+	const camera = new THREE.PerspectiveCamera(fovy, 1 /* aspect = square */, 500, 1000);
+	camera.position.set(0, 34.5, 600);
+	return camera;
 }
 
 // ----------- makeIconFromCharModel(charModel, renderer, options) -----------
@@ -4181,7 +4146,6 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
  * @param {CharModel} charModel - The CharModel instance.
  * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Optional settings for rendering the icon.
- * @param {ViewType} [options.viewType] - The view type that the camera derives from.
  * @param {number} [options.width] - Desired icon width in pixels.
  * @param {number} [options.height] - Desired icon height in pixels.
  * @param {import('three').Scene} [options.scene] - Optional scene
@@ -4195,7 +4159,6 @@ function getCameraForViewType(viewType, width = 1, height = 1) {
 function makeIconFromCharModel(charModel, renderer, options = {}) {
 	// Set locals from options object.
 	let {
-		viewType = ViewType.MakeIcon,
 		width = 256,
 		height = 256,
 		scene,
@@ -4215,7 +4178,7 @@ function makeIconFromCharModel(charModel, renderer, options = {}) {
 
 	// Get camera based on viewType parameter.
 	if (!camera) {
-		camera = getCameraForViewType(viewType);
+		camera = getIconCamera();
 	}
 
 	const state = _saveRendererState(renderer);
@@ -4632,8 +4595,7 @@ export {
 	convGeometryToGLTFCompatible,
 
 	// Icon rendering
-	ViewType,
-	getCameraForViewType,
+	getIconCamera,
 	makeIconFromCharModel,
 	StudioCharInfo,
 

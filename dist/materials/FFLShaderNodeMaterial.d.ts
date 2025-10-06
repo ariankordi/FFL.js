@@ -38,7 +38,6 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
     uLightDiffuse: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<Color>>;
     uLightSpecular: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<Color>>;
     uLightDir: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<import("three").Vector3>>;
-    uRimColor: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<Color>>;
     uRimPower: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<number>>;
     fragmentNode: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/src/nodes/TSL.js", { with: { "resolution-mode": "import" } }).ShaderCallNodeInternal>;
     diffuse: Color | undefined;
@@ -49,8 +48,9 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
     uMaterialAmbient: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<Color>> | undefined;
     uMaterialDiffuse: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<Color>> | undefined;
     uMaterialSpecular: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<Color>> | undefined;
-    uMaterialSpecularPower: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<number>> | undefined;
     uMaterialSpecularMode: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<number>> | undefined;
+    uMaterialSpecularPower: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<number>> | undefined;
+    uRimColor: import("three/tsl", { with: { "resolution-mode": "import" } }).ShaderNodeObject<import("three/webgpu", { with: { "resolution-mode": "import" } }).UniformNode<Color>> | undefined;
     /**
      * Sets the light direction.
      * @param {import('three').Vector3} value - The new light direction.

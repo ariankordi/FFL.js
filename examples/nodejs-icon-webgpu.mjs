@@ -15,7 +15,7 @@ import * as THREE from 'three/webgpu';
 import {
 	initializeFFL, setRendererState, createCharModel,
 	initCharModelTextures, parseHexOrB64ToUint8Array,
-	getCameraForViewType, ViewType, exitFFL
+	getIconCamera, exitFFL
 } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
 import ModuleFFL from './ffl-emscripten-single-file.js';
@@ -158,7 +158,7 @@ async function main() {
 		scene.add(currentCharModel.meshes); // Add to scene
 
 		// Use the camera for an icon pose.
-		const camera = getCameraForViewType(ViewType.MakeIcon);
+		const camera = getIconCamera();
 
 		// Render the scene, and read the pixels into a buffer.
 		const rt = new THREE.RenderTarget(width, height, {

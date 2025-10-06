@@ -136,7 +136,12 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 * Add an option to switch color space (`FFLSetLinearGammaMode`), needs to be kept track of per-CharModel.
 * Improve resource loading by either not loading all resource in WASM heap or in memory in general. (IndexedDB streaming?)
 * Strip out console.debug/assert statements when not debugging, or for a build.
+  - As well as the TextureManager.logging property.
+    * Terser is too dumb to see that it's always false, so perhaps it should be a shakable constant?
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
+* **Switch to `"type": "module"` in package.json.**
+  - Currently, this breaks some Emscripten modules and struct-fu. So, they all need to be ESM-first.
+  - The shader materials are also UMD, so they should be converted with builds to UMD each.
 * **Code needs to be split into files.** This has already been planned, search: `// TODO PATH:`
 * **More refactoring?**
   - Refactor into classes/true OOP. Should functionality be implemented in class patterns?

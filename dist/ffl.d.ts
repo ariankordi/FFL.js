@@ -1125,26 +1125,13 @@ export function convModelTargetsToDataTex(charModel: CharModel, renderer: Render
  * @throws {Error} Throws if an unsupported attribute format is encountered.
  */
 export function convGeometryToGLTFCompatible(geometry: import("three").BufferGeometry): void;
-export type ViewType = number;
-export namespace ViewType {
-    let Face: number;
-    let MakeIcon: number;
-    let IconFovy45: number;
-}
-/**
- * @param {ViewType} viewType - The {@link ViewType} enum value.
- * @param {number} width - Width of the view.
- * @param {number} height - Height of the view.
- * @returns {import('three').PerspectiveCamera} The camera representing the view type specified.
- * @throws {Error} not implemented (ViewType.Face)
- */
-export function getCameraForViewType(viewType: ViewType, width?: number, height?: number): import("three").PerspectiveCamera;
+/** @returns {import('three').PerspectiveCamera} The camera for FFLMakeIcon. */
+export function getIconCamera(): import("three").PerspectiveCamera;
 /**
  * Creates an icon of the CharModel with the specified view type.
  * @param {CharModel} charModel - The CharModel instance.
  * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Optional settings for rendering the icon.
- * @param {ViewType} [options.viewType] - The view type that the camera derives from.
  * @param {number} [options.width] - Desired icon width in pixels.
  * @param {number} [options.height] - Desired icon height in pixels.
  * @param {import('three').Scene} [options.scene] - Optional scene
@@ -1156,7 +1143,6 @@ export function getCameraForViewType(viewType: ViewType, width?: number, height?
  * @returns {HTMLCanvasElement} The canvas containing the icon.
  */
 export function makeIconFromCharModel(charModel: CharModel, renderer: Renderer, options?: {
-    viewType?: number | undefined;
     width?: number | undefined;
     height?: number | undefined;
     scene?: THREE.Scene | undefined;

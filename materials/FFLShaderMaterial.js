@@ -493,6 +493,11 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	static defaultRimColor = new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */;
 	/**
+	 * Default rim color for the body.
+	 * @type {import('three').Color}
+	 */
+	static defaultRimColorBody = new THREE.Color(0.4, 0.4, 0.4);
+	/**
 	 * Default rim power (intensity).
 	 * @type {number}
 	 */
@@ -623,7 +628,6 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 			},
 			u_light_dir: { value: FFLShaderMaterial.defaultLightDir.clone() },
 			u_light_enable: { value: true }, // Default to true.
-			u_rim_color: { value: FFLShaderMaterial.defaultRimColor },
 			u_rim_power: { value: FFLShaderMaterial.defaultRimPower }
 		};
 
@@ -815,6 +819,10 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 			value: this._useSpecularModeBlinn ? 0 : matParam.specularMode
 		};
 		this.uniforms.u_material_specular_power = { value: matParam.specularPower };
+		const rimColor = value > 8
+			? FFLShaderMaterial.defaultRimColorBody
+			: FFLShaderMaterial.defaultRimColor;
+		this.uniforms.u_rim_color = { value: rimColor };
 	}
 
 	/**

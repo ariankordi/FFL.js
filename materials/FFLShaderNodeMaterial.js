@@ -5,7 +5,7 @@ import {
 	Fn, uniform, materialReference,
 	vec3, vec4, float, select,
 	dot, max, pow, reflect, abs,
-	oneMinus, sqrt, negate,
+	oneMinus, sqrt, negate, mix,
 	nodeObject, normalView,
 	tangentView, positionViewDirection
 } from 'three/tsl';
@@ -64,7 +64,6 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 		this.uLightDiffuse = uniform(FFLShaderMaterial.defaultLightDiffuse);
 		this.uLightSpecular = uniform(FFLShaderMaterial.defaultLightSpecular);
 		this.uLightDir = uniform(FFLShaderMaterial.defaultLightDir.clone().normalize());
-		this.uRimColor = uniform(FFLShaderMaterial.defaultRimColor);
 		this.uRimPower = uniform(FFLShaderMaterial.defaultRimPower);
 
 		// TODO: Like TextureShaderNodeMaterial, this needs alpha testing.
@@ -115,13 +114,18 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 
 			// 0 = Blinn, 1 = Anisotropic
 			const useAniso = float(this.uMaterialSpecularMode);
-			/** Reflection: mix(aniso, blinn, v_color.r) */
-			const reflection = specularAniso
-				.mul(useAniso).add(specularBlinn.mul(oneMinus(useAniso)));
 
 			/** Anisotropic/rim color parameters. */
 			// const param = attribute('_color', 'vec4');
 			const param = nodeObject(new ParamColorNode());
+			const anisoReflection = mix(specularAniso, specularBlinn, param.r);
+
+			/** Anisotropic or Blinn reflection. */
+			const reflection = select(
+				useAniso.equal(1),
+				anisoReflection,
+				specularBlinn
+			);
 
 			/** Specular strength. Blinn = always 1.0 */
 			const strength = select(
@@ -136,11 +140,11 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 				.mul(reflection)
 				.mul(strength);
 
-			const rimWidth = param.a;
 			/** Rim color */
 			const rimColor = vec3(this.uRimColor)
 				.mul(
-					pow(rimWidth.mul(oneMinus(abs(norm.z))), float(this.uRimPower))
+					// param.a = rim width
+					pow(param.a.mul(oneMinus(abs(norm.z))), float(this.uRimPower))
 				);
 
 			// Final combined ambient/specular/diffuse color.
@@ -216,8 +220,12 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 		this.uMaterialAmbient = uniform(matParam.ambient);
 		this.uMaterialDiffuse = uniform(matParam.diffuse);
 		this.uMaterialSpecular = uniform(matParam.specular);
-		this.uMaterialSpecularPower = uniform(matParam.specularPower);
 		this.uMaterialSpecularMode = uniform(matParam.specularMode);
+		this.uMaterialSpecularPower = uniform(matParam.specularPower);
+		const rimColor = value > 8
+			? FFLShaderMaterial.defaultRimColorBody
+			: FFLShaderMaterial.defaultRimColor;
+		this.uRimColor = uniform(rimColor);
 	}
 
 	/**

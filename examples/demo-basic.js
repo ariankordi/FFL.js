@@ -6,7 +6,7 @@ import {
 	initializeFFL, setRendererState, createCharModel, textureToCanvas, initCharModelTextures,
 	matSupportsFFL, updateCharModel, makeExpressionFlag, checkExpressionChangesShapes,
 	makeIconFromCharModel, parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
-	FFLCharModelDescDefault, CharModel, ViewType
+	FFLCharModelDescDefault, CharModel
 } from '../ffl.js';
 // UMDs below:
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
@@ -452,7 +452,7 @@ function updateLightDirection(normalize = true) {
 	currentCharModel.meshes.traverse((mesh) => {
 		// Make sure this mesh is non-null and has a compatible ShaderMaterial.
 		if (mesh instanceof THREE.Mesh && mesh.material.lightDirection) {
-			mesh.material.opacity = 0.1; // Test materials updating
+			// mesh.material.opacity = 0.1; // Test materials updating
 			// Set the lightDirection on the material.
 			mesh.material.lightDirection = newDir.clone();
 		}
@@ -703,11 +703,11 @@ function updateCharModelIcon() {
 	 * Asynchronously make the CharModel icon.
 	 * @param {ViewType} [viewType] - The view type for the icon.
 	 */
-	(async (viewType = ViewType.MakeIcon) => {
+	(async () => {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
 		makeIconFromCharModel(currentCharModel, renderer,
-			{ canvas: modelIconElement, viewType, scene: getSceneWithLights() });
+			{ canvas: modelIconElement, scene: getSceneWithLights() });
 	})();
 }
 
@@ -877,13 +877,16 @@ document.addEventListener('DOMContentLoaded', main);
 
 /** Creates buttons and icons for the `preset-character-selection` list. */
 function loadCharacterButtons() {
+	/** Create a custom camera with 45 degrees FOV. */
+	const camera = new THREE.PerspectiveCamera(45, 1, 50, 1000);
+	camera.position.set(0, 34, 110);
+
 	/**
 	 * Asynchronously makes a CharModel icon.
 	 * @param {HTMLCanvasElement} el - The image element to set `src` of.
 	 * @param {string} data - Data for the CharModel in a hex or Base64 string.
-	 * @param {ViewType} viewType - The view type for the icon.
 	 */
-	async function setIcon(el, data, viewType = ViewType.IconFovy45) {
+	async function setIcon(el, data) {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
 		// Render the icon using createCharModelIcon.
@@ -895,7 +898,7 @@ function loadCharacterButtons() {
 				getTextureMaterial(materials[activeMaterialClassName]));
 
 			makeIconFromCharModel(model, renderer, {
-				canvas: el, viewType, scene: getSceneWithLights()
+				canvas: el, camera, scene: getSceneWithLights()
 			});
 		} catch (e) {
 			console.error(`loadCharacterButtons: Could not make icon for ${data}: ${e}`);
