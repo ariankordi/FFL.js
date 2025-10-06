@@ -8,9 +8,9 @@
 // @ts-check
 
 import * as fs from 'fs/promises';
-import { create, globals } from 'webgpu';
 import { encode } from 'fast-png';
 import * as THREE from 'three/webgpu';
+import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.mjs';
 // Standard non-Node dependencies:
 import {
 	initializeFFL, setRendererState, createCharModel,
@@ -22,67 +22,7 @@ import ModuleFFL from './ffl-emscripten-single-file.js';
 
 /* globals process -- Node.js */
 
-// // ---------------------------------------------------------------------
-// //  WebGPU setup and helpers
-// // ---------------------------------------------------------------------
-
-Object.assign(globalThis, globals);
-// @ts-ignore -- Incomplete navigator type.
-globalThis.navigator = { gpu: create([]) };
-/**
- * Dummy canvas context which has a configure()
- * function that does nothing.
- * If only render targets are used, no other functions are needed.
- */
-const gpuCanvasContext = { configure() { } };
-// @ts-ignore -- Incomplete type. It is needed by Three.js.
-globalThis.VideoFrame ??= (class VideoFrame { });
-
-/**
- * @param {number} width - Width of the canvas.
- * @param {number} height - Height of the canvas.
- * @param {typeof HTMLCanvasElement.prototype.getContext} getContext -
- * Function that gets the context from the canvas.
- * @returns {HTMLCanvasElement} Mock canvas-like object for Three.js to use.
- */
-function getCanvas(width, height, getContext) {
-	return {
-		width, height,
-		// @ts-expect-error -- Incomplete style type.
-		style: {},
-		addEventListener() { },
-		removeEventListener() { },
-		getContext
-	};
-}
-
-/**
- * Creates the renderer. The default sizes create a 1x1 swapchain texture.
- * @param {number} [width] - Width for the canvas/renderer.
- * @param {number} [height] - Height for the canvas/renderer.
- * @returns {THREE.WebGPURenderer} The created renderer.
- */
-function createThreeRenderer(width = 1, height = 1) {
-	const canvas = getCanvas(width, height,
-		// @ts-expect-error -- Does not return a real GPUCanvasContext.
-		type => type === 'webgpu'
-			? gpuCanvasContext
-			: console.assert(false, `unsupported canvas context type ${type}`)
-	);
-
-	// WebGLRenderer constructor sets "self" as the context. (which is window)
-	// Mock all functions called on it as of r162.
-	globalThis.self ??= {
-		// @ts-expect-error -- Incompatible no-op requestAnimationFrame.
-		requestAnimationFrame() { },
-		cancelAnimationFrame() { }
-	};
-	// Create the Three.js renderer and scene.
-	const renderer = new THREE.WebGPURenderer({
-		canvas, alpha: true
-	});
-	return renderer;
-}
+addWebGPUExtensions();
 
 // // ---------------------------------------------------------------------
 // //  CLI argument parsing.
@@ -136,8 +76,7 @@ async function main() {
 	const resourceFile = fs.readFile(resourcePath);
 
 	/** The renderer. Dimensions are not passed, because render targets are used. */
-	const renderer = createThreeRenderer();
-	await renderer.init();
+	const renderer = await createThreeRenderer();
 
 	let ffl;
 	let currentCharModel;
