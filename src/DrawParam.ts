@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { FFLAttributeBufferType, FFLCullMode, FFLModulateMode, FFLModulateType } from './enums';
-import { MaterialConstructor } from './CharModel';
-import Module from './Module';
-import TextureManager from './TextureManager';
-import { FFLDrawParam, FFLColor, FFLModulateParam } from './structs';
-import FFLShaderMaterialParameters from './materials/FFLShaderMaterialParameters';
+import { FFLAttributeBufferType, FFLCullMode, FFLModulateMode, FFLModulateType } from '@/enums';
+import { MaterialConstructor } from '@/CharModel';
+import { Module } from '@/Module';
+import TextureManager from '@/TextureManager';
+import { FFLDrawParam, FFLColor, FFLModulateParam } from '@/structs';
+import FFLShaderMaterialParameters from '@/materials/FFLShaderMaterialParameters';
 
 /**
  * @param {Function} material - Class constructor for the material to test.

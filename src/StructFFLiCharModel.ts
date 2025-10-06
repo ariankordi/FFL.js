@@ -1,5 +1,6 @@
-import { _uintptr, FFLDrawParam, FFLVec3 } from './structs';
-import { FFLExpression, FFLModelFlag, FFLResourceType, FFLiShapeType } from './enums';
+import * as _ from '../struct-fu.js';
+import { _uintptr, FFLDrawParam, FFLVec3 } from '@/structs';
+import { FFLExpression, FFLModelFlag, FFLResourceType, FFLiShapeType } from '@/enums';
 
 /**
  * @typedef {Object} FFLiCharInfo

@@ -1,4 +1,4 @@
-import { FFLModulateMode, FFLModulateType } from '../enums';
+import { FFLModulateMode, FFLModulateType } from '@/enums';
 import type { Color, Vector3, Texture } from 'three';
 
 type FFLShaderMaterialParameters = {

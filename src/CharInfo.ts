@@ -1,9 +1,9 @@
-import Module from './Module';
-import { FFLExpression } from "./enums";
-import { FFLiVerifyReasonException } from "./Exceptions";
-import { FFLAge, FFLDataSource, FFLGender, FFLiCharInfo, FFLRace, FFLStoreData_size, FFLCharModelSource } from "./StructFFLiCharModel";
-import { convertStudioCharInfoToFFLiCharInfo, StudioCharInfo, studioURLObfuscationDecode } from './StudioCharInfo';
-import {  } from './StructFFLiCharModel'
+import { Module } from '@/Module';
+import { FFLExpression } from "@/enums";
+import { FFLiVerifyReasonException } from "@/Exceptions";
+import { FFLAge, FFLDataSource, FFLGender, FFLiCharInfo, FFLRace, FFLStoreData_size, FFLCharModelSource } from "@/StructFFLiCharModel";
+import { convertStudioCharInfoToFFLiCharInfo, StudioCharInfo, studioURLObfuscationDecode } from '@/StudioCharInfo';
+import {  } from '@/StructFFLiCharModel'
 
 /**
  * Converts the input data and allocates it into FFLCharModelSource.

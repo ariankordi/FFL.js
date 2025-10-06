@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import CharModel, { MaterialConstructor } from "./CharModel";
-import { drawParamToMesh, matSupportsFFL } from "./DrawParam";
-import { _getBGClearMesh, convertModelTexturesToRGBA } from "./ModulateTextureConversion";
-import Renderer from "./renderer";
-import { facelinePartType, FFLiRawMaskDrawParam, FFLiTextureTempObject, maskPartType } from "./StructFFLiCharModel";
-import { _getIdentCamera, createAndRenderToTarget, disposeMany } from './RenderTargetUtils';
-import Module from './Module';
-import { FFLDrawParam } from './structs';
+import CharModel, { MaterialConstructor } from "@/CharModel";
+import { drawParamToMesh, matSupportsFFL } from "@/DrawParam";
+import { _getBGClearMesh, convertModelTexturesToRGBA } from "@/ModulateTextureConversion";
+import Renderer from "@/renderer";
+import { facelinePartType, FFLiRawMaskDrawParam, FFLiTextureTempObject, maskPartType } from "@/StructFFLiCharModel";
+import { _getIdentCamera, createAndRenderToTarget, disposeMany } from '@/RenderTargetUtils';
+import { Module } from '@/Module';
+import { FFLDrawParam } from '@/structs';
 
 // ---------------- initCharModelTextures(charModel, renderer) ----------------
 

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import Module from "./Module";
-import { FFLTextureCallback, FFLTextureFormat, FFLTextureInfo } from './StructFFLiCharModel';
-import { _isWebGPU } from './RenderTargetUtils';
-import Renderer from './renderer';
+import { Module } from "@/Module";
+import { FFLTextureCallback, FFLTextureFormat, FFLTextureInfo } from '@/StructFFLiCharModel';
+import { _isWebGPU } from '@/RenderTargetUtils';
+import Renderer from '@/renderer';
 
 /**
  * Manages THREE.Texture objects created via FFL.

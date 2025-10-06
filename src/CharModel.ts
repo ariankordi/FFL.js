@@ -1,15 +1,14 @@
 import * as THREE from 'three';
-import Module from './Module';
-import TextureManager from './TextureManager';
-import { FFLExpression, FFLiShapeType, FFLModelFlag, FFLModulateType } from './enums';
-import { FFL_RESOLUTION_MASK, FFLCharModelDesc, FFLiCharInfo, FFLiCharModel, FFLiMaskTexturesTempObject, FFLiTextureTempObject, FFLStoreData_size, FFLPartsTransform } from './StructFFLiCharModel';
-import { _getFFLColor, _getFFLColor3, drawParamToMesh } from './DrawParam';
-import { FFLVec3 } from '../ffl-original';
-import { FFLColor } from './structs';
-import { disposeMany } from './RenderTargetUtils';
-import { ExpressionNotSet } from './Exceptions';
-import { PantsColor } from './Body';
-import SampleShaderMaterialColorInfo from './materials/SampleShaderMaterialColorInfo';
+import { Module } from '@/Module';
+import TextureManager from '@/TextureManager';
+import { FFLExpression, FFLiShapeType, FFLModelFlag, FFLModulateType } from '@/enums';
+import { FFL_RESOLUTION_MASK, FFLCharModelDesc, FFLiCharInfo, FFLiCharModel, FFLiMaskTexturesTempObject, FFLiTextureTempObject, FFLStoreData_size, FFLPartsTransform } from '@/StructFFLiCharModel';
+import { _getFFLColor, _getFFLColor3, drawParamToMesh } from '@/DrawParam';
+import { FFLColor, FFLVec3 } from '@/structs';
+import { disposeMany } from '@/RenderTargetUtils';
+import { ExpressionNotSet } from '@/Exceptions';
+import { PantsColor } from '@/Body';
+import SampleShaderMaterialColorInfo from '@/materials/SampleShaderMaterialColorInfo';
 
 export type MaterialConstructor = new (...args: any[]) => THREE.Material;
 
@@ -193,7 +192,7 @@ export default class CharModel {
 	 * @returns {PartsTransform} PartsTransform using THREE.Vector3 as keys.
 	 */
 	private _getPartsTransform(): ReturnType<typeof FFLPartsTransform.unpack> {
-		const obj: Record<string, FFLVec3> = (this._model.partsTransform);
+		const obj: Record<string, ReturnType<typeof FFLVec3.unpack>> = (this._model.partsTransform);
 		const newPartsTransform: ReturnType<typeof FFLPartsTransform.unpack> = {};
 		for (const key in obj) {
 			const vec = obj[key];

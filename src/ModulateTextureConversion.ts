@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import CharModel, { MaterialConstructor } from './CharModel';
-import Renderer from './renderer';
-import { _getIdentCamera, _isWebGPU, createAndRenderToTarget } from './RenderTargetUtils';
-import { FFLModulateType } from './enums';
+import CharModel, { MaterialConstructor } from '@/CharModel';
+import Renderer from '@/renderer';
+import { _getIdentCamera, _isWebGPU, createAndRenderToTarget } from '@/RenderTargetUtils';
+import { FFLModulateType } from '@/enums';
 
 /**
  * Gets a plane whose color and opacity can be set.

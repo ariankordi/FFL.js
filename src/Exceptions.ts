@@ -1,4 +1,4 @@
-import { FFLExpression, FFLResult } from "./enums";
+import { FFLExpression, FFLResult } from "@/enums";
 
 /**
  * Base exception type for all exceptions based on FFLResult.

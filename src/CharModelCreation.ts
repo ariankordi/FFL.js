@@ -1,15 +1,15 @@
 // --------- createCharModel(data, modelDesc, materialClass, module) ---------
 
-import { _allocateModelSource, makeExpressionFlag, verifyCharInfo } from "./CharInfo";
-import CharModel, { MaterialConstructor } from "./CharModel";
-import CharModelDescOrExpressionFlag from "./CharModelDescOrExpressionFlag";
-import { _setFaceline, initCharModelTextures } from "./CharModelTextures";
-import { FFLModelFlag, FFLResult } from "./enums";
-import { BrokenInitModel, FFLResultException } from "./Exceptions";
-import Module from "./Module";
-import Renderer from "./renderer";
-import { FFLCharModelDesc, FFLCharModelDescDefault, FFLCharModelSource, FFLiCharInfo, FFLiCharModel } from "./StructFFLiCharModel";
-import TextureManager from "./TextureManager";
+import { _allocateModelSource, makeExpressionFlag, verifyCharInfo } from "@/CharInfo";
+import CharModel, { MaterialConstructor } from "@/CharModel";
+import CharModelDescOrExpressionFlag from "@/CharModelDescOrExpressionFlag";
+import { _setFaceline, initCharModelTextures } from "@/CharModelTextures";
+import { FFLModelFlag, FFLResult } from "@/enums";
+import { BrokenInitModel, FFLResultException } from "@/Exceptions";
+import { Module } from "@/Module";
+import Renderer from "@/renderer";
+import { FFLCharModelDesc, FFLCharModelDescDefault, FFLCharModelSource, FFLiCharInfo, FFLiCharModel } from "@/StructFFLiCharModel";
+import TextureManager from "@/TextureManager";
 
 /**
  * Creates a CharModel from data and FFLCharModelDesc.
@@ -135,7 +135,7 @@ export function _descOrExpFlagToModelDesc(descOrExpFlag: CharModelDescOrExpressi
 	if (descOrExpFlag instanceof Uint32Array) {
 		// If this is already an expression flag (Uint32Array),
 		// or set to one previously, use it with existing CharModelDesc.
-		newModelDesc.allExpressionFlag = descOrExpFlag;
+		newModelDesc.allExpressionFlag = descOrExpFlag as Uint32Array<ArrayBuffer>;
 	} else if (typeof descOrExpFlag === 'object') {
 		// Assume that descOrExpFlag is a new FFLCharModelDesc.
 		newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);

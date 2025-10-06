@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import CharModel from './CharModel';
-import Renderer from './renderer';
-import { _copyRendererToCanvas, _restoreRendererState, _saveRendererState } from './ExportTexture';
+import CharModel from '@/CharModel';
+import Renderer from '@/renderer';
+import { _copyRendererToCanvas, _restoreRendererState, _saveRendererState } from '@/ExportTexture';
 
 export enum ViewType {
 	/** Typical icon body view. */

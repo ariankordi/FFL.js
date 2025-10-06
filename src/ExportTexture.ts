@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import Renderer from './renderer';
-import { _getIdentCamera } from './RenderTargetUtils';
+import Renderer from '@/renderer';
+import { _getIdentCamera } from '@/RenderTargetUtils';
 
 /**
  * Saves the current renderer state and returns an object to restore it later.

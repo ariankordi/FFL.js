@@ -1,3 +1,5 @@
+import * as _ from '../struct-fu.js';
+
 /**
  * @typedef {Object} StudioCharInfo
  * @property {number} beardColor
@@ -48,7 +50,7 @@
  * @property {number} noseY
  */
 
-import { commonColorMask, commonColorUnmask, FFLiCharInfo } from "./StructFFLiCharModel";
+import { commonColorMask, commonColorUnmask, FFLiCharInfo } from "@/StructFFLiCharModel";
 
 /**
  * Structure representing data from the studio.mii.nintendo.com site and API.

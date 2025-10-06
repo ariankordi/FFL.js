@@ -2,7 +2,7 @@
  * Emscripten "Module" type.
  * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26
  */
-export default interface Module {
+export interface Module {
 	onRuntimeInitialized: () => void;
 	destroy: (object: any) => void;
 	calledRun: boolean | null;

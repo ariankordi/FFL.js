@@ -1,4 +1,4 @@
-import type * as enums from './enums';
+import * as _ from '../struct-fu.js';
 
 /** Mirror for {@link _.uint32le} to indicate a pointer. */
 export const _uintptr = _.uint32le;

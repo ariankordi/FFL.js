@@ -15,6 +15,7 @@
   "exports": {
     ".": "./ffl.js"
   },
+  "type": "module",
   "author": "Arian Kordi",
   "license": "AGPL-3.0-only",
   "bugs": {
@@ -31,6 +32,10 @@
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-jsdoc": "^50.6.3",
     "globals": "^15.15.0",
-    "tsconfig-paths": "^4.2.0"
+    "tsconfig-paths": "^4.2.0",
+    "tsup": "^8.5.0"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
   }
 }

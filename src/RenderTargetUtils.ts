@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import Renderer from './renderer';
+import Renderer from '@/renderer';
 
 /**
  * @param {Renderer} renderer - The input renderer.

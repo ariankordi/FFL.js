@@ -1,7 +1,7 @@
-import { FFLResourceType, FFLResult } from "./enums";
-import { BrokenInitRes, FFLResultException } from "./Exceptions";
-import Module from "./Module";
-import { FFLResourceDesc } from "./StructFFLiCharModel";
+import { FFLResourceType, FFLResult } from "@/enums";
+import { BrokenInitRes, FFLResultException } from "@/Exceptions";
+import { Module } from "@/Module";
+import { FFLResourceDesc } from "@/StructFFLiCharModel";
 
 /**
  * Loads data from TypedArray or fetch response directly into Emscripten heap.

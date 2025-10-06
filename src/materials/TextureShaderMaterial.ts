@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FFLModulateMode } from '../enums';
+import { FFLModulateMode } from '@/enums';
 
 /**
  * A material class that renders FFL swizzled (modulateMode) textures.
