@@ -327,62 +327,14 @@ const FFLModelFlag = {
 /** Mirror for {@link _.uint32le} to indicate a pointer. */
 const _uintptr = _.uint32le;
 
+const FFLColor_size = 16;
+
 /**
  * @typedef {Object} FFLAttributeBuffer
  * @property {number} size
  * @property {number} stride
  * @property {number} ptr
  */
-/** @type {import('./struct-fu').StructInstance<FFLAttributeBuffer>} */
-const FFLAttributeBuffer = _.struct([
-	_.uint32le('size'),
-	_.uint32le('stride'),
-	_uintptr('ptr')
-]);
-
-/**
- * @typedef {Object} FFLPrimitiveParam
- * @property {number} primitiveType
- * @property {number} indexCount
- * @property {number} pAdjustMatrix
- * @property {number} pIndexBuffer
- */
-/** @type {import('./struct-fu').StructInstance<FFLPrimitiveParam>} */
-const FFLPrimitiveParam = _.struct([
-	_.uint32le('primitiveType'),
-	_.uint32le('indexCount'),
-	_uintptr('pAdjustMatrix'),
-	_uintptr('pIndexBuffer')
-]);
-
-/**
- * @typedef {Object} FFLColor
- * @property {number} r
- * @property {number} g
- * @property {number} b
- * @property {number} a
- */
-/** @type {import('./struct-fu').StructInstance<FFLColor>} */
-const FFLColor = _.struct([
-	_.float32le('r'),
-	_.float32le('g'),
-	_.float32le('b'),
-	_.float32le('a')
-]);
-
-/**
- * @typedef {Object} FFLVec3
- * @property {number} x
- * @property {number} y
- * @property {number} z
- */
-/** @type {import('./struct-fu').StructInstance<FFLVec3>} */
-const FFLVec3 = _.struct([
-	_.float32le('x'),
-	_.float32le('y'),
-	_.float32le('z')
-]);
-
 /**
  * @typedef {Object} FFLModulateParam
  * @property {FFLModulateMode} mode
@@ -392,16 +344,13 @@ const FFLVec3 = _.struct([
  * @property {number} pColorB - Pointer to FFLColor
  * @property {number} pTexture2D
  */
-/** @type {import('./struct-fu').StructInstance<FFLModulateParam>} */
-const FFLModulateParam = _.struct([
-	_.uint32le('mode'), // enum FFLModulateMode
-	_.uint32le('type'), // enum FFLModulateType
-	_uintptr('pColorR'),
-	_uintptr('pColorG'),
-	_uintptr('pColorB'),
-	_uintptr('pTexture2D')
-]);
-
+/**
+ * @typedef {Object} FFLPrimitiveParam
+ * @property {number} primitiveType
+ * @property {number} indexCount
+ * @property {number} pAdjustMatrix
+ * @property {number} pIndexBuffer
+ */
 /**
  * @typedef {Object} FFLDrawParam
  * @property {Array<FFLAttributeBuffer>} attributeBuffers
@@ -411,10 +360,26 @@ const FFLModulateParam = _.struct([
  */
 /** @type {import('./struct-fu').StructInstance<FFLDrawParam>} */
 const FFLDrawParam = _.struct([
-	_.struct('attributeBuffers', [FFLAttributeBuffer], 5),
-	_.struct('modulateParam', [FFLModulateParam]),
+	_.struct('attributeBuffers', [_.struct([
+		_.uint32le('size'),
+		_.uint32le('stride'),
+		_uintptr('ptr')
+	])], 5),
+	_.struct('modulateParam', [_.struct([
+		_.uint32le('mode'), // enum FFLModulateMode
+		_.uint32le('type'), // enum FFLModulateType
+		_uintptr('pColorR'),
+		_uintptr('pColorG'),
+		_uintptr('pColorB'),
+		_uintptr('pTexture2D')
+	])]),
 	_.uint32le('cullMode'),
-	_.struct('primitiveParam', [FFLPrimitiveParam])
+	_.struct('primitiveParam', [_.struct([
+		_.uint32le(1), // primitiveType
+		_.uint32le('indexCount'),
+		_uintptr('pAdjustMatrix'),
+		_uintptr('pIndexBuffer')
+	])])
 ]);
 
 // ---------------------- Begin FFLiCharInfo Definition ----------------------
@@ -611,7 +576,7 @@ const facelinePartType = {
 
 /** @type {import('./struct-fu').StructInstance<Array<FFLDrawParam>>} */
 const FFLiFacelineTextureTempObject = _.struct([
-	_.struct([_uintptr(''), FFLDrawParam], facelinePartType.Count),
+	_.struct([_uintptr(1), FFLDrawParam], facelinePartType.Count),
 	_uintptr('_', 2) // stub
 ]);
 
@@ -691,26 +656,6 @@ const FFLCharModelDescDefault = {
 /** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
 
 /**
- * @typedef {Object<string, FFLVec3>} FFLPartsTransform
- * @property {FFLVec3} hatTranslate
- * @property {FFLVec3} headFrontRotate
- * @property {FFLVec3} headFrontTranslate
- * @property {FFLVec3} headSideRotate
- * @property {FFLVec3} headSideTranslate
- * @property {FFLVec3} headTopRotate
- * @property {FFLVec3} headTopTranslate
- */
-/** @type {import('./struct-fu').StructInstance<FFLPartsTransform>} */
-const FFLPartsTransform = _.struct([
-	_.struct('hatTranslate', [FFLVec3]),
-	_.struct('headFrontRotate', [FFLVec3]),
-	_.struct('headFrontTranslate', [FFLVec3]),
-	_.struct('headSideRotate', [FFLVec3]),
-	_.struct('headSideTranslate', [FFLVec3]),
-	_.struct('headTopRotate', [FFLVec3]),
-	_.struct('headTopTranslate', [FFLVec3])
-]);
-/**
  * PartsTransform with THREE.Vector3 type.
  * @typedef {Object<string, import('three').Vector3>} PartsTransform
  * @property {import('three').Vector3} hatTranslate
@@ -731,7 +676,7 @@ const FFLPartsTransform = _.struct([
  * @property {number} pTextureTempObject
  * @property {Array<FFLDrawParam>} drawParam
  * @property {Array<number>} pMaskRenderTextures
- * @property {FFLPartsTransform} partsTransform
+ * @property {Float32Array} partsTransform
  */
 /** @type {import('./struct-fu').StructInstance<FFLiCharModel>} */
 const FFLiCharModel = _.struct([
@@ -745,7 +690,7 @@ const FFLiCharModel = _.struct([
 	_uintptr('pCapGlassNoselineTextures', 3),
 	_uintptr('pMaskRenderTextures', FFLExpression.MAX),
 	_.byte('beardHairFaceCenterPos', 0x18 * 3), // [FFLVec3], 3
-	_.struct('partsTransform', [FFLPartsTransform]),
+	_.float32le('partsTransform', 21),
 	_.uint32le('modelType'), // enum FFLModelType
 	_.byte(0x18 * 3) // FFLBoundingBox[FFL_MODEL_TYPE_MAX = 3]
 ]);
@@ -834,30 +779,8 @@ const FFLTextureFormat = {
  * @property {number} imagePtr
  * @property {number} mipSize
  * @property {number} mipPtr
- * @property {Array<number>} mipLevelOffset
+ * @property {Uint32Array} mipLevelOffset
  */
-/** @type {import('./struct-fu').StructInstance<FFLTextureInfo>} */
-const FFLTextureInfo = _.struct([
-	_.uint16le('width'),
-	_.uint16le('height'),
-	_.uint8('mipCount'),
-	_.uint8('format'),
-	_.uint8('isGX2Tiled'),
-	_.byte('_padding', 1),
-	_.uint32le('imageSize'),
-	_uintptr('imagePtr'),
-	_.uint32le('mipSize'),
-	_uintptr('mipPtr'),
-	_.uint32le('mipLevelOffset', 13)
-]);
-
-const FFLTextureCallback = _.struct([
-	_uintptr('pObj'),
-	_.uint8('useOriginalTileMode'),
-	_.byte('_padding', 3), // alignment
-	_uintptr('pCreateFunc'),
-	_uintptr('pDeleteFunc')
-]);
 
 // ------------------------ Class: TextureManager -----------------------------
 // TODO PATH: src/TextureManager.js
@@ -909,31 +832,27 @@ class TextureManager {
 	}
 
 	/**
-	 * Creates and allocates an {@link FFLTextureCallback} instance from callback function pointers.
+	 * Creates and allocates an FFLTextureCallback instance from callback function pointers.
 	 * @param {Module} module - The Emscripten module.
 	 * @param {number} createCallback - Function pointer for the create callback.
 	 * @param {number} deleteCallback - Function pointer for the delete callback.
-	 * @returns {number} Pointer to the {@link FFLTextureCallback}.
+	 * @returns {number} Pointer to the FFLTextureCallback.
 	 * Note that you MUST free this after using it (done in {@link TextureManager.disposeCallback}).
 	 * @private
 	 */
 	static _allocateTextureCallback(module, createCallback, deleteCallback) {
-		const ptr = module._malloc(FFLTextureCallback.size);
-		const textureCallback = {
-			pObj: 0,
-			useOriginalTileMode: false,
-			_padding: [0, 0, 0],
-			pCreateFunc: createCallback,
-			pDeleteFunc: deleteCallback
-		};
-		const packed = FFLTextureCallback.pack(textureCallback);
-		module.HEAPU8.set(packed, ptr);
+		/** Allocate sizeof(FFLTextureCallback) */
+		const ptr = module._malloc(16);
+		const view = new DataView(module.HEAPU8.buffer, ptr);
+		// Skip: pObj, useOriginalTileMode (false)
+		view.setUint32(8, createCallback, true); // pCreateFunc
+		view.setUint32(12, deleteCallback, true); // pDeleteFunc
 		return ptr;
 	}
 
 	/**
 	 * Creates the create/delete functions in Emscripten and allocates and sets
-	 * the {@link FFLTextureCallback} object as {@link TextureManager._textureCallbackPtr}.
+	 * the FFLTextureCallback object as {@link TextureManager._textureCallbackPtr}.
 	 * @param {boolean} addDeleteCallback - Whether or not to bind the delete function to the texture callback.
 	 */
 	_setTextureCallback(addDeleteCallback = false) {
@@ -990,15 +909,34 @@ class TextureManager {
 	}
 
 	/**
+	 * @param {number} ptr
+	 * @returns {FFLTextureInfo}
+	 * @private
+	 */
+	_unpackTextureInfo(ptr) {
+		const view = new DataView(this._module.HEAPU8.buffer, ptr);
+		return {
+			width: view.getUint16(0, true),
+			height: view.getUint16(2, true),
+			mipCount: view.getUint8(4),
+			format: view.getUint8(5),
+			// isGX2Tiled, _padding
+			imageSize: view.getUint32(8, true),
+			imagePtr: view.getUint32(12, true),
+			mipSize: view.getUint32(16, true),
+			mipPtr: view.getUint32(20, true),
+			mipLevelOffset: new Uint32Array(view.buffer, ptr + 24, 13)
+		};
+	}
+
+	/**
 	 * @param {number} _ - Originally pObj, unused here.
 	 * @param {number} textureInfoPtr - Pointer to {@link FFLTextureInfo}.
 	 * @param {number} texturePtrPtr - Pointer to the texture handle (pTexture2D).
 	 * @private
 	 */
 	_textureCreateFunc(_, textureInfoPtr, texturePtrPtr) {
-		const u8 = this._module.HEAPU8.subarray(textureInfoPtr,
-			textureInfoPtr + FFLTextureInfo.size);
-		const textureInfo = FFLTextureInfo.unpack(u8);
+		const textureInfo = this._unpackTextureInfo(textureInfoPtr);
 		if (this.logging) {
 			console.debug(`_textureCreateFunc: width=${textureInfo.width}, height=${textureInfo.height}, format=${textureInfo.format}, imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
 		}
@@ -1161,7 +1099,7 @@ class TextureManager {
 	}
 
 	/**
-	 * Disposes/frees the {@link FFLTextureCallback} along with
+	 * Disposes/frees the FFLTextureCallback along with
 	 * removing the created Emscripten functions.
 	 * @public
 	 */
@@ -1186,7 +1124,7 @@ class TextureManager {
 	}
 
 	/**
-	 * Disposes of all textures and frees the {@link FFLTextureCallback}.
+	 * Disposes of all textures and frees the FFLTextureCallback.
 	 * @public
 	 */
 	dispose() {
@@ -1767,19 +1705,11 @@ class CharModel {
 	// --------------------------- Private Get Methods ---------------------------
 
 	/**
-	 * @returns {number} Pointer to pTextureTempObject.
-	 * @private
-	 */
-	_getTextureTempObjectPtr() {
-		return this._model.pTextureTempObject;
-	}
-
-	/**
 	 * @returns {FFLiTextureTempObject} The TextureTempObject containing faceline and mask DrawParams.
 	 * @package
 	 */
 	_getTextureTempObject() {
-		const ptr = this._getTextureTempObjectPtr();
+		const ptr = this._model.pTextureTempObject;
 		return FFLiTextureTempObject.unpack(
 			this._module.HEAPU8.subarray(ptr, ptr + FFLiTextureTempObject.size));
 	}
@@ -1791,17 +1721,17 @@ class CharModel {
 	 * @private
 	 */
 	_getPartsTransform() {
-		const obj = /** @type {Object<string, FFLVec3>} */ (this._model.partsTransform);
-		/** @type {PartsTransform} */
-		const newPartsTransform = {};
-		for (const key in obj) {
-			const vec = obj[key];
-			// sanity check make sure there is "x"
-			console.assert(vec.x);
-			// convert to THREE.Vector3
-			newPartsTransform[key] = new THREE.Vector3(vec.x, vec.y, vec.z);
-		}
-		return newPartsTransform;
+		const getVec3 = (/** @type {number} */ offset) =>
+			new THREE.Vector3().fromArray(this._model.partsTransform, offset);
+		return {
+			hatTranslate: getVec3(0),
+			headFrontRotate: getVec3(3),
+			headFrontTranslate: getVec3(6),
+			headSideRotate: getVec3(9),
+			headSideTranslate: getVec3(12),
+			headTopRotate: getVec3(15),
+			headTopTranslate: getVec3(18)
+		};
 	}
 
 	/**
@@ -1812,12 +1742,9 @@ class CharModel {
 		// const color = this.additionalInfo.skinColor;
 		// return new THREE.Color(color.r, color.g, color.b);
 		const mod = this._module;
-		const facelineColor = this._model.charInfo.faceColor;
-		/** Allocate return pointer. */
-		const colorPtr = mod._malloc(FFLColor.size);
-		mod._FFLGetFacelineColor(colorPtr, facelineColor);
-		const color = _getFFLColor3(_getFFLColor(colorPtr, mod.HEAPF32));
-		mod._free(colorPtr);
+		// Use the nose, which is always present, to get the faceline color from.
+		const nose = this._model.drawParam[FFLiShapeType.OPA_NOSE];
+		const color = _getFFLColor(nose.modulateParam.pColorR, mod.HEAPF32);
 		return color;
 		// Assume this is in working color space because it is used for clear color.
 	}
@@ -1830,9 +1757,9 @@ class CharModel {
 		const mod = this._module;
 		const favoriteColor = this._model.charInfo.favoriteColor;
 		/** Allocate return pointer. */
-		const colorPtr = mod._malloc(FFLColor.size);
+		const colorPtr = mod._malloc(FFLColor_size);
 		mod._FFLGetFavoriteColor(colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
-		const color = _getFFLColor3(_getFFLColor(colorPtr, mod.HEAPF32));
+		const color = _getFFLColor(colorPtr, mod.HEAPF32);
 		mod._free(colorPtr);
 		return color;
 	}
@@ -2006,6 +1933,7 @@ class CharModel {
 	 * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
 	 * returns false, usually when CharInfo verification fails.
 	 * @public
+	 * @todo TODO: What would the role of this be? Can they edit the CharInfo to justify this method so they can get it out?
 	 */
 	getStoreData() {
 		// Serialize the CharInfo.
@@ -2032,8 +1960,6 @@ class CharModel {
 
 		return storeData;
 	}
-
-	// TODO: getStudioCharInfo
 
 	// ------------------------ Mask and Faceline Textures ------------------------
 
@@ -3042,28 +2968,21 @@ function _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
 	/** @type {import('three').Color|Array<import('three').Color>|null} */
 	let color = null;
 
-	/**
-	 * Single constant color.
-	 * @type {FFLColor|null}
-	 */
-	let color4 = null;
 	const f32 = module.HEAPF32;
 	// If both pColorG and pColorB are provided, combine them into an array.
 	if (modulateParam.pColorG !== 0 && modulateParam.pColorB !== 0) {
 		color = [
-			_getFFLColor3(_getFFLColor(modulateParam.pColorR, f32)),
-			_getFFLColor3(_getFFLColor(modulateParam.pColorG, f32)),
-			_getFFLColor3(_getFFLColor(modulateParam.pColorB, f32))
+			_getFFLColor(modulateParam.pColorR, f32),
+			_getFFLColor(modulateParam.pColorG, f32),
+			_getFFLColor(modulateParam.pColorB, f32)
 		];
 	} else if (modulateParam.pColorR !== 0) {
 		// Otherwise, set it as a single color.
-		color4 = _getFFLColor(modulateParam.pColorR, f32);
-		color = _getFFLColor3(color4);
+		color = _getFFLColor(modulateParam.pColorR, f32);
 	}
 
-	// Use opacity from single pColorR (it's only 0 for "fill" 2D plane)
-	const opacity = color4 ? color4.a : 1.0;
-	// Otherwise use 1.0, which is the opacity used pretty much everywhere.
+	// Only set opacity to 0 for "fill" 2D plane.
+	const opacity = modulateParam.type === FFLModulateType.FILL ? 0 : 1;
 
 	// Set transparent property for Xlu/mask and higher.
 	const transparent = modulateParam.type >= FFLModulateType.SHAPE_MASK;
@@ -3105,26 +3024,13 @@ function _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
 }
 
 /**
- * Dereferences a pointer to FFLColor.
+ * Converts a pointer to FFLColor to a THREE.Color.
  * @param {number} colorPtr - The pointer to the color.
- * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
- * @returns {FFLColor} The converted Vector4.
+ * @param {Float32Array} f32 - HEAPF32 buffer view within {@link Module}.
+ * @returns {THREE.Color} The RGB color.
  */
-function _getFFLColor(colorPtr, heapf32) {
-	console.assert(colorPtr, '_getFFLColor: Received null pointer');
-	// Assign directly from HEAPF32.
-	const colorData = heapf32.subarray(colorPtr / 4, colorPtr / 4 + 4);
-	return { r: colorData[0], g: colorData[1], b: colorData[2], a: colorData[3] };
-}
-
-/**
- * Creates a THREE.Color from {@link FFLColor}.
- * @param {FFLColor} color - The {@link FFLColor} object..
- * @returns {import('three').Color} The converted color.
- */
-function _getFFLColor3(color) {
-	return new THREE.Color(color.r, color.g, color.b);
-}
+const _getFFLColor = (colorPtr, f32) =>
+	new THREE.Color().fromArray(f32, colorPtr / 4);
 
 /**
  * Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
