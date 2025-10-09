@@ -14,16 +14,15 @@ import { WebGPURenderer } from 'three/webgpu';
  * Function that gets the context from the canvas.
  * @returns {HTMLCanvasElement} Mock canvas-like object for Three.js to use.
  */
-function getCanvas(width, height, getContext) {
-	return {
+const getCanvas = (width, height, getContext) =>
+	({
 		width, height,
 		// @ts-expect-error -- Incomplete style type.
 		style: {},
 		addEventListener() { },
 		removeEventListener() { },
 		getContext
-	};
-}
+	});
 
 /**
  * Adds WebGPU related extensions to the global scope

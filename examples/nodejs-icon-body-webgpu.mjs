@@ -29,7 +29,7 @@ import {
 // Standard non-Node dependencies:
 import {
 	initializeFFL, setRendererState, createCharModel,
-	initCharModelTextures, parseHexOrB64ToUint8Array,
+	initCharModelTextures,
 	exitFFL, PantsColor, pantsColors, FFLExpression
 } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
@@ -316,7 +316,7 @@ Example:
 
 			console.info(`Rendering: ${outFile}`);
 			/** @type {IconRenderRequest} */ const request = {
-				data: parseHexOrB64ToUint8Array(dataString),
+				data: Buffer.from(dataString, 'hex'),
 				width, isAllBody, expression
 			};
 			// Create the icon render and write it to its file output.

@@ -1,5 +1,8 @@
 export type FFLCharModelSource = {
-    dataSource: FFLDataSource;
+    /**
+     * - Originally FFLDataSource enum.
+     */
+    dataSource: number;
     pBuffer: number;
     /**
      * - Only for default, official, MiddleDB; unneeded for raw data
@@ -70,40 +73,6 @@ export type Module = {
     _FFLiInvalidateRawMask: (arg0: number) => any;
     _FFLiVerifyCharInfoWithReason: (arg0: number, arg1: boolean) => any;
     _exit: () => void;
-};
-export type FFLAttributeBuffer = {
-    size: number;
-    stride: number;
-    ptr: number;
-};
-export type FFLModulateParam = {
-    mode: FFLModulateMode;
-    type: FFLModulateType;
-    /**
-     * - Pointer to FFLColor
-     */
-    pColorR: number;
-    /**
-     * - Pointer to FFLColor
-     */
-    pColorG: number;
-    /**
-     * - Pointer to FFLColor
-     */
-    pColorB: number;
-    pTexture2D: number;
-};
-export type FFLPrimitiveParam = {
-    primitiveType: number;
-    indexCount: number;
-    pAdjustMatrix: number;
-    pIndexBuffer: number;
-};
-export type FFLDrawParam = {
-    attributeBuffers: Array<FFLAttributeBuffer>;
-    modulateParam: FFLModulateParam;
-    cullMode: FFLCullMode;
-    primitiveParam: FFLPrimitiveParam;
 };
 export type FFLiCharInfo = {
     miiVersion: number;
@@ -186,7 +155,37 @@ export type FFLiCharModel = {
     charModelDesc: FFLCharModelDesc;
     expression: FFLExpression;
     pTextureTempObject: number;
-    drawParam: Array<FFLDrawParam>;
+    drawParam: Array<{
+        attributeBuffers: Array<{
+            size: number;
+            stride: number;
+            ptr: number;
+        }>;
+        modulateParam: {
+            mode: FFLModulateMode;
+            type: FFLModulateType;
+            /**
+             * - Pointer to FFLColor
+             */
+            pColorR: number;
+            /**
+             * - Pointer to FFLColor
+             */
+            pColorG: number;
+            /**
+             * - Pointer to FFLColor
+             */
+            pColorB: number;
+            pTexture2D: number;
+        };
+        cullMode: FFLCullMode;
+        primitiveParam: {
+            primitiveType: number;
+            indexCount: number;
+            pAdjustMatrix: number;
+            pIndexBuffer: number;
+        };
+    }>;
     pMaskRenderTextures: Uint32Array;
     partsTransform: Float32Array;
 };
@@ -355,16 +354,6 @@ export namespace FFLResourceType {
  * @public
  */
 export const FFLCharModelDescDefault: FFLCharModelDesc;
-export type FFLDataSource = number;
-export namespace FFLDataSource {
-    let OFFICIAL: number;
-    let DEFAULT: number;
-    let MIDDLE_DB: number;
-    let STORE_DATA_OFFICIAL: number;
-    let STORE_DATA: number;
-    let BUFFER: number;
-    let DIRECT_POINTER: number;
-}
 export type FFLGender = number;
 export namespace FFLGender {
     let MALE: number;
@@ -403,7 +392,6 @@ export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: 
     module: Module;
     resourceDesc: FFLResourceDesc;
 }>;
-/** @typedef {import('three/src/renderers/common/Renderer.js', {with:{'resolution-mode':'import'}}).default} Renderer */
 /**
  * Sets the state for whether WebGL 1.0 or WebGPU is being used.
  * Otherwise, textures will appear wrong when not using WebGL 2.0.
@@ -415,7 +403,6 @@ export function setRendererState(renderer: Renderer, module: Module): void;
  * @param {Module} module - Emscripten module.
  * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
  * @public
- * @todo TODO: Needs to somehow destroy Emscripten instance.
  */
 export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
 /** @typedef {function(new: import('three').Material, ...*): import('three').Material} MaterialConstructor */
@@ -432,6 +419,7 @@ export class CharModel {
     /**
      * @param {Uint8Array} u8 - module.HEAPU8
      * @param {number} ptr - Pointer to the type.
+     * @param {FFLCharModelDesc} charModelDesc - Copied to {@link FFLiCharModel.charModelDesc}.
      * @returns {FFLiCharModel} Object form of FFLiCharModel.
      * @private
      */
@@ -441,8 +429,9 @@ export class CharModel {
      * @param {Module} module - The Emscripten module.
      * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
      * @param {TextureManager} texManager - The {@link TextureManager} instance for this CharModel.
+     * @param {FFLCharModelDesc} desc - Copied to {@link FFLiCharModel.charModelDesc}.
      */
-    constructor(ptr: number, module: Module, materialClass: MaterialConstructor, texManager: TextureManager);
+    constructor(ptr: number, module: Module, materialClass: MaterialConstructor, texManager: TextureManager, desc: FFLCharModelDesc);
     /** @package */
     _module: Module;
     /**
@@ -503,7 +492,7 @@ export class CharModel {
     /**
      * This is the method that populates meshes
      * from the internal FFLiCharModel instance.
-     * @param {Module} module - Module to pass to drawParamToMesh to access mesh data.
+     * @param {Module} module - Module to pass to DrawParam.toMesh to access mesh data.
      * @private
      */
     private _addCharModelMeshes;
@@ -528,11 +517,6 @@ export class CharModel {
      * @private
      */
     private _getFavoriteColor;
-    /**
-     * @returns {Uint8Array} The CharInfo instance.
-     * @private
-     */
-    private _getCharInfoUint8Array;
     /**
      * @returns {number} Pointer to pTextureTempObject->facelineTexture.
      * @package
@@ -599,10 +583,8 @@ export class CharModel {
      * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
      * returns false, usually when CharInfo verification fails.
      * @public
-     * @todo TODO: What would the role of this be?
-     * Can they edit the CharInfo to justify this method so they can get it out?
+     * @todo TODO: Can they edit the CharInfo to justify this method so they can get it out?
      */
-    public getStoreData(): Uint8Array;
     /**
      * Sets the expression for this CharModel and updates the corresponding mask texture.
      * @param {FFLExpression} expression - The new expression index.
@@ -617,9 +599,9 @@ export class CharModel {
      * Not to be confused with the texture containing facial features
      * such as eyes, mouth, etc. which is the mask.
      * The faceline texture may not exist if it is not needed, in which
-     * case the faceline color is used directly, see property {@link facelineColor}.
+     * case the faceline color is used directly, see property CharModel.facelineColor.
      * @returns {import('three').RenderTarget|null} The faceline render target, or null if it does not exist,
-     * in which case {@link facelineColor} should be used. Access .texture on this object to
+     * in which case CharModel.facelineColor should be used. Access .texture on this object to
      * get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
      */
     getFaceline(): import("three").RenderTarget | null;
@@ -717,7 +699,6 @@ export function verifyCharInfo(data: Uint8Array | number, module: Module, verify
  * @param {FFLAge} age - Age of the character.
  * @param {FFLRace} race - Race of the character.
  * @returns {Uint8Array} The random FFLiCharInfo.
- * @todo TODO: Should this return FFLiCharInfo object?
  */
 export function getRandomCharInfo(module: Module, gender?: FFLGender, age?: FFLAge, race?: FFLRace): Uint8Array;
 /**
@@ -748,21 +729,11 @@ export namespace PantsColor {
 /** @type {Object<PantsColor, import('three').Color>} */
 export const pantsColors: any;
 /**
- * Converts the input data and allocates it into FFLCharModelSource.
- * Note that this allocates pBuffer so you must free it when you are done.
- * @param {Uint8Array|FFLiCharInfo} data - Input: FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
- * @param {Module} module - Module to allocate and access the buffer through.
- * @returns {FFLCharModelSource} The CharModelSource with the data specified.
- * @throws {Error} data must be Uint8Array or FFLiCharInfo object. Data must be a known type.
- * @package
- */
-export function _allocateModelSource(data: Uint8Array | FFLiCharInfo, module: Module): FFLCharModelSource;
-/**
  * Creates a CharModel from data and FFLCharModelDesc.
  * You must call initCharModelTextures afterwards to finish the process.
  * Don't forget to call dispose() on the CharModel when you are done.
- * @param {Uint8Array|FFLiCharInfo} data - Character data. Accepted types:
- * FFLStoreData, FFLiCharInfo (as Uint8Array and object), StudioCharInfo
+ * @param {Uint8Array} data - Character data. Accepted types:
+ * FFLStoreData, RFLCharData, StudioCharInfo, FFLiCharInfo as Uint8Array
  * @param {CharModelDescOrExpressionFlag} descOrExpFlag - Either a new {@link FFLCharModelDesc},
  * an array of expressions, a single expression, or an
  * expression flag (Uint32Array). Default: {@link FFLCharModelDescDefault}
@@ -771,10 +742,10 @@ export function _allocateModelSource(data: Uint8Array | FFLiCharInfo, module: Mo
  * @param {Module} module - The Emscripten module.
  * @param {boolean} verify - Whether the CharInfo provided should be verified.
  * @returns {CharModel} The new CharModel instance.
- * @throws {FFLResultException|BrokenInitModel|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc`,
+ * @throws {FFLResultException|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc`,
  * or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
  */
-export function createCharModel(data: Uint8Array | FFLiCharInfo, descOrExpFlag: CharModelDescOrExpressionFlag, materialClass: MaterialConstructor, module: Module, verify?: boolean): CharModel;
+export function createCharModel(data: Uint8Array, descOrExpFlag: CharModelDescOrExpressionFlag, materialClass: MaterialConstructor, module: Module, verify?: boolean): CharModel;
 /**
  * Creates a Three.js RenderTarget, renders the scene with
  * the given camera, and returns the render target.
@@ -790,6 +761,7 @@ export function createAndRenderToTarget(scene: import("three").Scene, camera: im
 /**
  * @param {Function} material - Class constructor for the material to test.
  * @returns {boolean} Whether or not the material class supports FFL swizzled (modulateMode) textures.
+ * @public
  */
 export function matSupportsFFL(material: Function): boolean;
 /**
@@ -874,31 +846,102 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
     get map(): import("three").Texture | null;
 }
 /**
- * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
- * textures that are R/RG format, to RGBA and also applying colors, so that
- * the CharModel can be rendered without a material that supports modulateMode.
- * @param {CharModel} charModel - The CharModel whose textures to convert.
- * @param {Renderer} renderer - The renderer.
- * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+ * Utilities for converting textures within a CharModel.
+ * {@link ModelTexturesConverter.convertModelTexturesToRGBA} adds colors to textures so
+ * they can be used with any material, or a model export.
+ * {@link ModelTexturesConverter.convModelTargetsToDataTex} adds texture data by converting
+ * render targets to {@link THREE.DataTexture}, allowing exports.
  */
-export function convertModelTexturesToRGBA(charModel: CharModel, renderer: Renderer, materialTextureClass: MaterialConstructor): void;
-/**
- * Converts all textures in the CharModel that are associated
- * with RenderTargets into THREE.DataTextures, so that the
- * CharModel can be exported using e.g., GLTFExporter.
- * @param {CharModel} charModel - The CharModel whose textures to convert.
- * @param {Renderer} renderer - The renderer.
- */
-export function convModelTargetsToDataTex(charModel: CharModel, renderer: Renderer): Promise<void>;
-/**
- * Modifies a BufferGeometry in place to be compatible with glTF.
- * It currently: deinterleaves attributes, converts half-float to float,
- * and converts signed integer formats (not uint8 for color) to float.
- * Attributes named "normal" are reduced to three components.
- * @param {import('three').BufferGeometry} geometry - The BufferGeometry to modify in place.
- * @throws {Error} Throws if an unsupported attribute format is encountered.
- */
-export function convGeometryToGLTFCompatible(geometry: import("three").BufferGeometry): void;
+export class ModelTexturesConverter {
+    /**
+     * Takes the texture in `material` and draws it using `materialTextureClass`, using
+     * the modulateMode property in `userData`, using the `renderer` and sets it back
+     * in the `material`. So it converts a swizzled (using modulateMode) texture to RGBA.
+     * NOTE: Does NOT handle mipmaps. But these textures
+     * usually do not have mipmaps anyway so it's fine
+     * @param {Renderer} renderer - The renderer.
+     * @param {import('three').MeshBasicMaterial} material - The original material of the mesh.
+     * @param {Object<string, *>} userData - The original mesh.geometry.userData to get modulateMode/Type from.
+     * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+     * @returns {import('three').RenderTarget} The RenderTarget of the final RGBA texture.
+     * @private
+     */
+    private static _texDrawRGBATarget;
+    /**
+     * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
+     * textures that are R/RG format, to RGBA and also applying colors, so that
+     * the CharModel can be rendered without a material that supports modulateMode.
+     * @param {CharModel} charModel - The CharModel whose textures to convert.
+     * @param {Renderer} renderer - The renderer.
+     * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+     * @public
+     */
+    public static convertModelTexturesToRGBA(charModel: CharModel, renderer: Renderer, materialTextureClass: MaterialConstructor): void;
+    /**
+     * Converts all textures in the CharModel that are associated
+     * with RenderTargets into THREE.DataTextures, so that the
+     * CharModel can be exported using e.g., GLTFExporter.
+     * @param {CharModel} charModel - The CharModel whose textures to convert.
+     * @param {Renderer} renderer - The renderer.
+     * @public
+     */
+    public static convModelTargetsToDataTex(charModel: CharModel, renderer: Renderer): Promise<void>;
+}
+export class GeometryConversion {
+    /**
+     * Modifies a BufferGeometry in place to be compatible with glTF.
+     * It currently: deinterleaves attributes, converts half-float to float,
+     * and converts signed integer formats (not uint8 for color) to float.
+     * Attributes named "normal" are reduced to three components.
+     * @param {import('three').BufferGeometry} geometry - The BufferGeometry to modify in place.
+     * @throws {Error} Throws if an unsupported attribute format is encountered.
+     * @public
+     */
+    public static convGeometryToGLTFCompatible(geometry: import("three").BufferGeometry): void;
+    /**
+     * Deinterleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
+     * @param {import('three').InterleavedBufferAttribute} attr - The interleaved attribute.
+     * @returns {import('three').BufferAttribute} A new BufferAttribute containing deinterleaved data.
+     * @public
+     */
+    public static _interleavedToBufferAttribute(attr: import("three").InterleavedBufferAttribute): import("three").BufferAttribute;
+    /**
+     * Creates a new Float32Array by copying only a subset of components per vertex.
+     * @param {Float32Array} src - The source Float32Array.
+     * @param {number} count - Number of vertices.
+     * @param {number} srcItemSize - Original components per vertex.
+     * @param {number} targetItemSize - Number of components to copy per vertex.
+     * @returns {Float32Array} A new Float32Array with reduced component count.
+     * @private
+     */
+    private static _copyFloat32Reduced;
+    /**
+     * Converts a 16-bit half-float value to a 32-bit float.
+     * @param {number} half - The half-float value.
+     * @returns {number} The corresponding 32-bit float value.
+     * @private
+     */
+    private static _halfToFloat;
+    /**
+     * Converts a Uint16Array assumed to represent half-float values into a Float32Array.
+     * @param {Uint16Array} halfArray - The Uint16Array of half-float values.
+     * @returns {Float32Array} A Float32Array with converted float values.
+     * @private
+     */
+    private static _halfArrayToFloat;
+    /**
+     * Converts an Int8Array of SNORM values to a Float32Array.
+     * If the targetItemSize is less than the original (e.g. for normals), only the first targetItemSize
+     * components of each vertex are copied.
+     * @param {Int8Array} src - The source Int8Array.
+     * @param {number} count - Number of vertices.
+     * @param {number} srcItemSize - Original number of components per vertex.
+     * @param {number} targetItemSize - Number of components per vertex for the output.
+     * @returns {Float32Array} A Float32Array with converted values.
+     * @private
+     */
+    private static _snormToFloat;
+}
 /** @returns {import('three').PerspectiveCamera} The camera for FFLMakeIcon. */
 export function getIconCamera(): import("three").PerspectiveCamera;
 /**
@@ -931,6 +974,7 @@ declare namespace FFLTextureFormat {
     let MAX_2: number;
     export { MAX_2 as MAX };
 }
+import * as THREE from 'three';
 /**
  * *
  */
@@ -942,7 +986,6 @@ declare namespace FFLCullMode {
     let MAX_3: number;
     export { MAX_3 as MAX };
 }
-import * as THREE from 'three';
 /**
  * Manages THREE.Texture objects created via FFL.
  * Must be instantiated after FFL is fully initialized.

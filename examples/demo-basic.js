@@ -4,8 +4,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import {
 	initializeFFL, setRendererState, createCharModel, textureToCanvas, initCharModelTextures,
-	matSupportsFFL, updateCharModel, makeExpressionFlag, checkExpressionChangesShapes,
-	makeIconFromCharModel, parseHexOrB64ToUint8Array, FFLExpression, exitFFL,
+	matSupportsFFL, makeExpressionFlag, checkExpressionChangesShapes,
+	makeIconFromCharModel, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel
 } from '../ffl.js';
 // UMDs below:
@@ -40,6 +40,25 @@ LUTShaderMaterial = (!LUTShaderMaterial) ? LUTShaderMaterialImport : LUTShaderMa
 let SampleShaderMaterial = /** @type {*} */ (globalThis).SampleShaderMaterial;
 SampleShaderMaterial = (!SampleShaderMaterial) ? SampleShaderMaterialImport : SampleShaderMaterial;
 /* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
+
+const base64ToBytes = (/** @type {string} */ base64) =>
+	Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+const hexToBytes = (/** @type {string} */ hex) =>
+	Uint8Array.from({ length: hex.length >>> 1 }, (_, i) =>
+		parseInt(hex.slice(i << 1, (i << 1) + 2), 16));
+/**
+ * Parses either hex or Base64 -> U8.
+ * Additionally strips spaces from the input.
+ * @param {string} text - Input encoded text.
+ * @returns {Uint8Array} Decoded bytes.
+ */
+function parseHexOrBase64ToBytes(text) {
+	text = text.replace(/\s+/g, ''); // Strip spaces.
+	// Check if it is hex, otherwise assume it is Base64.
+	return /^[0-9a-fA-F]+$/.test(text)
+		? hexToBytes(text)
+		: base64ToBytes(text);
+}
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
@@ -360,7 +379,7 @@ function getTextureMaterial(mat) {
 function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
 	// Decode data.
 	if (typeof data === 'string') {
-		data = parseHexOrB64ToUint8Array(data);
+		data = parseHexOrBase64ToBytes(data);
 	}
 	const mat = materials[activeMaterialClassName];
 	// Continue assuming it is Uint8Array.
@@ -723,7 +742,9 @@ function updateCharModelInfo() {
 
 	// Update name from CharInfo.
 	let name = currentCharModel._model.charInfo.name;
-	if (name.length === 0) {
+	// Sometimes the name is actually null, in which
+	// case it still has length? Let's check for char 0 = null
+	if (!name.length || !name.charCodeAt(0)) {
 		// Make font bold when name is empty.
 		charModelNameElement.style.fontWeight = 'bold';
 		name = '(No Name)';
@@ -892,7 +913,7 @@ function loadCharacterButtons() {
 		// Render the icon using createCharModelIcon.
 		let model;
 		try {
-			const dataU8 = parseHexOrB64ToUint8Array(data);
+			const dataU8 = parseHexOrBase64ToBytes(data);
 			model = createCharModel(dataU8, null, materials[activeMaterialClassName], moduleFFL);
 			initCharModelTextures(model, renderer,
 				getTextureMaterial(materials[activeMaterialClassName]));
