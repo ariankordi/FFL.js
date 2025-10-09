@@ -42,6 +42,7 @@ let _ = globalThis._; _ = (!_) ? /** @type {*} */ (_Import).default || _Import :
  * @property {function(number): void} removeFunction
  *
  * ------------------------------- FFL Bindings -------------------------------
+ * Only used functions are defined here.
  * @property {function(number, number, number, number): *} _FFLInitCharModelCPUStepWithCallback
  * @property {function(number): *} _FFLDeleteCharModel
  * @property {function(number, number, number, number): *} _FFLiGetRandomCharInfo
@@ -75,9 +76,10 @@ let _ = globalThis._; _ = (!_) ? /** @type {*} */ (_Import).default || _Import :
 // TODO PATH: src/Enums.js
 
 /**
- * Uses FFL decomp enum rather than real FFL enum.
+ * Result type for Face Library functions (not the real FFL enum).
  * Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/FFLResult.h
  * @enum {number}
+ * @package
  */
 const FFLResult = {
 	OK: 0,
@@ -103,7 +105,11 @@ const FFLResult = {
 	MAX: 20
 };
 
-/** @enum {number} */
+/**
+ * Used to index {@link FFLiCharModel.drawParam}.
+ * @enum {number}
+ * @package
+ */
 const FFLiShapeType = {
 	OPA_BEARD: 0,
 	OPA_FACELINE: 1,
@@ -120,7 +126,10 @@ const FFLiShapeType = {
 	MAX: 12
 };
 
-/** @enum {number} */
+/**
+ * @enum {number}
+ * @package
+ */
 const FFLAttributeBufferType = {
 	POSITION: 0,
 	TEXCOORD: 1,
@@ -130,7 +139,10 @@ const FFLAttributeBufferType = {
 	MAX: 5
 };
 
-/** @enum {number} */
+/**
+ * @enum {number}
+ * @package
+ */
 const FFLCullMode = {
 	NONE: 0,
 	BACK: 1,
@@ -138,7 +150,11 @@ const FFLCullMode = {
 	MAX: 3
 };
 
-/** @enum {number} */
+/**
+ * Indicates how the shape should be colored by the fragment shader.
+ * @enum {number}
+ * @public
+ */
 const FFLModulateMode = {
 	/** No Texture, Has Color (R) */
 	CONSTANT: 0,
@@ -154,7 +170,13 @@ const FFLModulateMode = {
 	ALPHA_OPA: 5
 };
 
-/** @enum {number} */
+/**
+ * This is the type of shape to be rendered.
+ * It's separated into: opaque, translucent,
+ * and past SHAPE_MAX is for faceline/mask.
+ * @enum {number}
+ * @public
+ */
 const FFLModulateType = {
 	SHAPE_FACELINE: 0,
 	SHAPE_BEARD: 1,
@@ -177,7 +199,12 @@ const FFLModulateType = {
 	SHAPE_MAX: 9
 };
 
-/** @enum {number} */
+/**
+ * FFL supports loading middle and high resources
+ * in separate slots, but we only use the high type.
+ * @enum {number}
+ * @package
+ */
 const FFLResourceType = {
 	MIDDLE: 0,
 	HIGH: 1,
@@ -185,8 +212,10 @@ const FFLResourceType = {
 };
 
 /**
+ * IDs corresponding to expressions.
  * Reference: https://github.com/ariankordi/ffl/blob/nsmbu-win-port-linux64/include/nn/ffl/FFLExpression.h
  * @enum {number}
+ * @public
  */
 const FFLExpression = {
 	NORMAL: 0,
@@ -275,9 +304,10 @@ const FFLExpression = {
 };
 
 /**
- * Model flags modify how the head model is created. These are
- * used in the `modelFlag` property of {@link FFLCharModelDesc}.
+ * Flags that modify how the head model is created.
+ * These go in {@link FFLCharModelDesc.modelFlag}.
  * @enum {number}
+ * @public
  */
 const FFLModelFlag = {
 	/** Default model setting. */
@@ -303,8 +333,17 @@ const FFLModelFlag = {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/Structs.js
 // Mostly leading up to FFLDrawParam.
+
 /** @package */
 const FFLColor_size = 16;
+/**
+ * Converts an FFLColor pointer to a THREE.Color.
+ * @param {Float32Array} f32 - HEAPF32 buffer view within {@link Module}.
+ * @param {number} colorPtr - The pointer to the color.
+ * @returns {THREE.Color} The RGB color.
+ */
+const _getFFLColor = (f32, colorPtr) =>
+	new THREE.Color().fromArray(f32, colorPtr / 4);
 
 /**
  * @typedef {Object} FFLAttributeBuffer
@@ -335,9 +374,50 @@ const FFLColor_size = 16;
  * @property {FFLCullMode} cullMode
  * @property {FFLPrimitiveParam} primitiveParam
  */
-
 /** @package */
 const FFLDrawParam_size = 104;
+/**
+ * @param {Uint8Array} u8 - module.HEAPU8
+ * @param {number} ptr - Pointer to the type.
+ * @returns {FFLDrawParam} Object form of FFLDrawParam.
+ * @package
+ */
+function _unpackFFLDrawParam(u8, ptr) {
+	const view = new DataView(u8.buffer, ptr);
+
+	const FFLAttributeBuffer_size = 12;
+	const attributeBuffers = new Array(FFLAttributeBufferType.MAX);
+	for (let i = 0; i < FFLAttributeBufferType.MAX; i++) {
+		attributeBuffers[i] = {
+			size: view.getUint32((i * FFLAttributeBuffer_size) + 0, true),
+			stride: view.getUint32((i * FFLAttributeBuffer_size) + 4, true),
+			ptr: view.getUint32((i * FFLAttributeBuffer_size) + 8, true)
+		};
+	}
+
+	const modulateParam = {
+		mode: view.getUint32(60, true),
+		type: view.getUint32(60 + 4, true),
+		pColorR: view.getUint32(60 + 8, true),
+		pColorG: view.getUint32(60 + 12, true),
+		pColorB: view.getUint32(60 + 16, true),
+		pTexture2D: view.getUint32(60 + 20, true)
+	};
+
+	const primitiveParam = {
+		primitiveType: view.getUint32(88, true),
+		indexCount: view.getUint32(88 + 4, true),
+		pAdjustMatrix: view.getUint32(88 + 8, true),
+		pIndexBuffer: view.getUint32(88 + 12, true)
+	};
+
+	return {
+		attributeBuffers,
+		modulateParam,
+		cullMode: view.getUint32(84, true),
+		primitiveParam
+	};
+}
 
 // ---------------------- Begin FFLiCharInfo Definition ----------------------
 // TODO PATH: src/StructFFLiCharModel.js
@@ -404,93 +484,94 @@ const FFLDrawParam_size = 104;
  * @property {number} roomIndex
  * @property {number} positionInRoom
  * @property {number} birthPlatform
- * @property {Array<number>} createID
+ * @property {Uint8Array} createID
  * @property {number} padding_0
  * @property {number} authorType
- * @property {Array<number>} authorID
+ * @property {Uint8Array} authorID
  */
-/** @type {import('./struct-fu').StructInstance<FFLiCharInfo>} */
-const FFLiCharInfo = _.struct([
-	_.int32le('miiVersion'),
-	// faceline
-	_.int32le('faceType'),
-	_.int32le('faceColor'),
-	_.int32le('faceTex'),
-	_.int32le('faceMake'),
-	// hair
-	_.int32le('hairType'),
-	_.int32le('hairColor'),
-	_.int32le('hairFlip'),
-	// eye
-	_.int32le('eyeType'),
-	_.int32le('eyeColor'),
-	_.int32le('eyeScale'),
-	_.int32le('eyeAspect'),
-	_.int32le('eyeRotate'),
-	_.int32le('eyeX'),
-	_.int32le('eyeY'),
-	// eyebrow
-	_.int32le('eyebrowType'),
-	_.int32le('eyebrowColor'),
-	_.int32le('eyebrowScale'),
-	_.int32le('eyebrowAspect'),
-	_.int32le('eyebrowRotate'),
-	_.int32le('eyebrowX'),
-	_.int32le('eyebrowY'),
-	// nose
-	_.int32le('noseType'),
-	_.int32le('noseScale'),
-	_.int32le('noseY'),
-	// mouth
-	_.int32le('mouthType'),
-	_.int32le('mouthColor'),
-	_.int32le('mouthScale'),
-	_.int32le('mouthAspect'),
-	_.int32le('mouthY'),
-	// beard
-	_.int32le('beardMustache'),
-	_.int32le('beardType'),
-	_.int32le('beardColor'),
-	_.int32le('beardScale'),
-	_.int32le('beardY'),
-	// glass
-	_.int32le('glassType'),
-	_.int32le('glassColor'),
-	_.int32le('glassScale'),
-	_.int32le('glassY'),
-	// mole
-	_.int32le('moleType'),
-	_.int32le('moleScale'),
-	_.int32le('moleX'),
-	_.int32le('moleY'),
-	// body
-	_.int32le('height'),
-	_.int32le('build'),
-	// personal
-	_.char16le('name', 22),
-	_.char16le('creator', 22),
-	_.int32le('gender'),
-	_.int32le('birthMonth'),
-	_.int32le('birthDay'),
-	_.int32le('favoriteColor'),
-	_.uint8('favorite'),
-	_.uint8('copyable'),
-	_.uint8('ngWord'),
-	_.uint8('localonly'),
-	_.int32le('regionMove'),
-	_.int32le('fontRegion'),
-	_.int32le('roomIndex'),
-	_.int32le('positionInRoom'),
-	_.int32le('birthPlatform'),
-	// other
-	_.uint8('createID', 10),
-	_.uint16le('padding_0'),
-	_.int32le('authorType'),
-	_.uint8('authorID', 8) // stub
-]);
+const FFLiCharInfo_size = 288;
+/**
+ * @param {Uint8Array} u8 - module.HEAPU8
+ * @param {number} ptr - Pointer to the type.
+ * @returns {FFLiCharInfo} Object form of FFLiCharInfo.
+ * @package
+ */
+function _unpackFFLiCharInfo(u8, ptr) {
+	const view = new DataView(u8.buffer, ptr);
+	const name = new TextDecoder('utf-16le').decode(new Uint16Array(u8.buffer, ptr + 180, 11));
+	const creator = new TextDecoder('utf-16le').decode(new Uint16Array(u8.buffer, ptr + 202, 11));
+	const createID = new Uint8Array(u8.buffer, 264, 10);
+	const authorID = new Uint8Array(u8.buffer, 280, 8);
+	return {
+		miiVersion: view.getInt32(0, true),
+		faceType: view.getInt32(4, true),
+		faceColor: view.getInt32(8, true),
+		faceTex: view.getInt32(12, true),
+		faceMake: view.getInt32(16, true),
+		hairType: view.getInt32(20, true),
+		hairColor: view.getInt32(24, true),
+		hairFlip: view.getInt32(28, true),
+		eyeType: view.getInt32(32, true),
+		eyeColor: view.getInt32(36, true),
+		eyeScale: view.getInt32(40, true),
+		eyeAspect: view.getInt32(44, true),
+		eyeRotate: view.getInt32(48, true),
+		eyeX: view.getInt32(52, true),
+		eyeY: view.getInt32(56, true),
+		eyebrowType: view.getInt32(60, true),
+		eyebrowColor: view.getInt32(64, true),
+		eyebrowScale: view.getInt32(68, true),
+		eyebrowAspect: view.getInt32(72, true),
+		eyebrowRotate: view.getInt32(76, true),
+		eyebrowX: view.getInt32(80, true),
+		eyebrowY: view.getInt32(84, true),
+		noseType: view.getInt32(88, true),
+		noseScale: view.getInt32(92, true),
+		noseY: view.getInt32(96, true),
+		mouthType: view.getInt32(100, true),
+		mouthColor: view.getInt32(104, true),
+		mouthScale: view.getInt32(108, true),
+		mouthAspect: view.getInt32(112, true),
+		mouthY: view.getInt32(116, true),
+		beardMustache: view.getInt32(120, true),
+		beardType: view.getInt32(124, true),
+		beardColor: view.getInt32(128, true),
+		beardScale: view.getInt32(132, true),
+		beardY: view.getInt32(136, true),
+		glassType: view.getInt32(140, true),
+		glassColor: view.getInt32(144, true),
+		glassScale: view.getInt32(148, true),
+		glassY: view.getInt32(152, true),
+		moleType: view.getInt32(156, true),
+		moleScale: view.getInt32(160, true),
+		moleX: view.getInt32(164, true),
+		moleY: view.getInt32(168, true),
+		height: view.getInt32(172, true),
+		build: view.getInt32(176, true),
+		name,
+		creator,
+		gender: view.getInt32(224, true),
+		birthMonth: view.getInt32(228, true),
+		birthDay: view.getInt32(232, true),
+		favoriteColor: view.getInt32(236, true),
+		favorite: view.getUint8(240),
+		copyable: view.getUint8(241),
+		ngWord: view.getUint8(242),
+		localonly: view.getUint8(243),
+		regionMove: view.getInt32(244, true),
+		fontRegion: view.getInt32(248, true),
+		roomIndex: view.getInt32(252, true),
+		positionInRoom: view.getInt32(256, true),
+		birthPlatform: view.getInt32(260, true),
+		createID,
+		padding_0: view.getUint16(274, true),
+		authorType: view.getInt32(276, true),
+		authorID
+	};
+}
 
 /**
- * Size of FFLStoreData, a structure not included currently.
+ * Size of FFLStoreData, the 3DS/Wii U Mii data format. (Not included)
  * @public
  */
 /** sizeof(FFLStoreData) */
@@ -515,54 +596,71 @@ const commonColorMask = color => color | commonColorEnableMask;
  * @param {number} color - The flagged color index.
  * @returns {number} The original color index before flagging.
  */
-const commonColorUnmask = color => (color & ~commonColorEnableMask) === 0
+// const commonColorUnmask = color => (color & ~commonColorEnableMask) === 0
 // Only unmask color if the mask is enabled.
-	? color
-	: color & ~commonColorEnableMask;
+// 	? color
+// 	: color & ~commonColorEnableMask;
 
 // --------------------- Begin FFLiCharModel Definitions ---------------------
 
 /** @enum {number} */
-const facelinePartType = {
+const FacelinePartType = {
 	/** Wrinkle */
-	Line: 0,
-	Make: 1,
-	Beard: 2,
-	Count: 3
+	LINE: 0,
+	MAKE: 1,
+	BEARD: 2,
+	MAX: 3
 };
 
+/**
+ * @param {Uint8Array} u8 - module.HEAPU8
+ * @param {number} ptr - Pointer to the type.
+ * @returns {Array<FFLDrawParam>}
+ * @package
+ */
+function _unpackFFLiFacelineTextureTempObject(u8, ptr) {
+	const params = new Array(FacelinePartType.MAX);
+	for (let type = 0; type < FacelinePartType.MAX; type++) {
+		// Each DrawParam is prefixed by a pointer, so let's take an offset of 4
+		const p = ptr + 4 + ((4 + FFLDrawParam_size) * type);
+		params[type] = _unpackFFLDrawParam(u8, p);
+	}
+	return params;
+}
+
 /** @enum {number} */
-const maskPartType = {
-	EyeR: 0,
-	EyeL: 1,
-	EyebrowR: 2,
-	EyebrowL: 3,
-	Mouth: 4,
-	MustacheR: 5,
-	MustacheL: 6,
-	Mole: 7,
+const MaskPartType = {
+	EYE_R: 0,
+	EYE_L: 1,
+	EYEBROW_R: 2,
+	EYEBROW_L: 3,
+	MOUTH: 4,
+	MUSTACHE_R: 5,
+	MUSTACHE_L: 6,
+	MOLE: 7,
 	/** Alpha clear. Can be skipped. */
-	Fill: 8,
-	Count: 8
+	FILL: 8,
+	MAX: 8
 };
+
+/**
+ * @param {Uint8Array} u8 - module.HEAPU8
+ * @param {number} ptr - Pointer to the type.
+ * @returns {Array<FFLDrawParam>}
+ * @package
+ */
+function _unpackFFLiRawMaskDrawParam(u8, ptr) {
+	const params = new Array(MaskPartType.MAX);
+	for (let type = 0; type < MaskPartType.MAX; type++) {
+		const p = ptr + (FFLDrawParam_size * type);
+		params[type] = _unpackFFLDrawParam(u8, p);
+	}
+	return params;
+}
 
 /** @package */
 const FFL_RESOLUTION_MASK = 0x3fffffff;
 
-/**
- * @typedef {Object} FFLCharModelDesc
- * @property {number} resolution - Texture resolution for faceline/mask. It's recommended to only use powers of two.
- * @property {Uint32Array} allExpressionFlag - Expression flag, created by {@link makeExpressionFlag}
- * @property {FFLModelFlag} modelFlag
- * @property {FFLResourceType} resourceType
- */
-/** @type {import('./struct-fu').StructInstance<FFLCharModelDesc>} */
-const FFLCharModelDesc = _.struct([
-	_.uint32le('resolution'),
-	_.uint32le('allExpressionFlag', 3),
-	_.uint32le('modelFlag'),
-	_.uint32le('resourceType')
-]);
 /**
  * Static default for FFLCharModelDesc.
  * @type {FFLCharModelDesc}
@@ -617,18 +715,54 @@ const FFLDataSource = {
 	DIRECT_POINTER: 6
 };
 
+const FFLCharModelSource_size = 10;
 /**
  * @typedef {Object} FFLCharModelSource
  * @property {FFLDataSource} dataSource
  * @property {number} pBuffer
  * @property {number} index - Only for default, official, MiddleDB; unneeded for raw data
  */
-/** @type {import('./struct-fu').StructInstance<FFLCharModelSource>} */
-const FFLCharModelSource = _.struct([
-	_.uint32le('dataSource'),
-	_.uint32le('pBuffer'),
-	_.uint16le('index')
-]);
+
+/**
+ * @param {FFLCharModelSource} obj
+ * @returns {Uint8Array}
+ * @private
+ */
+function _packFFLCharModelSource(obj) {
+	const u8 = new Uint8Array(FFLCharModelSource_size);
+	const view = new DataView(u8.buffer);
+	view.setUint32(0, obj.dataSource >>> 0, true);
+	view.setUint32(4, obj.pBuffer, true);
+	// view.setUint16(8, obj.index, true);
+	return u8;
+}
+
+/**
+ * @typedef {Object} FFLCharModelDesc
+ * @property {number} resolution - Texture resolution for faceline/mask. It's recommended to only use powers of two.
+ * @property {Uint32Array} allExpressionFlag - Expression flag, created by {@link makeExpressionFlag}
+ * @property {FFLModelFlag} modelFlag
+ * @property {FFLResourceType} resourceType
+ */
+/** @package */
+const FFLCharModelDesc_size = 24;
+/**
+ * @param {FFLCharModelDesc} obj
+ * @returns {Uint8Array} Byte form of FFLCharModelDesc.
+ * @package
+ */
+function _packFFLCharModelDesc(obj) {
+	const u8 = new Uint8Array(FFLCharModelDesc_size);
+	const view = new DataView(u8.buffer);
+	view.setUint32(0, obj.resolution, true);
+	const flag = obj.allExpressionFlag;
+	view.setUint32(4, flag[0], true);
+	view.setUint32(8, flag[1], true);
+	view.setUint32(12, flag[2], true);
+	view.setUint32(16, obj.modelFlag, true);
+	view.setUint32(20, obj.resourceType, true);
+	return u8;
+}
 
 // The enums below are only for FFLiGetRandomCharInfo.
 // Hence, why each one has a value called ALL.
@@ -656,6 +790,27 @@ const FFLRace = {
 	ALL: 3
 };
 
+/**
+ * @typedef {Object} FFLResourceDesc
+ * @property {Array<number>} pData
+ * @property {Array<number>} size
+ */
+const FFLResourceDesc_size = 16;
+/**
+ * @param {FFLResourceDesc} obj
+ * @returns {Uint8Array}
+ * @private
+ */
+function _packFFLResourceDesc(obj) {
+	const u8 = new Uint8Array(FFLResourceDesc_size);
+	const view = new DataView(u8.buffer);
+	view.setUint32(0, obj.pData[0], true);
+	view.setUint32(4, obj.pData[1], true);
+	view.setUint32(8, obj.size[0], true);
+	view.setUint32(12, obj.size[1], true);
+	return u8;
+}
+
 // // ---------------------------------------------------------------------
 // //  Texture Management
 // // ---------------------------------------------------------------------
@@ -681,6 +836,28 @@ const FFLTextureFormat = {
  * @property {number} mipPtr
  * @property {Uint32Array} mipLevelOffset
  */
+
+/**
+ * @param {Uint8Array} u8 - module.HEAPU8
+ * @param {number} ptr - Pointer to the type.
+ * @returns {FFLTextureInfo} Object form of FFLTextureInfo.
+ * @package
+ */
+function _unpackFFLTextureInfo(u8, ptr) {
+	const view = new DataView(u8.buffer, ptr);
+	return {
+		width: view.getUint16(0, true),
+		height: view.getUint16(2, true),
+		mipCount: view.getUint8(4),
+		format: view.getUint8(5),
+		// isGX2Tiled, _padding
+		imageSize: view.getUint32(8, true),
+		imagePtr: view.getUint32(12, true),
+		mipSize: view.getUint32(16, true),
+		mipPtr: view.getUint32(20, true),
+		mipLevelOffset: new Uint32Array(u8.buffer, ptr + 24, 13)
+	};
+}
 
 // ------------------------ Class: TextureManager -----------------------------
 // TODO PATH: src/TextureManager.js
@@ -810,34 +987,13 @@ class TextureManager {
 	}
 
 	/**
-	 * @param {number} ptr - Pointer to the type.
-	 * @returns {FFLTextureInfo} Object form of FFLTextureInfo.
-	 * @private
-	 */
-	_unpackTextureInfo(ptr) {
-		const view = new DataView(this._module.HEAPU8.buffer, ptr);
-		return {
-			width: view.getUint16(0, true),
-			height: view.getUint16(2, true),
-			mipCount: view.getUint8(4),
-			format: view.getUint8(5),
-			// isGX2Tiled, _padding
-			imageSize: view.getUint32(8, true),
-			imagePtr: view.getUint32(12, true),
-			mipSize: view.getUint32(16, true),
-			mipPtr: view.getUint32(20, true),
-			mipLevelOffset: new Uint32Array(view.buffer, ptr + 24, 13)
-		};
-	}
-
-	/**
 	 * @param {number} _ - Originally pObj, unused here.
 	 * @param {number} textureInfoPtr - Pointer to {@link FFLTextureInfo}.
 	 * @param {number} texturePtrPtr - Pointer to the texture handle (pTexture2D).
 	 * @private
 	 */
 	_textureCreateFunc(_, textureInfoPtr, texturePtrPtr) {
-		const textureInfo = this._unpackTextureInfo(textureInfoPtr);
+		const textureInfo = _unpackFFLTextureInfo(this._module.HEAPU8, textureInfoPtr);
 		if (this.logging) {
 			console.debug(`_textureCreateFunc: width=${textureInfo.width}, height=${textureInfo.height}, format=${textureInfo.format}, imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
 		}
@@ -1293,7 +1449,7 @@ async function _loadDataIntoHeap(resource, module) {
  * @param {Module|Promise<Module>|function(): Promise<Module>} moduleOrPromise - The Emscripten module
  * by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
  * or as a function returning a promise (window.Module when MODULARIZE=1).
- * @returns {Promise<{module: Module, resourceDesc: Uint8Array}>} Resolves when FFL is fully initialized,
+ * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when FFL is fully initialized,
  * returning the final Emscripten {@link Module} instance and the FFLResourceDesc buffer
  * that can later be passed into {@link exitFFL}.
  */
@@ -1350,7 +1506,7 @@ async function initializeFFL(resource, moduleOrPromise) {
 	}
 
 	// Module should be ready after this point, begin loading the resource.
-	/** @type {Uint8Array|null} */
+	/** @type {FFLResourceDesc|null} */
 	let desc = null;
 	try {
 		// If resource is itself a promise (fetch() result), wait for it to finish.
@@ -1363,14 +1519,13 @@ async function initializeFFL(resource, moduleOrPromise) {
 		console.debug(`initializeFFL: Resource loaded into heap. Pointer: ${heapPtr}, Size: ${heapSize}`);
 
 		// Initialize and pack FFLResourceDesc.
-		const FFLResourceDesc_size = 16;
-		desc = new Uint8Array(FFLResourceDesc_size);
-		const view = new DataView(desc.buffer);
-		// Set pData[resourceType], size[resourceType]
-		view.setUint32(4 * resourceType, heapPtr, true);
-		view.setUint32((FFLResourceType.MAX * 4) + resourceType * 4, heapSize, true);
+		desc = { pData: [0, 0], size: [0, 0] };
+		desc.pData[resourceType] = heapPtr;
+		desc.size[resourceType] = heapSize;
+
+		const resourceDescData = _packFFLResourceDesc(desc);
 		resourceDescPtr = module._malloc(FFLResourceDesc_size); // Freed by freeResDesc.
-		module.HEAPU8.set(desc, resourceDescPtr);
+		module.HEAPU8.set(resourceDescData, resourceDescPtr);
 
 		// Call FFL initialization using: FFL_FONT_REGION_JP_US_EU = 0
 		const result = module._FFLInitRes(0, resourceDescPtr);
@@ -1409,8 +1564,8 @@ async function initializeFFL(resource, moduleOrPromise) {
 }
 
 /**
- * Frees all pData pointers within a FFLResourceDesc buffer.
- * @param {Uint8Array|null} desc - Resource description containing pointers.
+ * Frees all pData pointers within FFLResourceDesc.
+ * @param {FFLResourceDesc|null} desc - Resource description containing pointers.
  * @param {Module} module - Emscripten module to call _free on.
  * @package
  */
@@ -1418,13 +1573,13 @@ function _freeResourceDesc(desc, module) {
 	if (!desc) {
 		return;
 	}
-	const view = new DataView(desc.buffer);
+
 	// Access pData, the first pointer array.
 	for (let i = 0; i < FFLResourceType.MAX; i++) {
-		const p = view.getUint32(4 * i, true);
+		const p = desc.pData[i];
 		if (p) {
 			module._free(p); // Free pData and set to 0.
-			view.setUint32(4 * i, 0, true);
+			desc.pData[i] = 0;
 		}
 	}
 }
@@ -1432,7 +1587,7 @@ function _freeResourceDesc(desc, module) {
 // ---------------------- exitFFL(module, resourceDesc) ----------------------
 /**
  * @param {Module} module - Emscripten module.
- * @param {Uint8Array} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
+ * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
  * @public
  * @todo TODO: Needs to somehow destroy Emscripten instance.
  */
@@ -1452,49 +1607,6 @@ function exitFFL(module, resourceDesc) {
 	} else {
 		console.debug('exitFFL: not calling module._exit = ', module._exit);
 	}
-}
-
-/**
- * @param {Uint8Array} u8 - module.HEAPU8
- * @param {number} ptr - Pointer to the type.
- * @returns {FFLDrawParam} Object form of FFLDrawParam.
- * @package
- */
-function _unpackDrawParam(u8, ptr) {
-	const view = new DataView(u8.buffer, ptr);
-
-	const FFLAttributeBuffer_size = 12;
-	const attributeBuffers = new Array(FFLAttributeBufferType.MAX);
-	for (let i = 0; i < FFLAttributeBufferType.MAX; i++) {
-		attributeBuffers[i] = {
-			size: view.getUint32((i * FFLAttributeBuffer_size) + 0, true),
-			stride: view.getUint32((i * FFLAttributeBuffer_size) + 4, true),
-			ptr: view.getUint32((i * FFLAttributeBuffer_size) + 8, true)
-		};
-	}
-
-	const modulateParam = {
-		mode: view.getUint32(60, true),
-		type: view.getUint32(60 + 4, true),
-		pColorR: view.getUint32(60 + 8, true),
-		pColorG: view.getUint32(60 + 12, true),
-		pColorB: view.getUint32(60 + 16, true),
-		pTexture2D: view.getUint32(60 + 20, true)
-	};
-
-	const primitiveParam = {
-		primitiveType: view.getUint32(88, true),
-		indexCount: view.getUint32(88 + 4, true),
-		pAdjustMatrix: view.getUint32(88 + 8, true),
-		pIndexBuffer: view.getUint32(88 + 12, true)
-	};
-
-	return {
-		attributeBuffers,
-		modulateParam,
-		cullMode: view.getUint32(84, true),
-		primitiveParam
-	};
 }
 
 // // ---------------------------------------------------------------------
@@ -1558,7 +1670,7 @@ class CharModel {
 		 * this instance will not apply in FFL whatsoever.
 		 * @readonly
 		 */
-		this._model = CharModel._unpackCharModel(module.HEAPU8, ptr);
+		this._model = CharModel._unpackFFLiCharModel(module.HEAPU8, ptr);
 		// NOTE: The only property SET in _model is expression.
 		// Everything else is read.
 
@@ -1600,10 +1712,10 @@ class CharModel {
 	 * @returns {FFLiCharModel} Object form of FFLiCharModel.
 	 * @private
 	 */
-	static _unpackCharModel(u8, ptr) {
+	static _unpackFFLiCharModel(u8, ptr) {
 		const view = new DataView(u8.buffer, ptr);
-		const charInfoBuffer = new Uint8Array(view.buffer, ptr + 0);
-		const charModelDescBuffer = new Uint8Array(view.buffer, ptr + 288);
+		// const charInfoBuffer = new Uint8Array(view.buffer, ptr + 0);
+		// const charModelDescBuffer = new Uint8Array(view.buffer, ptr + 288);
 		// pShapeData, facelineRenderTexture, 3 texture pointers
 		const pMaskRenderTextures = new Uint32Array(view.buffer, ptr + 1644, FFLExpression.MAX);
 		// FFLVec3 * 3
@@ -1613,11 +1725,12 @@ class CharModel {
 		const drawParam = new Array(FFLiShapeType.MAX);
 		for (let shapeType = 0; shapeType < FFLiShapeType.MAX; shapeType++) {
 			const p = ptr + 320 /* drawParam */ + (FFLDrawParam_size * shapeType);
-			drawParam[shapeType] = _unpackDrawParam(u8, p);
+			drawParam[shapeType] = _unpackFFLDrawParam(u8, p);
 		}
 		return {
-			charInfo: FFLiCharInfo.unpack(charInfoBuffer),
-			charModelDesc: FFLCharModelDesc.unpack(charModelDescBuffer),
+			charInfo: _unpackFFLiCharInfo(u8, ptr + 0),
+			charModelDesc: null,
+			// charModelDesc: FFLCharModelDesc.unpack(charModelDescBuffer),
 			expression: view.getUint32(312, true),
 			pTextureTempObject: view.getUint32(316, true),
 			drawParam,
@@ -1712,7 +1825,7 @@ class CharModel {
 		const mod = this._module;
 		// Use the nose, which is always present, to get the faceline color from.
 		const nose = this._model.drawParam[FFLiShapeType.OPA_NOSE];
-		const color = _getFFLColor(nose.modulateParam.pColorR, mod.HEAPF32);
+		const color = _getFFLColor(mod.HEAPF32, nose.modulateParam.pColorR);
 		return color;
 		// Assume this is in working color space because it is used for clear color.
 	}
@@ -1727,7 +1840,7 @@ class CharModel {
 		/** Allocate return pointer. */
 		const colorPtr = mod._malloc(FFLColor_size);
 		mod._FFLGetFavoriteColor(colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
-		const color = _getFFLColor(colorPtr, mod.HEAPF32);
+		const color = _getFFLColor(mod.HEAPF32, colorPtr);
 		mod._free(colorPtr);
 		return color;
 	}
@@ -1910,7 +2023,7 @@ class CharModel {
 		const mod = this._module;
 		// Allocate function arguments.
 		/** Input */
-		const charInfoPtr = mod._malloc(FFLiCharInfo.size);
+		const charInfoPtr = mod._malloc(FFLiCharInfo_size);
 		/** Output */
 		const storeDataPtr = mod._malloc(FFLStoreData_size);
 		mod.HEAPU8.set(charInfoData, charInfoPtr);
@@ -2160,7 +2273,7 @@ const pantsColors = {
  */
 function _allocateModelSource(data, module) {
 	/** Maximum size. */
-	const bufferPtr = module._malloc(FFLiCharInfo.size);
+	const bufferPtr = module._malloc(FFLiCharInfo_size);
 
 	// Create modelSource.
 	const modelSource = {
@@ -2188,13 +2301,11 @@ function _allocateModelSource(data, module) {
 		}
 	}
 
-	/** @param {Uint8Array} src - Source data in {@link StudioCharInfo} format. */
+	/** @param {Uint8Array} src - Source data in StudioCharInfo format. */
 	function setStudioData(src) {
 		// studio raw, decode it to charinfo
-		const studio = StudioCharInfo.unpack(src);
-		const charInfo = convertStudioCharInfoToFFLiCharInfo(studio);
-		data = FFLiCharInfo.pack(charInfo);
-		module.HEAPU8.set(data, bufferPtr);
+		const charInfoData = convertStudioCharInfoToFFLiCharInfo(src);
+		module.HEAPU8.set(charInfoData, bufferPtr);
 	}
 
 	/**
@@ -2232,17 +2343,17 @@ function _allocateModelSource(data, module) {
 			callGetCharInfoFunc(data, 74, '_FFLpGetCharInfoFromMiiDataOfficialRFL');
 			break;
 		}
-		case FFLiCharInfo.size:
+		case FFLiCharInfo_size:
 			// modelSource.dataSource = FFLDataSource.BUFFER; // Default option.
 			module.HEAPU8.set(data, bufferPtr); // Copy data into heap.
 			break;
-		case StudioCharInfo.size + 1: {
+		case 46 + 1: {
 			// studio data obfuscated
 			data = studioURLObfuscationDecode(data);
 			setStudioData(data);
 			break;
 		}
-		case StudioCharInfo.size: {
+		case 46: {
 			// studio data raw
 			setStudioData(data);
 			break;
@@ -2287,7 +2398,7 @@ function verifyCharInfo(data, module, verifyName = false) {
 		// Assume everything else means Uint8Array. TODO: untested
 		charInfoAllocated = true;
 		// Allocate and copy CharInfo.
-		charInfoPtr = module._malloc(FFLiCharInfo.size);
+		charInfoPtr = module._malloc(FFLiCharInfo_size);
 		module.HEAPU8.set(data, charInfoPtr);
 	}
 	const result = module._FFLiVerifyCharInfoWithReason(charInfoPtr, verifyName);
@@ -2313,9 +2424,9 @@ function verifyCharInfo(data, module, verifyName = false) {
  * @todo TODO: Should this return FFLiCharInfo object?
  */
 function getRandomCharInfo(module, gender = FFLGender.ALL, age = FFLAge.ALL, race = FFLRace.ALL) {
-	const ptr = module._malloc(FFLiCharInfo.size);
+	const ptr = module._malloc(FFLiCharInfo_size);
 	module._FFLiGetRandomCharInfo(ptr, gender, age, race);
-	const result = module.HEAPU8.slice(ptr, ptr + FFLiCharInfo.size);
+	const result = module.HEAPU8.slice(ptr, ptr + FFLiCharInfo_size);
 	module._free(ptr);
 	return result;
 }
@@ -2430,8 +2541,8 @@ function createCharModel(data, descOrExpFlag, materialClass, module, verify = tr
 	}
 
 	// Allocate memory for model source, description, char model, and char info.
-	const modelSourcePtr = module._malloc(FFLCharModelSource.size);
-	const modelDescPtr = module._malloc(FFLCharModelDesc.size);
+	const modelSourcePtr = module._malloc(FFLCharModelSource_size);
+	const modelDescPtr = module._malloc(FFLCharModelDesc_size);
 	const charModelPtr = module._malloc(FFLiCharModel_size);
 
 	// data = getRandomCharInfo(module, FFLGender.FEMALE, FFLAge.ALL, FFLRace.WHITE);
@@ -2441,7 +2552,7 @@ function createCharModel(data, descOrExpFlag, materialClass, module, verify = tr
 	/** Get pBuffer to free it later. */
 	const charInfoPtr = modelSource.pBuffer;
 
-	const modelSourceBuffer = FFLCharModelSource.pack(modelSource);
+	const modelSourceBuffer = _packFFLCharModelSource(modelSource);
 	module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
 
 	const modelDesc = _descOrExpFlagToModelDesc(descOrExpFlag);
@@ -2450,7 +2561,7 @@ function createCharModel(data, descOrExpFlag, materialClass, module, verify = tr
 	// bits undefined but this does not so no reason to not enable
 	modelDesc.modelFlag |= FFLModelFlag.NEW_EXPRESSIONS;
 
-	const modelDescBuffer = FFLCharModelDesc.pack(modelDesc);
+	const modelDescBuffer = _packFFLCharModelDesc(modelDesc);
 	module.HEAPU8.set(modelDescBuffer, modelDescPtr);
 
 	/** Local TextureManager instance. */
@@ -2492,6 +2603,7 @@ function createCharModel(data, descOrExpFlag, materialClass, module, verify = tr
 
 	// Create the CharModel instance.
 	const charModel = new CharModel(charModelPtr, module, materialClass, textureManager);
+	charModel._model.charModelDesc = modelDesc; // Copy this object.
 	// The constructor will populate meshes from the FFLiCharModel instance.
 	/** @private */
 	charModel._data = data; // Store original data passed to function.
@@ -2940,13 +3052,13 @@ function _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
 	// If both pColorG and pColorB are provided, combine them into an array.
 	if (modulateParam.pColorG !== 0 && modulateParam.pColorB !== 0) {
 		color = [
-			_getFFLColor(modulateParam.pColorR, f32),
-			_getFFLColor(modulateParam.pColorG, f32),
-			_getFFLColor(modulateParam.pColorB, f32)
+			_getFFLColor(f32, modulateParam.pColorR),
+			_getFFLColor(f32, modulateParam.pColorG),
+			_getFFLColor(f32, modulateParam.pColorB)
 		];
 	} else if (modulateParam.pColorR !== 0) {
 		// Otherwise, set it as a single color.
-		color = _getFFLColor(modulateParam.pColorR, f32);
+		color = _getFFLColor(f32, modulateParam.pColorR);
 	}
 
 	// Only set opacity to 0 for "fill" 2D plane.
@@ -2990,15 +3102,6 @@ function _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
 	}
 	return param;
 }
-
-/**
- * Converts a pointer to FFLColor to a THREE.Color.
- * @param {number} colorPtr - The pointer to the color.
- * @param {Float32Array} f32 - HEAPF32 buffer view within {@link Module}.
- * @returns {THREE.Color} The RGB color.
- */
-const _getFFLColor = (colorPtr, f32) =>
-	new THREE.Color().fromArray(f32, colorPtr / 4);
 
 /**
  * Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
@@ -3112,17 +3215,12 @@ function _drawFacelineTexture(charModel, renderer, module, materialClass) {
 	const facelineTempObjectPtr = charModel._getFacelineTempObjectPtr();
 	module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
 
-	const facelineParams = new Array(facelinePartType.Count);
-	for (let type = 0; type < facelinePartType.Count; type++) {
-		// Each DrawParam is prefixed by a pointer, so let's take an offset of 4
-		const p = facelineTempObjectPtr + 4 + ((4 + FFLDrawParam_size) * type);
-		facelineParams[type] = _unpackDrawParam(module.HEAPU8, p);
-	}
+	const params = _unpackFFLiFacelineTextureTempObject(module.HEAPU8, facelineTempObjectPtr);
 	// Gather the drawParams that make up the faceline texture.
 	const drawParams = [
-		facelineParams[facelinePartType.Make],
-		facelineParams[facelinePartType.Line],
-		facelineParams[facelinePartType.Beard]
+		params[FacelinePartType.MAKE],
+		params[FacelinePartType.LINE],
+		params[FacelinePartType.BEARD]
 	].filter(dp => dp && dp.modulateParam.pTexture2D !== 0);
 	// Note that for faceline DrawParams to not be empty,
 	// it must have a texture. For other DrawParams to not
@@ -3200,13 +3298,9 @@ function _drawMaskTextures(charModel, maskParamPtrs, renderer, module, materialC
 		if (charModel._model.pMaskRenderTextures[i] === 0) {
 			continue;
 		}
-		const maskDrawParamPtr = maskParamPtrs[i];
-		const rawMaskDrawParam = new Array(maskPartType.Count);
-		for (let type = 0; type < maskPartType.Count; type++) {
-			const p = maskDrawParamPtr + (FFLDrawParam_size * type);
-			rawMaskDrawParam[type] = _unpackDrawParam(module.HEAPU8, p);
-		}
-		module._FFLiInvalidateRawMask(maskDrawParamPtr);
+		const maskParamPtr = maskParamPtrs[i];
+		const rawMaskDrawParam = _unpackFFLiRawMaskDrawParam(module.HEAPU8, maskParamPtr);
+		module._FFLiInvalidateRawMask(maskParamPtr);
 
 		const { target, scene } = _drawMaskTexture(charModel,
 			rawMaskDrawParam, renderer, materialClass);
@@ -3219,9 +3313,7 @@ function _drawMaskTextures(charModel, maskParamPtrs, renderer, module, materialC
 	// Some texures are shared which is why this
 	// needs to be done given that disposeMeshes
 	// unconditionally deletes textures.
-	scenes.forEach((scene) => {
-		disposeMany(scene);
-	});
+	scenes.forEach(scene => disposeMany(scene));
 
 	module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr,
 		expressionFlagPtr, charModel._model.charModelDesc.resourceType);
@@ -3241,14 +3333,14 @@ function _drawMaskTextures(charModel, maskParamPtrs, renderer, module, materialC
  */
 function _drawMaskTexture(charModel, rawMaskParam, renderer, materialClass) {
 	const drawParams = [
-		rawMaskParam[maskPartType.MustacheR],
-		rawMaskParam[maskPartType.MustacheL],
-		rawMaskParam[maskPartType.Mouth],
-		rawMaskParam[maskPartType.EyebrowR],
-		rawMaskParam[maskPartType.EyebrowL],
-		rawMaskParam[maskPartType.EyeR],
-		rawMaskParam[maskPartType.EyeL],
-		rawMaskParam[maskPartType.Mole]
+		rawMaskParam[MaskPartType.MUSTACHE_R],
+		rawMaskParam[MaskPartType.MUSTACHE_L],
+		rawMaskParam[MaskPartType.MOUTH],
+		rawMaskParam[MaskPartType.EYEBROW_R],
+		rawMaskParam[MaskPartType.EYEBROW_L],
+		rawMaskParam[MaskPartType.EYE_R],
+		rawMaskParam[MaskPartType.EYE_L],
+		rawMaskParam[MaskPartType.MOLE]
 	].filter(dp => dp && dp.primitiveParam.indexCount !== 0);
 	console.assert(drawParams.length, '_drawMaskTexture: All DrawParams are empty.');
 	// Configure the RenderTarget for no depth/stencil.
@@ -4081,182 +4173,61 @@ function makeIconFromCharModel(charModel, renderer, options = {}) {
 // TODO PATH: src/StudioCharInfo.js
 
 /**
- * @typedef {Object} StudioCharInfo
- * @property {number} beardColor
- * @property {number} beardType
- * @property {number} build
- * @property {number} eyeAspect
- * @property {number} eyeColor
- * @property {number} eyeRotate
- * @property {number} eyeScale
- * @property {number} eyeType
- * @property {number} eyeX
- * @property {number} eyeY
- * @property {number} eyebrowAspect
- * @property {number} eyebrowColor
- * @property {number} eyebrowRotate
- * @property {number} eyebrowScale
- * @property {number} eyebrowType
- * @property {number} eyebrowX
- * @property {number} eyebrowY
- * @property {number} facelineColor
- * @property {number} facelineMake
- * @property {number} facelineType
- * @property {number} facelineWrinkle
- * @property {number} favoriteColor
- * @property {number} gender
- * @property {number} glassColor
- * @property {number} glassScale
- * @property {number} glassType
- * @property {number} glassY
- * @property {number} hairColor
- * @property {number} hairFlip
- * @property {number} hairType
- * @property {number} height
- * @property {number} moleScale
- * @property {number} moleType
- * @property {number} moleX
- * @property {number} moleY
- * @property {number} mouthAspect
- * @property {number} mouthColor
- * @property {number} mouthScale
- * @property {number} mouthType
- * @property {number} mouthY
- * @property {number} mustacheScale
- * @property {number} mustacheType
- * @property {number} mustacheY
- * @property {number} noseScale
- * @property {number} noseType
- * @property {number} noseY
- */
-
-/**
- * Structure representing data from the studio.mii.nintendo.com site and API.
- * @type {import('./struct-fu').StructInstance<StudioCharInfo>}
- */
-const StudioCharInfo = _.struct([
-	// Fields are named according to nn::mii::CharInfo.
-	_.uint8('beardColor'),
-	_.uint8('beardType'),
-	_.uint8('build'),
-	_.uint8('eyeAspect'),
-	_.uint8('eyeColor'),
-	_.uint8('eyeRotate'),
-	_.uint8('eyeScale'),
-	_.uint8('eyeType'),
-	_.uint8('eyeX'),
-	_.uint8('eyeY'),
-	_.uint8('eyebrowAspect'),
-	_.uint8('eyebrowColor'),
-	_.uint8('eyebrowRotate'),
-	_.uint8('eyebrowScale'),
-	_.uint8('eyebrowType'),
-	_.uint8('eyebrowX'),
-	_.uint8('eyebrowY'),
-	_.uint8('facelineColor'),
-	_.uint8('facelineMake'),
-	_.uint8('facelineType'),
-	_.uint8('facelineWrinkle'),
-	_.uint8('favoriteColor'),
-	_.uint8('gender'),
-	_.uint8('glassColor'),
-	_.uint8('glassScale'),
-	_.uint8('glassType'),
-	_.uint8('glassY'),
-	_.uint8('hairColor'),
-	_.uint8('hairFlip'),
-	_.uint8('hairType'),
-	_.uint8('height'),
-	_.uint8('moleScale'),
-	_.uint8('moleType'),
-	_.uint8('moleX'),
-	_.uint8('moleY'),
-	_.uint8('mouthAspect'),
-	_.uint8('mouthColor'),
-	_.uint8('mouthScale'),
-	_.uint8('mouthType'),
-	_.uint8('mouthY'),
-	_.uint8('mustacheScale'),
-	_.uint8('mustacheType'),
-	_.uint8('mustacheY'),
-	_.uint8('noseScale'),
-	_.uint8('noseType'),
-	_.uint8('noseY')
-]);
-
-// ----------------- convertStudioCharInfoToFFLiCharInfo(src) -----------------
-/**
- * Creates an FFLiCharInfo object from StudioCharInfo.
- * @param {StudioCharInfo} src - The StudioCharInfo instance.
- * @returns {FFLiCharInfo} The FFLiCharInfo output.
+ * @param {Uint8Array} src
+ * @returns {Uint8Array}
  */
 function convertStudioCharInfoToFFLiCharInfo(src) {
-	return {
-		miiVersion: 0,
-		faceType: src.facelineType,
-		faceColor: src.facelineColor,
-		faceTex: src.facelineWrinkle,
-		faceMake: src.facelineMake,
-		hairType: src.hairType,
-		hairColor: commonColorMask(src.hairColor),
-		hairFlip: src.hairFlip,
-		eyeType: src.eyeType,
-		eyeColor: commonColorMask(src.eyeColor),
-		eyeScale: src.eyeScale,
-		eyeAspect: src.eyeAspect,
-		eyeRotate: src.eyeRotate,
-		eyeX: src.eyeX,
-		eyeY: src.eyeY,
-		eyebrowType: src.eyebrowType,
-		eyebrowColor: commonColorMask(src.eyebrowColor),
-		eyebrowScale: src.eyebrowScale,
-		eyebrowAspect: src.eyebrowAspect,
-		eyebrowRotate: src.eyebrowRotate,
-		eyebrowX: src.eyebrowX,
-		eyebrowY: src.eyebrowY,
-		noseType: src.noseType,
-		noseScale: src.noseScale,
-		noseY: src.noseY,
-		mouthType: src.mouthType,
-		mouthColor: commonColorMask(src.mouthColor),
-		mouthScale: src.mouthScale,
-		mouthAspect: src.mouthAspect,
-		mouthY: src.mouthY,
-		beardMustache: src.mustacheType,
-		beardType: src.beardType,
-		beardColor: commonColorMask(src.beardColor),
-		beardScale: src.mustacheScale,
-		beardY: src.mustacheY,
-		glassType: src.glassType,
-		glassColor: commonColorMask(src.glassColor),
-		glassScale: src.glassScale,
-		glassY: src.glassY,
-		moleType: src.moleType,
-		moleScale: src.moleScale,
-		moleX: src.moleX,
-		moleY: src.moleY,
-		height: src.height,
-		build: src.build,
-		name: '',
-		creator: '',
-		gender: src.gender,
-		birthMonth: 0,
-		birthDay: 0,
-		favoriteColor: src.favoriteColor,
-		favorite: 0,
-		copyable: 0,
-		ngWord: 0,
-		localonly: 0,
-		regionMove: 0,
-		fontRegion: 0,
-		roomIndex: 0,
-		positionInRoom: 0,
-		birthPlatform: 3, // FFL_BIRTH_PLATFORM_CTR
-		createID: new Array(10),
-		padding_0: 0,
-		authorType: 0,
-		authorID: new Array(8)
-	};
+	const dst = new Uint8Array(0x120);
+	const view = new DataView(dst.buffer);
+
+	view.setUint32(0x80, commonColorMask(src[0]), true); // beardColor
+	dst[0x7c] = src[1];
+	dst[0xb0] = src[2];
+	dst[0x2c] = src[3];
+	view.setUint32(0x24, commonColorMask(src[4]), true); // eyeColor
+	dst[0x30] = src[5];
+	dst[0x28] = src[6];
+	dst[0x20] = src[7];
+	dst[0x34] = src[8];
+	dst[0x38] = src[9];
+	dst[0x48] = src[10];
+	view.setUint32(0x40, commonColorMask(src[0xb]), true); // eyebrowColor
+	dst[0x4c] = src[0xc];
+	dst[0x44] = src[0xd];
+	dst[0x3c] = src[0xe];
+	dst[0x50] = src[0xf];
+	dst[0x54] = src[0x10];
+	dst[8] = src[0x11];
+	dst[0x10] = src[0x12];
+	dst[4] = src[0x13];
+	dst[0xc] = src[0x14];
+	dst[0xec] = src[0x15];
+	dst[0xe0] = src[0x16];
+	view.setUint32(0x90, commonColorMask(src[0x17]), true); // glassColor
+	dst[0x94] = src[0x18];
+	dst[0x8c] = src[0x19];
+	dst[0x98] = src[0x1a];
+	view.setUint32(0x18, commonColorMask(src[0x1b]), true); // hairColor
+	dst[0x1c] = src[0x1c];
+	dst[0x14] = src[0x1d];
+	dst[0xac] = src[0x1e];
+	dst[0xa0] = src[0x1f];
+	dst[0x9c] = src[0x20];
+	dst[0xa4] = src[0x21];
+	dst[0xa8] = src[0x22];
+	dst[0x70] = src[0x23];
+	view.setUint32(0x68, commonColorMask(src[0x24]), true); // mouthColor
+	dst[0x6c] = src[0x25];
+	dst[100] = src[0x26];
+	dst[0x74] = src[0x27];
+	dst[0x84] = src[0x28];
+	dst[0x78] = src[0x29];
+	dst[0x88] = src[0x2a];
+	dst[0x5c] = src[0x2b];
+	dst[0x58] = src[0x2c];
+	dst[0x60] = src[0x2d];
+	dst[0x104] = 3;
+	return dst;
 }
 
 // --------------------- studioURLObfuscationDecode(data) ---------------------
@@ -4276,152 +4247,7 @@ function studioURLObfuscationDecode(data) {
 		previous = encodedByte;
 	}
 
-	return decodedData.slice(0, StudioCharInfo.size); // Clamp to StudioCharInfo.size
-}
-
-// ----------------- convertFFLiCharInfoToStudioCharInfo(src) -----------------
-/**
- * Creates a StudioCharInfo object from FFLiCharInfo.
- * @param {FFLiCharInfo} src - The FFLiCharInfo instance.
- * @returns {StudioCharInfo} The StudioCharInfo output.
- * @todo TODO: Currently does NOT convert color indices
- * to CommonColor indices (ToVer3... etc)
- */
-function convertFFLiCharInfoToStudioCharInfo(src) {
-	return {
-		beardColor: commonColorUnmask(src.beardColor),
-		beardType: src.beardType,
-		build: src.build,
-		eyeAspect: src.eyeAspect,
-		eyeColor: commonColorUnmask(src.eyeColor),
-		eyeRotate: src.eyeRotate,
-		eyeScale: src.eyeScale,
-		eyeType: src.eyeType,
-		eyeX: src.eyeX,
-		eyeY: src.eyeY,
-		eyebrowAspect: src.eyebrowAspect,
-		eyebrowColor: commonColorUnmask(src.eyebrowColor),
-		eyebrowRotate: src.eyebrowRotate,
-		eyebrowScale: src.eyebrowScale,
-		eyebrowType: src.eyebrowType,
-		eyebrowX: src.eyebrowX,
-		eyebrowY: src.eyebrowY,
-		facelineColor: src.faceColor,
-		facelineMake: src.faceMake,
-		facelineType: src.faceType,
-		facelineWrinkle: src.faceTex,
-		favoriteColor: src.favoriteColor,
-		gender: src.gender,
-		glassColor: commonColorUnmask(src.glassColor),
-		glassScale: src.glassScale,
-		glassType: src.glassType,
-		glassY: src.glassY,
-		hairColor: commonColorUnmask(src.hairColor),
-		hairFlip: src.hairFlip,
-		hairType: src.hairType,
-		height: src.height,
-		moleScale: src.moleScale,
-		moleType: src.moleType,
-		moleX: src.moleX,
-		moleY: src.moleY,
-		mouthAspect: src.mouthAspect,
-		mouthColor: commonColorUnmask(src.mouthColor),
-		mouthScale: src.mouthScale,
-		mouthType: src.mouthType,
-		mouthY: src.mouthY,
-		mustacheScale: src.beardScale,
-		mustacheType: src.beardMustache,
-		mustacheY: src.beardY,
-		noseScale: src.noseScale,
-		noseType: src.noseType,
-		noseY: src.noseY
-	};
-}
-
-// // ---------------------------------------------------------------------
-// //  Generic Hex/Base64 Utilities
-// // ---------------------------------------------------------------------
-// TODO PATH: src/CodecUtilities.js
-
-/**
- * Removes all spaces from a string.
- * @param {string} str - The input string.
- * @returns {string} The string without spaces.
- */
-function stripSpaces(str) {
-	return str.replace(/\s+/g, '');
-}
-
-/**
- * Converts a hexadecimal string to a Uint8Array.
- * @param {string} hex - The hexadecimal string.
- * @returns {Uint8Array} The converted Uint8Array.
- */
-function hexToUint8Array(hex) {
-	const match = hex.match(/.{1,2}/g);
-	// If match returned null, use an empty array.
-	const arr = (match ? match : []).map(function (byte) {
-		return parseInt(byte, 16);
-	});
-	return new Uint8Array(arr);
-}
-
-/**
- * Converts a Base64 or Base64-URL encoded string to a Uint8Array.
- * @param {string} base64 - The Base64-encoded string.
- * @returns {Uint8Array} The converted Uint8Array.
- */
-function base64ToUint8Array(base64) {
-	// Replace URL-safe Base64 characters
-	const normalizedBase64 = base64.replace(/-/g, '+').replace(/_/g, '/');
-	// Custom function to pad the string with '=' manually
-	/**
-	 * @param {string} str - The Base64 string to pad.
-	 * @returns {string} The padded Base64 string.
-	 */
-	function padBase64(str) {
-		while (str.length % 4 !== 0) {
-			str += '=';
-		}
-		return str;
-	}
-	// Add padding if necessary.
-	const paddedBase64 = padBase64(normalizedBase64);
-	const binaryString = atob(paddedBase64);
-	const len = binaryString.length;
-	const bytes = new Uint8Array(len);
-	for (let i = 0; i < len; i++) {
-		bytes[i] = binaryString.charCodeAt(i);
-	}
-	return bytes;
-}
-
-/**
- * Converts a Uint8Array to a Base64 string.
- * @param {Array<number>} data - The Uint8Array to convert.
- * @returns {string} The Base64-encoded string.
- */
-function uint8ArrayToBase64(data) {
-	return btoa(String.fromCharCode.apply(null, data));
-}
-
-/**
- * Parses a string contaning either hex or Base64 representation
- * of bytes into a Uint8Array, stripping spaces.
- * @param {string} text - The input string, which can be either hex or Base64.
- * @returns {Uint8Array} The parsed Uint8Array.
- */
-function parseHexOrB64ToUint8Array(text) {
-	let inputData;
-	// Decode it to a Uint8Array whether it's hex or Base64
-	const textData = stripSpaces(text);
-	// Check if it's base 16 exclusively, otherwise assume Base64
-	if (/^[0-9a-fA-F]+$/.test(textData)) {
-		inputData = hexToUint8Array(textData);
-	} else {
-		inputData = base64ToUint8Array(textData);
-	}
-	return inputData;
+	return decodedData.slice(0, 46); // Clamp to StudioCharInfo.size
 }
 
 // ------------------ ESM exports, uncomment if you use ESM ------------------
@@ -4434,11 +4260,8 @@ export {
 	FFLResourceType,
 
 	// Types for CharModel initialization
-	FFLiCharInfo,
-	FFLCharModelDesc,
 	FFLCharModelDescDefault,
 	FFLDataSource,
-	FFLCharModelSource,
 
 	// Enums for getRandomCharInfo
 	FFLGender,
@@ -4476,12 +4299,5 @@ export {
 
 	// Icon rendering
 	getIconCamera,
-	makeIconFromCharModel,
-	StudioCharInfo,
-
-	// Export utilities
-	convertStudioCharInfoToFFLiCharInfo,
-	convertFFLiCharInfoToStudioCharInfo,
-	uint8ArrayToBase64,
-	parseHexOrB64ToUint8Array
+	makeIconFromCharModel
 };
