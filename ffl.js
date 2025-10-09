@@ -7,15 +7,6 @@
  */
 
 import * as THREE from 'three';
-import * as _Import from './struct-fu.js';
-
-// Hack to get library globals recognized throughout the file (remove for ESM).
-/** @typedef {import('./struct-fu')} _ */
-/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
-globalThis._ = /** @type {_} */ (/** @type {*} */ (globalThis)._);
-// eslint-disable-next-line @stylistic/max-statements-per-line --  Hack to use either UMD or browser ESM import.
-let _ = globalThis._; _ = (!_) ? /** @type {*} */ (_Import).default || _Import : _;
-/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
 
 // // ---------------------------------------------------------------------
 // //  Emscripten Types
@@ -329,7 +320,7 @@ const FFLModelFlag = {
 };
 
 // // ---------------------------------------------------------------------
-// //  Struct Definitions (struct-fu)
+// //  Struct Definitions
 // // ---------------------------------------------------------------------
 // TODO PATH: src/Structs.js
 // Mostly leading up to FFLDrawParam.

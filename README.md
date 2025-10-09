@@ -140,8 +140,7 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
     * Terser is too dumb to see that it's always false, so perhaps it should be a shakable constant?
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
 * **Switch to `"type": "module"` in package.json.**
-  - Everything needs to be ESM-first.
-    * struct-fu (in its own repo) and the shader materials all need to be converted.
+  - The shader materials all need to be converted to ESM.
   - Then, builds should be provided for UMD and ESM.
     * esbuild + Terser can be used, but look into Closure Compiler for more aggressive optimization.
 * **Code needs to be split into files.** This has already been planned, search: `// TODO PATH:`
@@ -153,6 +152,5 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 
 # Acknowledgements
 * [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).
-* [Nathan Vander Wilt](https://github.com/natevw) for [struct-fu](https://github.com/natevw/struct-fu) (this is using a [fork](https://github.com/ariankordi/struct-fu)).
 * [mrdoob](https://github.com/mrdoob) for [Three.js](https://github.com/mrdoob/three.js).
 * Nintendo for making FFL.

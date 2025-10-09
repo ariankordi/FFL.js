@@ -1,6 +1,109 @@
-export type FFLResourceDesc = {
-    pData: Array<number>;
-    size: Array<number>;
+export type FFLCharModelSource = {
+    dataSource: FFLDataSource;
+    pBuffer: number;
+    /**
+     * - Only for default, official, MiddleDB; unneeded for raw data
+     */
+    index: number;
+};
+export type FFLTextureInfo = {
+    width: number;
+    height: number;
+    mipCount: number;
+    format: FFLTextureFormat;
+    imageSize: number;
+    imagePtr: number;
+    mipSize: number;
+    mipPtr: number;
+    mipLevelOffset: Uint32Array;
+};
+export type Renderer = import("three/src/renderers/common/Renderer.js", { with: { "resolution-mode": "import" } }).default;
+/**
+ * Emscripten "Module" type.
+ * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26
+ */
+export type Module = {
+    onRuntimeInitialized: () => void;
+    destroy: (arg0: object) => void;
+    /**
+     * // USE_TYPED_ARRAYS == 2
+     */
+    calledRun: boolean | null;
+    HEAP8: Int8Array;
+    HEAPU8: Uint8Array;
+    HEAPU16: Uint16Array;
+    HEAPU32: Uint32Array;
+    /**
+     * Runtime methods:
+     */
+    HEAPF32: Float32Array;
+    _malloc: (arg0: number) => number;
+    _free: (arg0: number) => void;
+    addFunction: (arg0: (...args: any[]) => any, arg1: string | undefined) => number;
+    /**
+     * ------------------------------- FFL Bindings -------------------------------
+     * Only used functions are defined here.
+     */
+    removeFunction: (arg0: number) => void;
+    _FFLInitCharModelCPUStepWithCallback: (arg0: number, arg1: number, arg2: number, arg3: number) => any;
+    _FFLDeleteCharModel: (arg0: number) => any;
+    _FFLiGetRandomCharInfo: (arg0: number, arg1: number, arg2: number, arg3: number) => any;
+    _FFLpGetStoreDataFromCharInfo: (arg0: number, arg1: number) => any;
+    _FFLpGetCharInfoFromStoreData: (arg0: number, arg1: number) => any;
+    _FFLpGetCharInfoFromMiiDataOfficialRFL: (arg0: number, arg1: number) => any;
+    _FFLGetAdditionalInfo: (arg0: number, arg1: number, arg2: number, arg3: number, arg4: boolean) => any;
+    _FFLInitRes: (arg0: number, arg1: number) => any;
+    _FFLInitResGPUStep: () => any;
+    _FFLExit: () => any;
+    _FFLGetFavoriteColor: (arg0: number, arg1: number) => any;
+    _FFLSetLinearGammaMode: (arg0: number) => any;
+    _FFLSetTextureFlipY: (arg0: boolean) => any;
+    _FFLSetNormalIsSnorm8_8_8_8: (arg0: boolean) => any;
+    _FFLSetFrontCullForFlipX: (arg0: boolean) => any;
+    _FFLSetTextureCallback: (arg0: number) => any;
+    _FFLiDeleteTextureTempObject: (arg0: number) => any;
+    _FFLiDeleteTempObjectMaskTextures: (arg0: number, arg1: number, arg2: number) => any;
+    _FFLiDeleteTempObjectFacelineTexture: (arg0: number, arg1: number, arg2: number) => any;
+    _FFLiiGetEyeRotateOffset: (arg0: number) => any;
+    _FFLiiGetEyebrowRotateOffset: (arg0: number) => any;
+    _FFLiInvalidateTempObjectFacelineTexture: (arg0: number) => any;
+    _FFLiInvalidateRawMask: (arg0: number) => any;
+    _FFLiVerifyCharInfoWithReason: (arg0: number, arg1: boolean) => any;
+    _exit: () => void;
+};
+export type FFLAttributeBuffer = {
+    size: number;
+    stride: number;
+    ptr: number;
+};
+export type FFLModulateParam = {
+    mode: FFLModulateMode;
+    type: FFLModulateType;
+    /**
+     * - Pointer to FFLColor
+     */
+    pColorR: number;
+    /**
+     * - Pointer to FFLColor
+     */
+    pColorG: number;
+    /**
+     * - Pointer to FFLColor
+     */
+    pColorB: number;
+    pTexture2D: number;
+};
+export type FFLPrimitiveParam = {
+    primitiveType: number;
+    indexCount: number;
+    pAdjustMatrix: number;
+    pIndexBuffer: number;
+};
+export type FFLDrawParam = {
+    attributeBuffers: Array<FFLAttributeBuffer>;
+    modulateParam: FFLModulateParam;
+    cullMode: FFLCullMode;
+    primitiveParam: FFLPrimitiveParam;
 };
 export type FFLiCharInfo = {
     miiVersion: number;
@@ -63,238 +166,12 @@ export type FFLiCharInfo = {
     roomIndex: number;
     positionInRoom: number;
     birthPlatform: number;
-    createID: Array<number>;
+    createID: Uint8Array;
     padding_0: number;
     authorType: number;
-    authorID: Array<number>;
-};
-export type FFLCharModelDesc = {
-    /**
-     * - Texture resolution for faceline/mask. It's recommended to only use powers of two.
-     */
-    resolution: number;
-    /**
-     * - Expression flag, created by {@link makeExpressionFlag}
-     */
-    allExpressionFlag: Uint32Array;
-    modelFlag: FFLModelFlag;
-    resourceType: FFLResourceType;
-};
-export type FFLCharModelSource = {
-    dataSource: FFLDataSource;
-    pBuffer: number;
-    /**
-     * - Only for default, official, MiddleDB; unneeded for raw data
-     */
-    index: number;
-};
-export type StudioCharInfo = {
-    beardColor: number;
-    beardType: number;
-    build: number;
-    eyeAspect: number;
-    eyeColor: number;
-    eyeRotate: number;
-    eyeScale: number;
-    eyeType: number;
-    eyeX: number;
-    eyeY: number;
-    eyebrowAspect: number;
-    eyebrowColor: number;
-    eyebrowRotate: number;
-    eyebrowScale: number;
-    eyebrowType: number;
-    eyebrowX: number;
-    eyebrowY: number;
-    facelineColor: number;
-    facelineMake: number;
-    facelineType: number;
-    facelineWrinkle: number;
-    favoriteColor: number;
-    gender: number;
-    glassColor: number;
-    glassScale: number;
-    glassType: number;
-    glassY: number;
-    hairColor: number;
-    hairFlip: number;
-    hairType: number;
-    height: number;
-    moleScale: number;
-    moleType: number;
-    moleX: number;
-    moleY: number;
-    mouthAspect: number;
-    mouthColor: number;
-    mouthScale: number;
-    mouthType: number;
-    mouthY: number;
-    mustacheScale: number;
-    mustacheType: number;
-    mustacheY: number;
-    noseScale: number;
-    noseType: number;
-    noseY: number;
-};
-export type Renderer = import("three/src/renderers/common/Renderer.js", { with: { "resolution-mode": "import" } }).default;
-export type _ = {
-    struct(name: string | Array<Field>, fields?: Array<Field | StructInstance<any>> | number, count?: number): StructInstance<any>;
-    padTo(off: number): Field & {
-        _padTo: number;
-        _id?: string;
-    };
-    bool(name?: string, count?: number): Field;
-    ubit: (name?: string | undefined, width?: number | undefined, count?: number | undefined) => _Import.Field;
-    ubitLE: (name?: string | undefined, width?: number | undefined, count?: number | undefined) => _Import.Field;
-    sbit: (name?: string | undefined, width?: number | undefined, count?: number | undefined) => _Import.Field;
-    byte: (name: string | number, size?: number | undefined, count?: number | undefined) => _Import.Field & _Import.ByteTransform;
-    char: (name: string | number, size?: number | undefined, count?: number | undefined) => _Import.Field & _Import.ByteTransform;
-    char16le: (name: string | number, size?: number | undefined, count?: number | undefined) => _Import.Field & _Import.ByteTransform;
-    char16be: (name: string | number, size?: number | undefined, count?: number | undefined) => _Import.Field & _Import.ByteTransform;
-    uint8: (arg0: (string | number), arg1?: number | undefined) => Field;
-    uint16: (arg0: (string | number), arg1?: number | undefined) => Field;
-    uint32: (arg0: (string | number), arg1?: number | undefined) => Field;
-    uint16le: (arg0: (string | number), arg1?: number | undefined) => Field;
-    uint32le: (arg0: (string | number), arg1?: number | undefined) => Field;
-    int8: (arg0: (string | number), arg1?: number | undefined) => Field;
-    int16: (arg0: (string | number), arg1?: number | undefined) => Field;
-    int32: (arg0: (string | number), arg1?: number | undefined) => Field;
-    int16le: (arg0: (string | number), arg1?: number | undefined) => Field;
-    int32le: (arg0: (string | number), arg1?: number | undefined) => Field;
-    float32: (arg0: (string | number), arg1?: number | undefined) => Field;
-    float64: (arg0: (string | number), arg1?: number | undefined) => Field;
-    float32le: (arg0: (string | number), arg1?: number | undefined) => Field;
-    float64le: (arg0: (string | number), arg1?: number | undefined) => Field;
-    derive(orig: Field, pack: (arg0: any) => any, unpack: (arg0: any) => any): (arg0: (string | number) | undefined, arg1: number | undefined) => Field;
-};
-/**
- * Emscripten "Module" type.
- * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26
- */
-export type Module = {
-    onRuntimeInitialized: () => void;
-    destroy: (arg0: object) => void;
-    /**
-     * // USE_TYPED_ARRAYS == 2
-     */
-    calledRun: boolean | null;
-    HEAP8: Int8Array;
-    HEAPU8: Uint8Array;
-    HEAPU16: Uint16Array;
-    HEAPU32: Uint32Array;
-    /**
-     * Runtime methods:
-     */
-    HEAPF32: Float32Array;
-    _malloc: (arg0: number) => number;
-    _free: (arg0: number) => void;
-    addFunction: (arg0: (...args: any[]) => any, arg1: string | undefined) => number;
-    /**
-     * ------------------------------- FFL Bindings -------------------------------
-     */
-    removeFunction: (arg0: number) => void;
-    _FFLInitCharModelCPUStepWithCallback: (arg0: number, arg1: number, arg2: number, arg3: number) => any;
-    _FFLInitCharModelCPUStep: (arg0: number, arg1: number, arg2: number) => any;
-    _FFLDeleteCharModel: (arg0: number) => any;
-    _FFLGetDrawParamOpaFaceline: (arg0: number) => any;
-    _FFLGetDrawParamOpaBeard: (arg0: number) => any;
-    _FFLGetDrawParamOpaNose: (arg0: number) => any;
-    _FFLGetDrawParamOpaForehead: (arg0: number) => any;
-    _FFLGetDrawParamOpaHair: (arg0: number) => any;
-    _FFLGetDrawParamOpaCap: (arg0: number) => any;
-    _FFLGetDrawParamXluMask: (arg0: number) => any;
-    _FFLGetDrawParamXluNoseLine: (arg0: number) => any;
-    _FFLGetDrawParamXluGlass: (arg0: number) => any;
-    _FFLSetExpression: (arg0: number, arg1: number) => any;
-    _FFLGetExpression: (arg0: number) => any;
-    _FFLSetViewModelType: (arg0: number, arg1: number) => any;
-    _FFLGetBoundingBox: (arg0: number, arg1: number) => any;
-    _FFLIsAvailableExpression: (arg0: number, arg1: number) => any;
-    _FFLSetCoordinate: (arg0: number, arg1: number) => any;
-    _FFLSetScale: (arg0: number) => any;
-    _FFLiGetRandomCharInfo: (arg0: number, arg1: number, arg2: number, arg3: number) => any;
-    _FFLpGetStoreDataFromCharInfo: (arg0: number, arg1: number) => any;
-    _FFLpGetCharInfoFromStoreData: (arg0: number, arg1: number) => any;
-    _FFLpGetCharInfoFromMiiDataOfficialRFL: (arg0: number, arg1: number) => any;
-    _FFLGetAdditionalInfo: (arg0: number, arg1: number, arg2: number, arg3: number, arg4: boolean) => any;
-    _FFLInitRes: (arg0: number, arg1: number) => any;
-    _FFLInitResGPUStep: () => any;
-    _FFLExit: () => any;
-    _FFLIsAvailable: () => any;
-    _FFLGetFavoriteColor: (arg0: number, arg1: number) => any;
-    _FFLSetLinearGammaMode: (arg0: number) => any;
-    _FFLGetFacelineColor: (arg0: number, arg1: number) => any;
-    _FFLSetTextureFlipY: (arg0: boolean) => any;
-    _FFLSetNormalIsSnorm8_8_8_8: (arg0: boolean) => any;
-    _FFLSetFrontCullForFlipX: (arg0: boolean) => any;
-    _FFLSetTextureCallback: (arg0: number) => any;
-    _FFLiDeleteTextureTempObject: (arg0: number) => any;
-    _FFLiDeleteTempObjectMaskTextures: (arg0: number, arg1: number, arg2: number) => any;
-    _FFLiDeleteTempObjectFacelineTexture: (arg0: number, arg1: number, arg2: number) => any;
-    _FFLiiGetEyeRotateOffset: (arg0: number) => any;
-    _FFLiiGetEyebrowRotateOffset: (arg0: number) => any;
-    _FFLiInvalidateTempObjectFacelineTexture: (arg0: number) => any;
-    _FFLiInvalidatePartsTextures: (arg0: number) => any;
-    _FFLiInvalidateRawMask: (arg0: number) => any;
-    _FFLiVerifyCharInfoWithReason: (arg0: number, arg1: boolean) => any;
-    _exit: () => void;
-};
-export type FFLAttributeBuffer = {
-    size: number;
-    stride: number;
-    ptr: number;
-};
-export type FFLPrimitiveParam = {
-    primitiveType: number;
-    indexCount: number;
-    pAdjustMatrix: number;
-    pIndexBuffer: number;
-};
-export type FFLColor = {
-    r: number;
-    g: number;
-    b: number;
-    a: number;
-};
-export type FFLVec3 = {
-    x: number;
-    y: number;
-    z: number;
-};
-export type FFLModulateParam = {
-    mode: FFLModulateMode;
-    type: FFLModulateType;
-    /**
-     * - Pointer to FFLColor
-     */
-    pColorR: number;
-    /**
-     * - Pointer to FFLColor
-     */
-    pColorG: number;
-    /**
-     * - Pointer to FFLColor
-     */
-    pColorB: number;
-    pTexture2D: number;
-};
-export type FFLDrawParam = {
-    attributeBuffers: Array<FFLAttributeBuffer>;
-    modulateParam: FFLModulateParam;
-    cullMode: FFLCullMode;
-    primitiveParam: FFLPrimitiveParam;
-};
-export type FFLiMaskTexturesTempObject = {
-    pRawMaskDrawParam: Array<number>;
-};
-export type FFLiTextureTempObject = {
-    maskTextures: FFLiMaskTexturesTempObject;
-    facelineTexture: Array<FFLDrawParam>;
+    authorID: Uint8Array;
 };
 export type CharModelDescOrExpressionFlag = FFLCharModelDesc | Array<FFLExpression> | FFLExpression | Uint32Array | null;
-export type FFLPartsTransform = {
-    [x: string]: FFLVec3;
-};
 /**
  * PartsTransform with THREE.Vector3 type.
  */
@@ -310,21 +187,29 @@ export type FFLiCharModel = {
     expression: FFLExpression;
     pTextureTempObject: number;
     drawParam: Array<FFLDrawParam>;
-    pMaskRenderTextures: Array<number>;
-    partsTransform: FFLPartsTransform;
+    pMaskRenderTextures: Uint32Array;
+    partsTransform: Float32Array;
 };
-export type FFLTextureInfo = {
-    width: number;
-    height: number;
-    mipCount: number;
-    format: FFLTextureFormat;
-    imageSize: number;
-    imagePtr: number;
-    mipSize: number;
-    mipPtr: number;
-    mipLevelOffset: Array<number>;
+export type FFLCharModelDesc = {
+    /**
+     * - Texture resolution for faceline/mask. It's recommended to only use powers of two.
+     */
+    resolution: number;
+    /**
+     * - Expression flag, created by {@link makeExpressionFlag}
+     */
+    allExpressionFlag: Uint32Array;
+    modelFlag: FFLModelFlag;
+    resourceType: FFLResourceType;
+};
+export type FFLResourceDesc = {
+    pData: Array<number>;
+    size: Array<number>;
 };
 export type MaterialConstructor = new (...args: any[]) => import("three").Material;
+/**
+ * *
+ */
 export type FFLModulateMode = number;
 export namespace FFLModulateMode {
     let CONSTANT: number;
@@ -334,6 +219,9 @@ export namespace FFLModulateMode {
     let LUMINANCE_ALPHA: number;
     let ALPHA_OPA: number;
 }
+/**
+ * *
+ */
 export type FFLModulateType = number;
 export namespace FFLModulateType {
     let SHAPE_FACELINE: number;
@@ -357,7 +245,7 @@ export namespace FFLModulateType {
     let SHAPE_MAX: number;
 }
 /**
- * Reference: https://github.com/ariankordi/ffl/blob/nsmbu-win-port-linux64/include/nn/ffl/FFLExpression.h
+ * *
  */
 export type FFLExpression = number;
 export namespace FFLExpression {
@@ -438,8 +326,7 @@ export namespace FFLExpression {
     let MAX: number;
 }
 /**
- * Model flags modify how the head model is created. These are
- * used in the `modelFlag` property of {@link FFLCharModelDesc}.
+ * *
  */
 export type FFLModelFlag = number;
 export namespace FFLModelFlag {
@@ -451,6 +338,9 @@ export namespace FFLModelFlag {
     export let NEW_EXPRESSIONS: number;
     export let NEW_MASK_ONLY: number;
 }
+/**
+ * *
+ */
 export type FFLResourceType = number;
 export namespace FFLResourceType {
     export let MIDDLE: number;
@@ -458,91 +348,6 @@ export namespace FFLResourceType {
     let MAX_1: number;
     export { MAX_1 as MAX };
 }
-/**
- * @typedef {Object} FFLResourceDesc
- * @property {Array<number>} pData
- * @property {Array<number>} size
- */
-/** @type {import('./struct-fu').StructInstance<FFLResourceDesc>} */
-export const FFLResourceDesc: import("./struct-fu").StructInstance<FFLResourceDesc>;
-/**
- * @typedef {Object} FFLiCharInfo
- * @property {number} miiVersion
- * @property {number} faceType
- * @property {number} faceColor
- * @property {number} faceTex
- * @property {number} faceMake
- * @property {number} hairType
- * @property {number} hairColor
- * @property {number} hairFlip
- * @property {number} eyeType
- * @property {number} eyeColor
- * @property {number} eyeScale
- * @property {number} eyeAspect
- * @property {number} eyeRotate
- * @property {number} eyeX
- * @property {number} eyeY
- * @property {number} eyebrowType
- * @property {number} eyebrowColor
- * @property {number} eyebrowScale
- * @property {number} eyebrowAspect
- * @property {number} eyebrowRotate
- * @property {number} eyebrowX
- * @property {number} eyebrowY
- * @property {number} noseType
- * @property {number} noseScale
- * @property {number} noseY
- * @property {number} mouthType
- * @property {number} mouthColor
- * @property {number} mouthScale
- * @property {number} mouthAspect
- * @property {number} mouthY
- * @property {number} beardMustache
- * @property {number} beardType
- * @property {number} beardColor
- * @property {number} beardScale
- * @property {number} beardY
- * @property {number} glassType
- * @property {number} glassColor
- * @property {number} glassScale
- * @property {number} glassY
- * @property {number} moleType
- * @property {number} moleScale
- * @property {number} moleX
- * @property {number} moleY
- * @property {number} height
- * @property {number} build
- * @property {string} name
- * @property {string} creator
- * @property {number} gender
- * @property {number} birthMonth
- * @property {number} birthDay
- * @property {number} favoriteColor
- * @property {number} favorite
- * @property {number} copyable
- * @property {number} ngWord
- * @property {number} localonly
- * @property {number} regionMove
- * @property {number} fontRegion
- * @property {number} roomIndex
- * @property {number} positionInRoom
- * @property {number} birthPlatform
- * @property {Array<number>} createID
- * @property {number} padding_0
- * @property {number} authorType
- * @property {Array<number>} authorID
- */
-/** @type {import('./struct-fu').StructInstance<FFLiCharInfo>} */
-export const FFLiCharInfo: import("./struct-fu").StructInstance<FFLiCharInfo>;
-/**
- * @typedef {Object} FFLCharModelDesc
- * @property {number} resolution - Texture resolution for faceline/mask. It's recommended to only use powers of two.
- * @property {Uint32Array} allExpressionFlag - Expression flag, created by {@link makeExpressionFlag}
- * @property {FFLModelFlag} modelFlag
- * @property {FFLResourceType} resourceType
- */
-/** @type {import('./struct-fu').StructInstance<FFLCharModelDesc>} */
-export const FFLCharModelDesc: import("./struct-fu").StructInstance<FFLCharModelDesc>;
 /**
  * Static default for FFLCharModelDesc.
  * @type {FFLCharModelDesc}
@@ -560,14 +365,6 @@ export namespace FFLDataSource {
     let BUFFER: number;
     let DIRECT_POINTER: number;
 }
-/**
- * @typedef {Object} FFLCharModelSource
- * @property {FFLDataSource} dataSource
- * @property {number} pBuffer
- * @property {number} index - Only for default, official, MiddleDB; unneeded for raw data
- */
-/** @type {import('./struct-fu').StructInstance<FFLCharModelSource>} */
-export const FFLCharModelSource: import("./struct-fu").StructInstance<FFLCharModelSource>;
 export type FFLGender = number;
 export namespace FFLGender {
     let MALE: number;
@@ -599,7 +396,7 @@ export namespace FFLRace {
  * by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
  * or as a function returning a promise (window.Module when MODULARIZE=1).
  * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when FFL is fully initialized,
- * returning the final Emscripten {@link Module} instance and the {@link FFLResourceDesc} object
+ * returning the final Emscripten {@link Module} instance and the FFLResourceDesc buffer
  * that can later be passed into {@link exitFFL}.
  */
 export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: Module | Promise<Module> | (() => Promise<Module>)): Promise<{
@@ -633,6 +430,13 @@ export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
  */
 export class CharModel {
     /**
+     * @param {Uint8Array} u8 - module.HEAPU8
+     * @param {number} ptr - Pointer to the type.
+     * @returns {FFLiCharModel} Object form of FFLiCharModel.
+     * @private
+     */
+    private static _unpackFFLiCharModel;
+    /**
      * @param {number} ptr - Pointer to the FFLiCharModel structure in heap.
      * @param {Module} module - The Emscripten module.
      * @param {MaterialConstructor} materialClass - Class for the material (constructor), e.g.: FFLShaderMaterial
@@ -642,7 +446,7 @@ export class CharModel {
     /** @package */
     _module: Module;
     /**
-     * The data used to construct the CharModel, set in {@link createCharModel} and used in {@link updateCharModel}.
+     * The data used to construct the CharModel, set in {@link createCharModel}.
      * @type {*}
      * @package
      */
@@ -687,9 +491,9 @@ export class CharModel {
     _maskTargets: Array<import("three").RenderTarget | null>;
     /**
      * List of enabled expressions that can be set with {@link CharModel.setExpression}.
-     * @type {Array<FFLExpression>}
+     * @type {Uint32Array}
      */
-    expressions: Array<FFLExpression>;
+    expressions: Uint32Array;
     /**
      * Group of THREE.Mesh objects representing the CharModel.
      * @type {import('three').Group}
@@ -707,16 +511,6 @@ export class CharModel {
     _facelineMesh: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap> | null | undefined;
     /** @package */
     _maskMesh: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap> | null | undefined;
-    /**
-     * @returns {number} Pointer to pTextureTempObject.
-     * @private
-     */
-    private _getTextureTempObjectPtr;
-    /**
-     * @returns {FFLiTextureTempObject} The TextureTempObject containing faceline and mask DrawParams.
-     * @package
-     */
-    _getTextureTempObject(): FFLiTextureTempObject;
     /**
      * Accesses partsTransform in FFLiCharModel,
      * converting every FFLVec3 to THREE.Vector3.
@@ -740,11 +534,6 @@ export class CharModel {
      */
     private _getCharInfoUint8Array;
     /**
-     * @returns {number} Pointer to pTextureTempObject->maskTextures->partsTextures.
-     * @package
-     */
-    _getPartsTexturesPtr(): number;
-    /**
      * @returns {number} Pointer to pTextureTempObject->facelineTexture.
      * @package
      */
@@ -754,6 +543,11 @@ export class CharModel {
      * @package
      */
     _getMaskTempObjectPtr(): number;
+    /**
+     * @returns {Uint32Array} Array of pointers to DrawParams for each mask expression.
+     * @package
+     */
+    _getMaskDrawParamPtrs(): Uint32Array;
     /**
      * @returns {number} Pointer to charModelDesc.allExpressionFlag.
      * @package
@@ -805,6 +599,8 @@ export class CharModel {
      * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
      * returns false, usually when CharInfo verification fails.
      * @public
+     * @todo TODO: What would the role of this be?
+     * Can they edit the CharInfo to justify this method so they can get it out?
      */
     public getStoreData(): Uint8Array;
     /**
@@ -980,28 +776,6 @@ export function _allocateModelSource(data: Uint8Array | FFLiCharInfo, module: Mo
  */
 export function createCharModel(data: Uint8Array | FFLiCharInfo, descOrExpFlag: CharModelDescOrExpressionFlag, materialClass: MaterialConstructor, module: Module, verify?: boolean): CharModel;
 /**
- * Updates the given CharModel with new data and a new ModelDesc or expression flag.
- * If `descOrExpFlag` is an array, it is treated as the new expression flag while inheriting the rest
- * of the ModelDesc from the existing CharModel.
- * @param {CharModel} charModel - The existing CharModel instance.
- * @param {Uint8Array|null} newData - The new raw charInfo data, or null to use the original.
- * @param {Renderer} renderer - The Three.js renderer.
- * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
- * an array of expressions, a single expression, or an expression flag (Uint32Array).
- * @param {Object} [options] - Options for updating the model.
- * @param {boolean} [options.texOnly] - Whether to only update the mask and faceline textures in the CharModel.
- * @param {boolean} [options.verify] - Whether the CharInfo provided should be verified.
- * @param {MaterialConstructor|null} [options.materialTextureClass] - The new materialTextureClass to change to.
- * @returns {CharModel} The updated CharModel instance.
- * @throws {Error} Unexpected type for descOrExpFlag, newData is null
- * @todo  TODO: Should `newData` just pass the charInfo object instance instead of "_data"?
- */
-export function updateCharModel(charModel: CharModel, newData: Uint8Array | null, renderer: Renderer, descOrExpFlag?: CharModelDescOrExpressionFlag, { texOnly, verify, materialTextureClass }?: {
-    texOnly?: boolean | undefined;
-    verify?: boolean | undefined;
-    materialTextureClass?: MaterialConstructor | null | undefined;
-}): CharModel;
-/**
  * Creates a Three.js RenderTarget, renders the scene with
  * the given camera, and returns the render target.
  * @param {import('three').Scene} scene - The scene to render.
@@ -1137,7 +911,7 @@ export function getIconCamera(): import("three").PerspectiveCamera;
  * @param {import('three').Scene} [options.scene] - Optional scene
  * if you want to provide your own (e.g., with background, or models).
  * @param {import('three').Camera} [options.camera] - Optional camera
- * to use instead of the one derived from {@link ViewType}.
+ * to use instead of the default.
  * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
  * to draw into. Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the icon.
@@ -1149,105 +923,26 @@ export function makeIconFromCharModel(charModel: CharModel, renderer: Renderer, 
     camera?: THREE.Camera | undefined;
     canvas?: HTMLCanvasElement | undefined;
 }): HTMLCanvasElement;
-/**
- * @typedef {Object} StudioCharInfo
- * @property {number} beardColor
- * @property {number} beardType
- * @property {number} build
- * @property {number} eyeAspect
- * @property {number} eyeColor
- * @property {number} eyeRotate
- * @property {number} eyeScale
- * @property {number} eyeType
- * @property {number} eyeX
- * @property {number} eyeY
- * @property {number} eyebrowAspect
- * @property {number} eyebrowColor
- * @property {number} eyebrowRotate
- * @property {number} eyebrowScale
- * @property {number} eyebrowType
- * @property {number} eyebrowX
- * @property {number} eyebrowY
- * @property {number} facelineColor
- * @property {number} facelineMake
- * @property {number} facelineType
- * @property {number} facelineWrinkle
- * @property {number} favoriteColor
- * @property {number} gender
- * @property {number} glassColor
- * @property {number} glassScale
- * @property {number} glassType
- * @property {number} glassY
- * @property {number} hairColor
- * @property {number} hairFlip
- * @property {number} hairType
- * @property {number} height
- * @property {number} moleScale
- * @property {number} moleType
- * @property {number} moleX
- * @property {number} moleY
- * @property {number} mouthAspect
- * @property {number} mouthColor
- * @property {number} mouthScale
- * @property {number} mouthType
- * @property {number} mouthY
- * @property {number} mustacheScale
- * @property {number} mustacheType
- * @property {number} mustacheY
- * @property {number} noseScale
- * @property {number} noseType
- * @property {number} noseY
- */
-/**
- * Structure representing data from the studio.mii.nintendo.com site and API.
- * @type {import('./struct-fu').StructInstance<StudioCharInfo>}
- */
-export const StudioCharInfo: import("./struct-fu").StructInstance<StudioCharInfo>;
-/**
- * Creates an FFLiCharInfo object from StudioCharInfo.
- * @param {StudioCharInfo} src - The StudioCharInfo instance.
- * @returns {FFLiCharInfo} The FFLiCharInfo output.
- */
-export function convertStudioCharInfoToFFLiCharInfo(src: StudioCharInfo): FFLiCharInfo;
-/**
- * Creates a StudioCharInfo object from FFLiCharInfo.
- * @param {FFLiCharInfo} src - The FFLiCharInfo instance.
- * @returns {StudioCharInfo} The StudioCharInfo output.
- * @todo TODO: Currently does NOT convert color indices
- * to CommonColor indices (ToVer3... etc)
- */
-export function convertFFLiCharInfoToStudioCharInfo(src: FFLiCharInfo): StudioCharInfo;
-/**
- * Converts a Uint8Array to a Base64 string.
- * @param {Array<number>} data - The Uint8Array to convert.
- * @returns {string} The Base64-encoded string.
- */
-export function uint8ArrayToBase64(data: Array<number>): string;
-/**
- * Parses a string contaning either hex or Base64 representation
- * of bytes into a Uint8Array, stripping spaces.
- * @param {string} text - The input string, which can be either hex or Base64.
- * @returns {Uint8Array} The parsed Uint8Array.
- */
-export function parseHexOrB64ToUint8Array(text: string): Uint8Array;
-import * as _Import from './struct-fu.js';
-type FFLCullMode = number;
-declare namespace FFLCullMode {
-    export let NONE: number;
-    export let BACK: number;
-    export let FRONT: number;
-    let MAX_2: number;
-    export { MAX_2 as MAX };
-}
-import * as THREE from 'three';
 type FFLTextureFormat = number;
 declare namespace FFLTextureFormat {
     export let R8_UNORM: number;
     export let R8_G8_UNORM: number;
     export let R8_G8_B8_A8_UNORM: number;
+    let MAX_2: number;
+    export { MAX_2 as MAX };
+}
+/**
+ * *
+ */
+type FFLCullMode = number;
+declare namespace FFLCullMode {
+    export let NONE: number;
+    export let BACK: number;
+    export let FRONT: number;
     let MAX_3: number;
     export { MAX_3 as MAX };
 }
+import * as THREE from 'three';
 /**
  * Manages THREE.Texture objects created via FFL.
  * Must be instantiated after FFL is fully initialized.
@@ -1261,11 +956,11 @@ declare class TextureManager {
      */
     public static isWebGL1: boolean;
     /**
-     * Creates and allocates an {@link FFLTextureCallback} instance from callback function pointers.
+     * Creates and allocates an FFLTextureCallback instance from callback function pointers.
      * @param {Module} module - The Emscripten module.
      * @param {number} createCallback - Function pointer for the create callback.
      * @param {number} deleteCallback - Function pointer for the delete callback.
-     * @returns {number} Pointer to the {@link FFLTextureCallback}.
+     * @returns {number} Pointer to the FFLTextureCallback.
      * Note that you MUST free this after using it (done in {@link TextureManager.disposeCallback}).
      * @private
      */
@@ -1297,7 +992,7 @@ declare class TextureManager {
     public logging: boolean;
     /**
      * Creates the create/delete functions in Emscripten and allocates and sets
-     * the {@link FFLTextureCallback} object as {@link TextureManager._textureCallbackPtr}.
+     * the FFLTextureCallback object as {@link TextureManager._textureCallbackPtr}.
      * @param {boolean} addDeleteCallback - Whether or not to bind the delete function to the texture callback.
      */
     _setTextureCallback(addDeleteCallback?: boolean): void;
@@ -1351,13 +1046,13 @@ declare class TextureManager {
      */
     public delete(id: number): void;
     /**
-     * Disposes/frees the {@link FFLTextureCallback} along with
+     * Disposes/frees the FFLTextureCallback along with
      * removing the created Emscripten functions.
      * @public
      */
     public disposeCallback(): void;
     /**
-     * Disposes of all textures and frees the {@link FFLTextureCallback}.
+     * Disposes of all textures and frees the FFLTextureCallback.
      * @public
      */
     public dispose(): void;
