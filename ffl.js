@@ -1,10 +1,9 @@
-// @ts-check
-'use strict';
 /*!
  * Bindings for FFL, a Mii renderer, in JavaScript.
  * https://github.com/ariankordi/FFL.js
  * @author Arian Kordi <https://github.com/ariankordi>
  */
+// @ts-check
 
 import * as THREE from 'three';
 
@@ -846,13 +845,6 @@ class TextureManager {
 		this._textures = new Map(); // Internal map of texture id -> THREE.Texture.
 		/** @package */
 		this._textureCallbackPtr = 0;
-		/**
-		 * Controls whether or not the TextureManager
-		 * will log creations and deletions of textures
-		 * in order to better track memory allocations.
-		 * @public
-		 */
-		this.logging = false;
 
 		// Create and set texture callback instance.
 		this._setTextureCallback();
@@ -948,9 +940,7 @@ class TextureManager {
 	 */
 	_textureCreateFunc(_, textureInfoPtr, texturePtrPtr) {
 		const textureInfo = _unpackFFLTextureInfo(this._module.HEAPU8, textureInfoPtr);
-		if (this.logging) {
-			console.debug(`_textureCreateFunc: width=${textureInfo.width}, height=${textureInfo.height}, format=${textureInfo.format}, imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
-		}
+		// console.debug(`_textureCreateFunc: width=${textureInfo.width}, height=${textureInfo.height}, format=${textureInfo.format}, imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
 
 		/** Resolve THREE.PixelFormat. */
 		const format = this._getTextureFormat(textureInfo.format);
@@ -1023,9 +1013,8 @@ class TextureManager {
 			const start = textureInfo.mipPtr + mipOffset;
 			const mipData = this._module.HEAPU8.slice(start, end);
 
-			if (this.logging) {
-				console.debug(`  - Mip ${mipLevel}: ${mipWidth}x${mipHeight}, offset=${mipOffset}, range=${start}-${end}`);
-			}
+			// console.debug(`  - Mip ${mipLevel}: ${mipWidth}x${mipHeight}, `
+			// + `offset=${mipOffset}, range=${start}-${end}`);
 			// console.debug(uint8ArrayToBase64(mipData)); // will leak the data
 
 			// Push this mip level data into the texture's mipmaps array.
@@ -1038,11 +1027,9 @@ class TextureManager {
 		}
 	}
 
-	/**
-	 * @param {number} _ - Originally pObj, unused here.
-	 * @param {number} texturePtrPtr - Pointer to the texture handle (pTexture2D).
-	 * @private
-	 */
+	/** @private */
+	_textureDeleteFunc() { }
+	/*
 	_textureDeleteFunc(_, texturePtrPtr) {
 		const texId = this._module.HEAPU32[texturePtrPtr / 4];
 		// this.delete(texId);
@@ -1055,6 +1042,7 @@ class TextureManager {
 			console.debug('Delete texture    ', tex.id);
 		}
 	}
+	*/
 
 	/**
 	 * @param {number} id - ID assigned to the texture.
@@ -1062,11 +1050,7 @@ class TextureManager {
 	 * @public
 	 */
 	get(id) {
-		const texture = this._textures.get(id);
-		if (!texture && this.logging) {
-			console.error('Unknown texture', id);
-		}
-		return texture;
+		return this._textures.get(id);
 	}
 
 	/**
@@ -1084,10 +1068,6 @@ class TextureManager {
 		};
 
 		this._textures.set(id, texture);
-		// Log is spaced to match delete/deleting/dispose messages.
-		if (this.logging) {
-			console.debug('Adding texture    ', texture.id);
-		}
 	}
 
 	/**
@@ -1102,9 +1082,6 @@ class TextureManager {
 			// This is assuming the texture has already been disposed.
 			/** @type {Object<string, *>} */ (texture).source = null;
 			/** @type {Object<string, *>} */ (texture).mipmaps = null;
-			if (this.logging) {
-				console.debug('Deleted texture   ', id);
-			}
 			this._textures.delete(id);
 		}
 	}
@@ -1331,7 +1308,7 @@ async function _loadDataIntoHeap(resource, module) {
 			// Comes in as Uint8Array, allocate and set it.
 			heapSize = resource.length;
 			heapPtr = module._malloc(heapSize);
-			console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
+			// console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
 			// Allocate and set this area in the heap as the passed buffer.
 			module.HEAPU8.set(resource, heapPtr);
 		} else if (resource instanceof Response) {
@@ -1355,7 +1332,8 @@ async function _loadDataIntoHeap(resource, module) {
 			heapSize = parseInt(contentLength, 10);
 			heapPtr = module._malloc(heapSize);
 
-			console.debug(`loadDataIntoHeap: Streaming from fetch response. Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
+			// console.debug(`loadDataIntoHeap: Streaming from fetch response. ` +
+			// 	`Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
 
 			// Begin reading and streaming chunks into the heap.
 			const reader = resource.body.getReader();
@@ -1383,7 +1361,6 @@ async function _loadDataIntoHeap(resource, module) {
 	}
 }
 
-// ----------------- initializeFFL(resource, moduleOrPromise) -----------------
 /**
  * Initializes FFL by copying the resource into heap and calling FFLInitRes.
  * It will first wait for the Emscripten module to be ready.
@@ -1397,7 +1374,7 @@ async function _loadDataIntoHeap(resource, module) {
  * that can later be passed into {@link exitFFL}.
  */
 async function initializeFFL(resource, moduleOrPromise) {
-	console.debug('initializeFFL: Entrypoint, waiting for module to be ready.');
+	// console.debug('initializeFFL: Entrypoint, waiting for module to be ready.');
 
 	/**
 	 * Pointer to the FFLResourceDesc structure to free when FFLInitRes call is done.
@@ -1438,14 +1415,15 @@ async function initializeFFL(resource, moduleOrPromise) {
 		await new Promise((resolve) => {
 			/** If onRuntimeInitialized is not defined on module, add it. */
 			module.onRuntimeInitialized = () => {
-				console.debug('initializeFFL: Emscripten runtime initialized, resolving.');
+				// console.debug('initializeFFL: Emscripten runtime initialized, resolving.');
 				resolve(null);
 			};
-			console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, module.onRuntimeInitialized:\n${module.onRuntimeInitialized}\n // ^^ assigned and waiting.`);
+			// console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, ` +
+			// 	`module.onRuntimeInitialized:\n${module.onRuntimeInitialized}\n // ^^ assigned and waiting.`);
 			// If you are stuck here, the object passed in may not actually be an Emscripten module?
 		});
 	} else {
-		console.debug('initializeFFL: Assuming module is ready.');
+		// console.debug('initializeFFL: Assuming module is ready.');
 	}
 
 	// Module should be ready after this point, begin loading the resource.
@@ -1459,7 +1437,7 @@ async function initializeFFL(resource, moduleOrPromise) {
 
 		// Load the resource (Uint8Array/fetch Response) into heap.
 		const { pointer: heapPtr, size: heapSize } = await _loadDataIntoHeap(resource, module);
-		console.debug(`initializeFFL: Resource loaded into heap. Pointer: ${heapPtr}, Size: ${heapSize}`);
+		// console.debug(`initializeFFL: Resource loaded into heap. Pointer: ${heapPtr}, Size: ${heapSize}`);
 
 		// Initialize and pack FFLResourceDesc.
 		desc = { pData: [0, 0], size: [0, 0] };
@@ -1527,14 +1505,13 @@ function _freeResourceDesc(desc, module) {
 	}
 }
 
-// ---------------------- exitFFL(module, resourceDesc) ----------------------
 /**
  * @param {Module} module - Emscripten module.
  * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
  * @public
  */
 function exitFFL(module, resourceDesc) {
-	console.debug('exitFFL called, resourceDesc:', resourceDesc);
+	// console.debug('exitFFL called, resourceDesc:', resourceDesc);
 
 	// All CharModels must be deleted before this point.
 	const result = module._FFLExit();
@@ -1547,7 +1524,7 @@ function exitFFL(module, resourceDesc) {
 	if (module._exit) {
 		module._exit();
 	} else {
-		console.debug('exitFFL: not calling module._exit = ', module._exit);
+		// console.debug('exitFFL: not calling module._exit = ', module._exit);
 	}
 }
 
@@ -1683,7 +1660,6 @@ class CharModel {
 		};
 	}
 
-	// ----------------------- _addCharModelMeshes(module) -----------------------
 	/**
 	 * This is the method that populates meshes
 	 * from the internal FFLiCharModel instance.
@@ -1890,7 +1866,7 @@ class CharModel {
 	disposeTargets() {
 		// Dispose RenderTargets.
 		if (this._facelineTarget) {
-			console.debug(`Disposing target ${this._facelineTarget.texture.id} for faceline`);
+			// console.debug(`Disposing target ${this._facelineTarget.texture.id} for faceline`);
 			this._facelineTarget.dispose();
 			this._facelineTarget = null;
 		}
@@ -1900,7 +1876,7 @@ class CharModel {
 				// No mask for this expression.
 				return;
 			}
-			console.debug(`Disposing target ${target.texture.id} for mask ${i}`);
+			// console.debug(`Disposing target ${target.texture.id} for mask ${i}`);
 			target.dispose();
 			this._maskTargets[i] = null;
 		});
@@ -1919,7 +1895,7 @@ class CharModel {
 	 */
 	dispose(disposeTargets = true) {
 		// Print the permanent __ptr rather than _ptr.
-		console.debug('CharModel.dispose: ptr =', this.__ptr);
+		// console.debug('CharModel.dispose: ptr =', this.__ptr);
 		this._finalizeCharModel(); // Should've been called already
 		// Dispose meshes: materials, geometries, textures.
 		if (this.meshes) {
@@ -2315,7 +2291,6 @@ function _allocateModelSource(data, module) {
 	return modelSource; // NOTE: pBuffer must be freed.
 }
 
-// ----------------- verifyCharInfo(data, module, verifyName) -----------------
 /**
  * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
  * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
@@ -2352,7 +2327,6 @@ function verifyCharInfo(data, module, verifyName = false) {
 	}
 }
 
-// --------------- getRandomCharInfo(module, gender, age, race) ---------------
 /**
  * Generates a random FFLiCharInfo instance calling FFLiGetRandomCharInfo.
  * @param {Module} module - The Emscripten module.
@@ -2395,7 +2369,6 @@ function checkExpressionChangesShapes(i, warn = false) {
 	return false;
 }
 
-// --------------------- makeExpressionFlag(expressions) ----------------------
 /**
  * Creates an expression flag to be used in FFLCharModelDesc.
  * Use this whenever you need to describe which expression,
@@ -2451,7 +2424,6 @@ function makeExpressionFlag(expressions) {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/CharModelCreation.js
 
-// --------- createCharModel(data, modelDesc, materialClass, module) ---------
 /**
  * Creates a CharModel from data and FFLCharModelDesc.
  * You must call initCharModelTextures afterwards to finish the process.
@@ -2586,7 +2558,6 @@ function _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDesc
 	return newModelDesc;
 }
 
-// ------- updateCharModel(charModel, newData, renderer, descOrExpFlag) -------
 /**
  * Updates the given CharModel with new data and a new ModelDesc or expression flag.
  * If `descOrExpFlag` is an array, it is treated as the new expression flag while inheriting the rest
@@ -3099,7 +3070,6 @@ class DrawParam {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/CharModelTextures.js
 
-// ---------------- initCharModelTextures(charModel, renderer) ----------------
 /**
  * Initializes textures (faceline and mask) for a CharModel.
  * Calls private functions to draw faceline and mask textures.
@@ -3177,7 +3147,7 @@ function _drawFacelineTexture(charModel, renderer, module, materialClass) {
 	// it must have a texture. For other DrawParams to not
 	// be empty they simply need to have a non-zero index count.
 	if (drawParams.length === 0) {
-		console.debug('_drawFacelineTexture: Skipping faceline texture.');
+		// console.debug('_drawFacelineTexture: Skipping faceline texture.');
 		return;
 	}
 
@@ -3216,7 +3186,7 @@ function _drawFacelineTexture(charModel, renderer, module, materialClass) {
 	const target = createAndRenderToTarget(offscreenScene,
 		_getIdentCamera(), renderer, width, height, options);
 
-	console.debug(`Creating target ${target.texture.id} for faceline`);
+	// console.debug(`Creating target ${target.texture.id} for faceline`);
 
 	// Apply texture to CharModel.
 	_setFaceline(charModel, target);
@@ -3255,7 +3225,7 @@ function _drawMaskTextures(charModel, maskParamPtrs, renderer, module, materialC
 
 		const { target, scene } = _drawMaskTexture(charModel,
 			rawMaskDrawParam, renderer, materialClass);
-		console.debug(`Creating target ${target.texture.id} for mask ${i}`);
+		// console.debug(`Creating target ${target.texture.id} for mask ${i}`);
 		charModel._maskTargets[i] = target;
 
 		scenes.push(scene);
@@ -3858,7 +3828,6 @@ class GeometryConversion {
  */
 const _isWebGPU = renderer => 'isWebGPURenderer' in renderer;
 
-// -------------------------- getIdentCamera(flipY) --------------------------
 /**
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
@@ -4023,7 +3992,6 @@ function _copyRendererToCanvas(renderer, canvas) {
 	return targetCanvas;
 }
 
-// --------------- textureToCanvas(texture, renderer, options) ---------------
 /**
  * Renders a texture to a canvas. If no canvas is provided, a new one is created.
  * @param {import('three').Texture} texture - The texture to render.
@@ -4086,7 +4054,6 @@ function getIconCamera() {
 	return camera;
 }
 
-// ----------- makeIconFromCharModel(charModel, renderer, options) -----------
 /**
  * Creates an icon of the CharModel with the specified view type.
  * @param {CharModel} charModel - The CharModel instance.
@@ -4203,7 +4170,6 @@ function convertStudioCharInfoToFFLiCharInfo(src) {
 	return dst;
 }
 
-// --------------------- studioURLObfuscationDecode(data) ---------------------
 /**
  * @param {Uint8Array} data - Obfuscated Studio URL data.
  * @returns {Uint8Array} Decoded Uint8Array representing CharInfoStudio.
