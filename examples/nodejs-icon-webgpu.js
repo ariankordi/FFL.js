@@ -10,17 +10,31 @@
 import * as fs from 'fs/promises';
 import { encode } from 'fast-png';
 import * as THREE from 'three/webgpu';
-import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.mjs';
+import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.js';
 // Standard non-Node dependencies:
 import {
 	initializeFFL, setRendererState, createCharModel,
-	initCharModelTextures, parseHexOrB64ToUint8Array,
+	initCharModelTextures,
 	getIconCamera, exitFFL
 } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
-import ModuleFFL from './ffl-emscripten-single-file.js';
+import ModuleFFL from './ffl-emscripten-single-file.cjs';
 
-/* globals process -- Node.js */
+/* globals process Buffer -- Node.js */
+
+/**
+ * Parses either hex or Base64 -> U8.
+ * Additionally strips spaces from the input.
+ * @param {string} text - Input encoded text.
+ * @returns {Uint8Array} Decoded bytes.
+ */
+function parseHexOrBase64ToBytes(text) {
+	text = text.replace(/\s+/g, ''); // Strip spaces.
+	// Check if it is hex, otherwise assume it is Base64.
+	return /^[0-9a-fA-F]+$/.test(text)
+		? Buffer.from(text, 'hex')
+		: Buffer.from(text, 'base64');
+}
 
 addWebGPUExtensions();
 
@@ -89,7 +103,7 @@ async function main() {
 		scene.background = null; // Transparent background.
 
 		// Create Mii model and add to the scene.
-		const studioRaw = parseHexOrB64ToUint8Array(data);
+		const studioRaw = parseHexOrBase64ToBytes(data);
 		currentCharModel = createCharModel(studioRaw, null,
 			FFLShaderNodeMaterial, ffl.module);
 

@@ -954,6 +954,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		const textures = /** @type {LUTTextures} */ ({ specular: {}, fresnel: {} });
 		// Get the texture format dynamically based on Three.js version.
 		const r8 = Number(THREE.REVISION) <= 136
+			// eslint-disable-next-line import-x/namespace -- deprecated, maybe deleted
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
 

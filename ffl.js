@@ -907,7 +907,7 @@ class TextureManager {
 		// THREE.RGFormat did not work for me on Three.js r136/older.
 		const useGLES2Formats = Number(THREE.REVISION) <= 136 || TextureManager.isWebGL1;
 		const r8 = useGLES2Formats
-			// eslint-disable-next-line import/namespace -- deprecated, maybe deleted
+			// eslint-disable-next-line import-x/namespace -- deprecated, maybe deleted
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
 		const r8g8 = useGLES2Formats
@@ -916,7 +916,7 @@ class TextureManager {
 		// to be converted to RGBA resulting in two issues.
 		//     - There is a black outline around glasses
 		//     - For glasses that have an inner color, the color is wrongly applied to the frames as well.
-			// eslint-disable-next-line import/namespace -- deprecated, maybe deleted
+			// eslint-disable-next-line import-x/namespace -- deprecated, maybe deleted
 			? THREE.LuminanceAlphaFormat
 			: THREE.RGFormat;
 

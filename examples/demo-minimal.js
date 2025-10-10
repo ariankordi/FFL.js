@@ -10,7 +10,9 @@ import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
-/** @typedef {import('../ffl-emscripten.js')} ModuleFFL */
+/** @typedef {import('../ffl-emscripten.cjs')} ModuleFFL */
+
+// Snippets to help with decoding to bytes.
 
 const base64ToBytes = (/** @type {string} */ base64) =>
 	Uint8Array.from(atob(base64), c => c.charCodeAt(0));
@@ -23,13 +25,13 @@ const hexToBytes = (/** @type {string} */ hex) =>
  * @param {string} text - Input encoded text.
  * @returns {Uint8Array} Decoded bytes.
  */
-const parseHexOrBase64ToBytes = (text) => {
+function parseHexOrBase64ToBytes(text) {
 	text = text.replace(/\s+/g, ''); // Strip spaces.
 	// Check if it is hex, otherwise assume it is Base64.
 	return /^[0-9a-fA-F]+$/.test(text)
 		? hexToBytes(text)
 		: base64ToBytes(text);
-};
+}
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 

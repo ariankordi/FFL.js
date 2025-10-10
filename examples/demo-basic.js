@@ -8,17 +8,19 @@ import {
 	makeIconFromCharModel, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel
 } from '../ffl.js';
-// import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
+// import * as ModuleFFLImport from '../ffl-emscripten.cjs'; // Build with EXPORT_ES6 to not be UMD.
 // Material classes.
 import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
 import LUTShaderMaterial from '../materials/LUTShaderMaterial.js';
 import SampleShaderMaterial from '../materials/SampleShaderMaterial.js';
-import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js'; // For WebGPURenderer only.
+// import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js'; // For WebGPURenderer only.
 // Helpers.
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
-/** @typedef {import('../ffl-emscripten.js')} ModuleFFL */
+/** @typedef {import('../ffl-emscripten.cjs')} ModuleFFL */
+
+// Snippets to help with decoding to bytes.
 
 const base64ToBytes = (/** @type {string} */ base64) =>
 	Uint8Array.from(atob(base64), c => c.charCodeAt(0));

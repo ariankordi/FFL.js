@@ -15,11 +15,12 @@ import * as fs from 'fs/promises';
 import { parseArgs } from 'util';
 import * as png from 'fast-png'; // encode
 import * as THREE from 'three/webgpu'; // THREE.*, WebGPURenderer
-import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.mjs';
 // Dependencies for body scaling.
 import { GLTFLoader, SkeletonUtils } from 'three/examples/jsm/Addons.js';
 import { addSkeletonScalingExtensions } from '../helpers/SkeletonScalingExtensions.js';
 import { detectModelDesc } from '../helpers/ModelScaleDesc.js';
+// FFL.js imports.
+import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.js';
 import {
 	prepareBodyForCharModel,
 	attachHeadToBody, disposeModel,
@@ -33,8 +34,8 @@ import {
 	exitFFL, PantsColor, pantsColors, FFLExpression
 } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
-import ModuleFFL from './ffl-emscripten-single-file.js';
-/* globals process -- Node.js */
+import ModuleFFL from './ffl-emscripten-single-file.cjs';
+/* globals process Buffer -- Node.js */
 
 // Imports for standalone JSDoc types.
 /**
@@ -44,6 +45,20 @@ import ModuleFFL from './ffl-emscripten-single-file.js';
  * @typedef {import('../helpers/BodyUtilities.js').BodyModel} BodyModel
  * @typedef {import('../ffl.js').MaterialConstructor} MaterialConstructor
  */
+
+/**
+ * Parses either hex or Base64 -> U8.
+ * Additionally strips spaces from the input.
+ * @param {string} text - Input encoded text.
+ * @returns {Uint8Array} Decoded bytes.
+ */
+function parseHexOrBase64ToBytes(text) {
+	text = text.replace(/\s+/g, ''); // Strip spaces.
+	// Check if it is hex, otherwise assume it is Base64.
+	return /^[0-9a-fA-F]+$/.test(text)
+		? Buffer.from(text, 'hex')
+		: Buffer.from(text, 'base64');
+}
 
 // // ---------------------------------------------------------------------
 // //  Body Constants
@@ -316,7 +331,7 @@ Example:
 
 			console.info(`Rendering: ${outFile}`);
 			/** @type {IconRenderRequest} */ const request = {
-				data: Buffer.from(dataString, 'hex'),
+				data: parseHexOrBase64ToBytes(dataString),
 				width, isAllBody, expression
 			};
 			// Create the icon render and write it to its file output.

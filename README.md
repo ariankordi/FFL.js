@@ -5,9 +5,9 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 
 * Full rendering of Mii heads using the Wii U (`FFLShaderMaterial`) and Miitomo (`LUTShaderMaterial`) shaders.
 * Implemented in JSDoc annotated JavaScript (fully typed) directly calling into the FFL library.
-* Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and exporting FFLStoreData.
+* Supports importing 3DS/Wii U Mii Data (`FFLStoreData`), Mii Studio data, and Wii Mii data (`RFLCharData`). Editing/exporting is TBD.
 * Supported FFL features: Expressions, mipmaps, bounding box, `partsTransform` and model flags for headwear, `FFLiVerifyReason`, basic head only icon creation
-* Tested from Three.js r109 up to r180 (latest as of writing), WebGL 1.0 (for servers) and 2.0
+* Tested from Three.js r144 up to r180 (latest as of writing), WebGL(1/2) and WebGPURenderer
   - Both included shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy.](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
   - If you are using built-in Three.js materials and need colors to be linear, try: `moduleFFL._FFLSetLinearGammaMode(1)`
 
@@ -28,8 +28,8 @@ This library is using ESM "import", meaning you have to use `script type="module
 
 	<!-- Path/URL to the FFL resource file in `content` (FFLResHigh.dat, AFLResHigh_2_3.dat, etc.) -->
 	<meta itemprop="ffl-js-resource-fetch-path" content="AFLResHigh_2_3.dat">
-	<!-- Emscripten module (not an ES6 module)/ffl-emscripten.js -->
-	<script src="ffl-emscripten.js"></script>
+	<!-- Emscripten module (not an ES6 module)/ffl-emscripten.cjs -->
+	<script src="ffl-emscripten.cjs"></script>
 
 	<!-- Import maps. This correlates "import" statements
 		 	 with the actual links for where to get them. -->
@@ -42,12 +42,6 @@ This library is using ESM "import", meaning you have to use `script type="module
 			}
 		}
 	</script>
-	<script type="module">
-		// Export Three.js to window for shader material.
-		// This is not needed if you bundle the shader materials together with the library.
-		import * as THREE from 'three';
-		window.THREE = globalThis.THREE = THREE;
-	</script>
 
 	<!-- This is your JS code. It can be in a file too. -->
 	<script type="module">
@@ -55,22 +49,12 @@ This library is using ESM "import", meaning you have to use `script type="module
 		import {
 			// Add the functions that you need into here.
 			initializeFFL, setRendererState, createCharModel,
-			initCharModelTextures, parseHexOrB64ToUint8Array,
-			FFLCharModelDescDefault, CharModel, exitFFL
+			initCharModelTextures, FFLCharModelDescDefault, exitFFL
 		} from '../ffl.js'; // Include FFL.js.
-		import * as FFLShaderMaterialImport from '../FFLShaderMaterial.js';
-		// Hack to get library globals recognized throughout the file.
-		/**
-		 * @typedef {import('../ffl-emscripten.js')} ModuleFFL
-		 * @typedef {import('../FFLShaderMaterial.js')} FFLShaderMaterial
-		 * @typedef {import('three')} THREE
-		 */
-		/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
-		/** @type {FFLShaderMaterial} */
-		let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
-		FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
-		// You will need to repeat the above pattern for each shader material, for now.
-		/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
+		import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
+		import ResourceLoadHelper from './ResourceLoadHelper.js';
+		// Assumes that the Emscripten module is already imported from elsewhere.
+		/** @typedef {import('../ffl-emscripten.cjs')} ModuleFFL */
 
 		// The rest of your code goes here.
 	</script>
@@ -134,15 +118,7 @@ Install it with `npm install -D` then use `npm run-script lint`. Additionally us
 * Need more demos: body model, CharInfo editing, glTF export?, mass icons
 
 * Add an option to switch color space (`FFLSetLinearGammaMode`), needs to be kept track of per-CharModel.
-* Improve resource loading by either not loading all resource in WASM heap or in memory in general. (IndexedDB streaming?)
-* Strip out console.debug/assert statements when not debugging, or for a build.
-  - As well as the TextureManager.logging property.
-    * Terser is too dumb to see that it's always false, so perhaps it should be a shakable constant?
 * Investigate how to make unit tests for the library, further reading: [Three.js Discourse](https://discourse.threejs.org/t/how-to-unit-test-three-js/57736/2 )
-* **Switch to `"type": "module"` in package.json.**
-  - The shader materials all need to be converted to ESM.
-  - Then, builds should be provided for UMD and ESM.
-    * esbuild + Terser can be used, but look into Closure Compiler for more aggressive optimization.
 * **Code needs to be split into files.** This has already been planned, search: `// TODO PATH:`
 * **More refactoring?**
   - Refactor into classes/true OOP. Should functionality be implemented in class patterns?

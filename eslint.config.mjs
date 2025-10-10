@@ -1,7 +1,7 @@
 import eslint from '@eslint/js';
 import eslintCommentPlugin from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import stylisticPlugin from '@stylistic/eslint-plugin';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 import globals from 'globals';
 import jsdoc from 'eslint-plugin-jsdoc';
 
@@ -89,12 +89,12 @@ export default [
 	importPlugin.flatConfigs.warnings,
 	{
 		rules: {
-			'import/order': ['warn', {
+			'import-x/order': ['warn', {
 				'groups': ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type'],
 				'newlines-between': 'never'
 			}],
-			'import/first': 'error',
-			'import/consistent-type-specifier-style': ['error', 'prefer-top-level']
+			'import-x/first': 'error',
+			'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level']
 		},
 		languageOptions: {
 			ecmaVersion // Default sets this to 2018???, so let's reset this to the default
@@ -141,7 +141,7 @@ export default [
 
 	{
 		ignores: [
-			'ffl-emscripten.js', // Do not lint Emscripten-emitted code.
+			'**/*-emscripten.*', // Do not lint Emscripten-emitted code.
 			'docs/**/*', // TypeDoc output
 			'three-r*.js',
 
