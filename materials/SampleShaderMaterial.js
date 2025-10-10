@@ -1,9 +1,14 @@
+/**
+ * @file SampleShaderMaterial.js
+ * Three.js material class using the Switch SampleShader.
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 // @ts-check
+import * as THREE from 'three';
 
 /**
  * @typedef {number} FFLModulateMode
  * @typedef {number} FFLModulateType
- * @typedef {import('three')} THREE
  */
 
 /**
@@ -30,32 +35,6 @@
  * CharModel.getColorInfo, or getColorInfoFromCharInfoB64 for glTFs.
  */
 
-// eslint-disable-next-line jsdoc/convert-to-jsdoc-comments -- not applicable
-/* global define, require, module -- UMD globals. */
-(function (root, factory) {
-	// @ts-ignore - cannot find name define
-	if (typeof define === 'function' && define.amd) {
-		// AMD. Register as an anonymous module.
-		// @ts-ignore
-		define(['three'], factory);
-	} else if (typeof module === 'object' && module.exports) {
-		// Node.js/CommonJS
-		module.exports = factory(require('three'));
-	} else {
-		// Browser globals
-
-		// Assume THREE is defined in window.
-		/** @type {*} */ (root).SampleShaderMaterial = factory(/** @type {*} */ (root).THREE);
-	}
-}(typeof self !== 'undefined' ? self : this,
-	/* eslint-disable jsdoc/require-returns-type -- Allow TS to predict return type. */
-	/**
-	 * @param {THREE} THREE - Three.js namespace.
-	 * @returns Returns the exported namespace.
-	 */
-	function (THREE) {
-/* eslint-enable jsdoc/require-returns-type -- Allow TS to predict return type. */
-'use strict';
 // // ---------------------------------------------------------------------
 // //  Vertex Shader for SampleShaderMaterial
 // //  Derived from SampleShader.bnsh found in the NintendoSDK.
@@ -830,7 +809,8 @@ class NnMiiMaterialTables {
 		0x3C140A
 	];
 
-	static specularGlassColors = [0x191919]; // Single element.
+	/** Single specular color for glass. */
+	static specularGlassColors = [0x191919];
 
 	/**
 	 * Gets a table that maps {@link FFLModulateType} to the
@@ -1153,7 +1133,8 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		this._modulateType = value;
 
 		// Set drawType uniform.
-		let drawType = 0; // DRAW_TYPE_NORMAL
+		/** Default = DRAW_TYPE_NORMAL */
+		let drawType = 0;
 		if (value === 0) { // SHAPE_FACELINE
 			drawType = 1; // DRAW_TYPE_FACELINE
 		} else if (value === 4) { // SHAPE_HAIR
@@ -1226,7 +1207,8 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		 */
 		const ver3ToVer4HairColor = c => c === 0
 			? 8 // ver3 0 -> common 8
-			: (c & ~(1 << 31)); // This is the commonColorEnableMask.
+			// Applying the commonColorEnableMask.
+			: (c & ~(1 << 31));
 
 		// Functions to get sssColor/specularColor tables for the current modulateType.
 		// Ignore null tables completely. Manually ignore mask, noseline, glass.
@@ -1317,7 +1299,8 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 * @throws {Error} Throws if the input's size does not match.
 	 */
 	static getColorInfoFromCharInfoB64(base64) {
-		const data = Uint8Array.from(atob(base64), c => c.charCodeAt(0)); // Inline Base64 decode.
+		/** CharInfo data decoded inline from Base64. */
+		const data = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 		if (data.length !== 288) { // sizeof(FFLiCharInfo)
 			throw new Error('getColorInfoFromCharInfoB64: Input is not FFLiCharInfo.');
 		}
@@ -1357,9 +1340,4 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	}
 }
 
-/** @global */
-// window.SampleShaderMaterial = SampleShaderMaterial;
-// export { SampleShaderMaterial };
-
-return SampleShaderMaterial;
-}));
+export default SampleShaderMaterial;

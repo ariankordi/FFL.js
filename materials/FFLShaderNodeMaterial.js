@@ -1,3 +1,9 @@
+/**
+ * @file FFLShaderNodeMaterial.js
+ * Three.js node material class (for WebGPURenderer) meant
+ * to reproduce the FFLDefaultShader, like FFLShaderMaterial.js.
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 // @ts-check
 import { Color, Vector4 } from 'three';
 import { AttributeNode, NodeMaterial } from 'three/webgpu';
@@ -10,12 +16,7 @@ import {
 	tangentView, positionViewDirection
 } from 'three/tsl';
 import TextureShaderNodeMaterial from './TextureShaderNodeMaterial.js';
-// Below is a UMD.
-import * as FFLImport from './FFLShaderMaterial.js';
-
-/** @type {import('./FFLShaderMaterial.js')} */
-let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
-FFLShaderMaterial = (!FFLShaderMaterial) ? FFLImport.default || FFLImport : FFLShaderMaterial;
+import FFLShaderMaterial from './FFLShaderMaterial.js';
 
 /**
  * Provides the "_color" / "param" attribute, or a placeholder if it doesn't exist.
@@ -24,11 +25,15 @@ FFLShaderMaterial = (!FFLShaderMaterial) ? FFLImport.default || FFLImport : FFLS
  */
 class ParamColorNode extends AttributeNode {
 	constructor() {
-		super(null, 'vec4');
+		super('', 'vec4');
 	}
 
 	getAttributeName = () => '_color';
 
+	/**
+	 * @param {import('three/webgpu').NodeBuilder} builder - The builder.
+	 * @returns {string|null|undefined}
+	 */
 	generate(builder) {
 		return builder.hasGeometryAttribute(
 			this.getAttributeName()
@@ -70,10 +75,14 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 		this.fragmentNode = Fn(() => {
 			// TODO: This should be included more elegantly.
 			// Like, we need it to be a colorNode.
-			const textureMap = !this.map ? null : materialReference('map', 'texture');
-			const color = TextureShaderNodeMaterial.fragmentNode(
-				uniform(this.diffuse), uniform(this.color1), uniform(this.color2),
-				uniform(this.opacity), uniform(this._modulateMode), textureMap);
+			const color = TextureShaderNodeMaterial.fragmentNode({
+				diffuse: uniform(this.diffuse),
+				color1: uniform(this.color1),
+				color2: uniform(this.color2),
+				opacity: uniform(this.opacity),
+				modulateMode: uniform(this._modulateMode),
+				texel: this.map ? materialReference('map', 'texture') : null
+			});
 
 			if (!this.lightEnable) {
 				return color;
@@ -184,19 +193,19 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 		}
 	}
 
-	/** @returns {import('../ffl').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */
+	/** @returns {import('../ffl.js').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */
 	get modulateMode() {
 		return this._modulateMode;
 	}
 
-	/** @param {import('../ffl').FFLModulateMode} value - The new modulateMode value. */
+	/** @param {import('../ffl.js').FFLModulateMode} value - The new modulateMode value. */
 	set modulateMode(value) {
 		this._modulateMode = value;
 	}
 
 	/**
 	 * Gets the modulateType value.
-	 * @returns {import('../ffl').FFLModulateType|undefined} The modulateType value if it is set.
+	 * @returns {import('../ffl.js').FFLModulateType|undefined} The modulateType value if it is set.
 	 */
 	get modulateType() {
 		// This isn't actually a uniform so this is a private property.
@@ -205,7 +214,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 
 	/**
 	 * Sets the material uniforms based on the modulate type value.
-	 * @param {import('../ffl').FFLModulateType} value - The new modulateType value.
+	 * @param {import('../ffl.js').FFLModulateType} value - The new modulateType value.
 	 */
 	set modulateType(value) {
 		// Get material uniforms for modulate type from materialParams table.

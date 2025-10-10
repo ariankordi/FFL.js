@@ -1,178 +1,47 @@
-declare namespace _exports {
-    export { FFLModulateMode, FFLModulateType, THREE, LUTShaderMaterialParameters };
-}
-declare const _exports: {
-    new (options?: import("three").ShaderMaterialParameters & LUTShaderMaterialParameters): {
-        /** @type {FFLModulateType} */
-        _modulateType: FFLModulateType;
-        /**
-         * Gets the constant color (uColor0) uniform as THREE.Color.
-         * @returns {import('three').Color|null} The constant color, or null if it is not set.
-         */
-        get color(): import("three").Color | null;
-        /**
-         * Sets the constant color uniforms from THREE.Color.
-         * @param {import('three').Color|Array<import('three').Color>} value - The
-         * constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
-         */
-        set color(value: import("three").Color | Array<import("three").Color>);
-        _color3: import("three").Color | undefined;
-        /**
-         * Gets the opacity of the constant color.
-         * @returns {number} The opacity value.
-         */
-        opacity: number;
-        _opacity: number | undefined;
-        /**
-         * Gets the value of the modulateMode uniform.
-         * @returns {FFLModulateMode|null} The modulateMode value, or null if it is unset.
-         */
-        get modulateMode(): FFLModulateMode | null;
-        /**
-         * Sets the value of the modulateMode uniform.
-         * @param {FFLModulateMode} value - The new modulateMode value.
-         */
-        set modulateMode(value: FFLModulateMode);
-        /**
-         * Sets the value determining whether lighting is enabled or not.
-         * @returns {boolean|null} The lightEnable value, or null if it is unset.
-         */
-        get lightEnable(): boolean | null;
-        /**
-         * Sets the value determining whether lighting is enabled or not.
-         * @param {boolean} value - The lightEnable value.
-         */
-        set lightEnable(value: boolean);
-        /**
-         * Gets the modulateType value.
-         * @returns {FFLModulateType|undefined} The modulateType value if it is set.
-         */
-        get modulateType(): FFLModulateType | undefined;
-        /**
-         * Sets the material uniforms based on the modulate type value.
-         * @param {FFLModulateType} value - The new modulateType value.
-         */
-        set modulateType(value: FFLModulateType);
-        /** @type {number|undefined} */
-        _side: number | undefined;
-        side: import("three").Side;
-        /**
-         * Gets the texture map.
-         * @returns {THREE['Texture']} The texture map.
-         */
-        get map(): THREE["Texture"];
-        /**
-         * Sets the texture map.
-         * @param {import('three').Texture} value - The new texture map.
-         */
-        set map(value: import("three").Texture);
-        /**
-         * Gets the light direction.
-         * @returns {import('three').Vector3} The light direction.
-         */
-        lightDirection: import("three").Vector3;
-        readonly isShaderMaterial: true;
-        defines: {
-            [key: string]: any;
-        };
-        uniforms: {
-            [uniform: string]: import("three").IUniform;
-        };
-        uniformsGroups: import("three").UniformsGroup[];
-        vertexShader: string;
-        fragmentShader: string;
-        linewidth: number;
-        wireframe: boolean;
-        wireframeLinewidth: number;
-        fog: boolean;
-        lights: boolean;
-        clipping: boolean;
-        extensions: {
-            clipCullDistance: boolean;
-            multiDraw: boolean;
-        };
-        defaultAttributeValues: any;
-        index0AttributeName: string | undefined;
-        uniformsNeedUpdate: boolean;
-        glslVersion: import("three").GLSLVersion | null;
-        setValues(parameters: import("three").ShaderMaterialParameters): void;
-        toJSON(meta?: import("three").JSONMeta): import("three").ShaderMaterialJSON;
-        readonly isMaterial: true;
-        type: string;
-        alphaHash: boolean;
-        alphaToCoverage: boolean;
-        blendAlpha: number;
-        blendColor: import("three").Color;
-        blendDst: import("three").BlendingDstFactor;
-        blendDstAlpha: number | null;
-        blendEquation: import("three").BlendingEquation;
-        blendEquationAlpha: number | null;
-        blending: import("three").Blending;
-        blendSrc: import("three").BlendingSrcFactor | import("three").BlendingDstFactor;
-        blendSrcAlpha: number | null;
-        clipIntersection: boolean;
-        clippingPlanes: import("three").Plane[] | null;
-        clipShadows: boolean;
-        colorWrite: boolean;
-        depthFunc: import("three").DepthModes;
-        depthTest: boolean;
-        depthWrite: boolean;
-        id: number;
-        stencilWrite: boolean;
-        stencilFunc: import("three").StencilFunc;
-        stencilRef: number;
-        stencilWriteMask: number;
-        stencilFuncMask: number;
-        stencilFail: import("three").StencilOp;
-        stencilZFail: import("three").StencilOp;
-        stencilZPass: import("three").StencilOp;
-        name: string;
-        polygonOffset: boolean;
-        polygonOffsetFactor: number;
-        polygonOffsetUnits: number;
-        precision: "highp" | "mediump" | "lowp" | null;
-        premultipliedAlpha: boolean;
-        forceSinglePass: boolean;
-        dithering: boolean;
-        shadowSide: import("three").Side | null;
-        toneMapped: boolean;
-        transparent: boolean;
-        uuid: string;
-        vertexColors: boolean;
-        visible: boolean;
-        userData: Record<string, any>;
-        version: number;
-        alphaTest: number;
-        onBeforeRender(renderer: import("three").WebGLRenderer, scene: import("three").Scene, camera: import("three").Camera, geometry: import("three").BufferGeometry, object: import("three").Object3D, group: import("three").Group): void;
-        onBeforeCompile(parameters: import("three").WebGLProgramParametersWithUniforms, renderer: import("three").WebGLRenderer): void;
-        customProgramCacheKey(): string;
-        clone(): /*elided*/ any;
-        copy(material: import("three").Material): /*elided*/ any;
-        dispose(): void;
-        needsUpdate: boolean;
-        onBuild(object: import("three").Object3D, parameters: import("three").WebGLProgramParametersWithUniforms, renderer: import("three").WebGLRenderer): void;
-        addEventListener<T extends "dispose">(type: T, listener: import("three").EventListener<{
-            dispose: {};
-        }[T], T, /*elided*/ any>): void;
-        hasEventListener<T extends "dispose">(type: T, listener: import("three").EventListener<{
-            dispose: {};
-        }[T], T, /*elided*/ any>): boolean;
-        removeEventListener<T extends "dispose">(type: T, listener: import("three").EventListener<{
-            dispose: {};
-        }[T], T, /*elided*/ any>): void;
-        dispatchEvent<T extends "dispose">(event: import("three").BaseEvent<T> & {
-            dispose: {};
-        }[T]): void;
-    };
+export default LUTShaderMaterial;
+export type FFLModulateMode = number;
+export type FFLModulateType = number;
+export type LUTShaderMaterialParameters = {
+    /**
+     * - Modulate mode.
+     */
+    modulateMode?: number | undefined;
+    /**
+     * - Modulate type.
+     */
+    modulateType?: number | undefined;
+    /**
+     * -
+     * Constant color assigned to uColor0/1/2 depending on single or array.
+     */
+    color?: THREE.Color | THREE.Color[] | undefined;
+    /**
+     * - Light direction.
+     */
+    lightDirection?: THREE.Vector3 | undefined;
+    /**
+     * - Enable lighting. Needs to be off when drawing faceline/mask textures.
+     */
+    lightEnable?: boolean | undefined;
+    /**
+     * - Texture map.
+     */
+    map?: THREE.Texture | undefined;
+};
+/**
+ * Custom THREE.ShaderMaterial using the LUT shader from Miitomo.
+ * @augments {THREE.ShaderMaterial}
+ */
+declare class LUTShaderMaterial extends THREE.ShaderMaterial {
     /** @enum {number} */
-    LUTSpecularTextureType: {
+    static LUTSpecularTextureType: {
         NONE: number;
         DEFAULT_02: number;
         SKIN_01: number;
         MAX: number;
     };
     /** @enum {number} */
-    LUTFresnelTextureType: {
+    static LUTFresnelTextureType: {
         NONE: number;
         DEFAULT_02: number;
         SKIN_01: number;
@@ -186,14 +55,14 @@ declare const _exports: {
      * @type {{ specular: SpecularLUT, fresnel: FresnelLUT }}
      * @package
      */
-    lutDefinitions: {
+    static lutDefinitions: {
         specular: any;
         fresnel: any;
     };
     /** @type {Object<FFLModulateType, LUTSpecularTextureType>} */
-    modulateTypeToLUTSpecular: any;
+    static modulateTypeToLUTSpecular: any;
     /** @type {Object<FFLModulateType, LUTFresnelTextureType>} */
-    modulateTypeToLUTFresnel: any;
+    static modulateTypeToLUTFresnel: any;
     /**
      * Cached LUT textures to avoid redundant generation.
      * @typedef {Object} LUTTextures
@@ -206,7 +75,7 @@ declare const _exports: {
      * @type {LUTTextures|null}
      * @package
      */
-    _lutTextures: {
+    static _lutTextures: {
         /**
          * -
          * Specular LUT textures indexed by LUT type.
@@ -223,7 +92,7 @@ declare const _exports: {
      * @param {number} [lutSize] - Width of the LUT.
      * @returns {LUTTextures} Specular and fresnel LUT textures.
      */
-    getLUTTextures(lutSize?: number): {
+    static getLUTTextures(lutSize?: number): {
         /**
          * -
          * Specular LUT textures indexed by LUT type.
@@ -236,25 +105,25 @@ declare const _exports: {
         fresnel: any;
     };
     /** @type {import('three').Color} */
-    defaultHSLightGroundColor: import("three").Color;
+    static defaultHSLightGroundColor: import("three").Color;
     /** @type {import('three').Color} */
-    defaultHSLightSkyColor: import("three").Color;
+    static defaultHSLightSkyColor: import("three").Color;
     /** @type {import('three').Color} */
-    defaultDirLightColor0: import("three").Color;
+    static defaultDirLightColor0: import("three").Color;
     /** @type {import('three').Color} */
-    defaultDirLightColor1: import("three").Color;
-    defaultDirLightCount: number;
+    static defaultDirLightColor1: import("three").Color;
+    static defaultDirLightCount: number;
     /** @type {import('three').Vector4} */
-    defaultDirLightDirAndType0: import("three").Vector4;
+    static defaultDirLightDirAndType0: import("three").Vector4;
     /** @type {import('three').Vector4} */
-    defaultDirLightDirAndType1: import("three").Vector4;
+    static defaultDirLightDirAndType1: import("three").Vector4;
     /** @type {import('three').Color} */
-    defaultLightColor: import("three").Color;
+    static defaultLightColor: import("three").Color;
     /**
      * Alias for default light direction.
      * @type {import('three').Vector4}
      */
-    defaultLightDirection: import("three").Vector4;
+    static defaultLightDirection: import("three").Vector4;
     /**
      * Multiplies beard and hair colors by a factor seen
      * in libcocos2dcpp.so in order to match its rendering style.
@@ -265,36 +134,81 @@ declare const _exports: {
      * @returns {import('three').Color} The final color.
      * @package
      */
-    multiplyColorIfNeeded(color: import("three").Color, modulateType: FFLModulateType, modulateMode: FFLModulateMode): import("three").Color;
-};
-export = _exports;
-type FFLModulateMode = number;
-type FFLModulateType = number;
-type THREE = typeof import("three");
-type LUTShaderMaterialParameters = {
+    static multiplyColorIfNeeded(color: import("three").Color, modulateType: FFLModulateType, modulateMode: FFLModulateMode): import("three").Color;
+    /** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
     /**
-     * - Modulate mode.
+     * Constructs a LUTShaderMaterial instance.
+     * NOTE: Pass parameters in this order: side, modulateType, color
+     * @param {import('three').ShaderMaterialParameters & LUTShaderMaterialParameters} [options] -
+     * Parameters for the material.
      */
-    modulateMode?: number | undefined;
+    constructor(options?: import("three").ShaderMaterialParameters & LUTShaderMaterialParameters);
+    /** @type {FFLModulateType} */
+    _modulateType: FFLModulateType;
     /**
-     * - Modulate type.
+     * Sets the constant color uniforms from THREE.Color.
+     * @param {import('three').Color|Array<import('three').Color>} value - The
+     * constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
      */
-    modulateType?: number | undefined;
+    set color(value: import("three").Color | Array<import("three").Color>);
     /**
-     * -
-     * Constant color assigned to uColor0/1/2 depending on single or array.
+     * Gets the constant color (uColor0) uniform as THREE.Color.
+     * @returns {import('three').Color|null} The constant color, or null if it is not set.
      */
-    color?: import("three").Color | import("three").Color[] | undefined;
+    get color(): import("three").Color | null;
+    _color3: THREE.Color | undefined;
+    _opacity: number | undefined;
     /**
-     * - Light direction.
+     * Sets the value of the modulateMode uniform.
+     * @param {FFLModulateMode} value - The new modulateMode value.
      */
-    lightDirection?: import("three").Vector3 | undefined;
+    set modulateMode(value: FFLModulateMode);
     /**
-     * - Enable lighting. Needs to be off when drawing faceline/mask textures.
+     * Gets the value of the modulateMode uniform.
+     * @returns {FFLModulateMode|null} The modulateMode value, or null if it is unset.
      */
-    lightEnable?: boolean | undefined;
+    get modulateMode(): FFLModulateMode | null;
     /**
-     * - Texture map.
+     * Sets the value determining whether lighting is enabled or not.
+     * @param {boolean} value - The lightEnable value.
      */
-    map?: import("three").Texture | undefined;
-};
+    set lightEnable(value: boolean);
+    /**
+     * Sets the value determining whether lighting is enabled or not.
+     * @returns {boolean|null} The lightEnable value, or null if it is unset.
+     */
+    get lightEnable(): boolean | null;
+    /**
+     * Sets the material uniforms based on the modulate type value.
+     * @param {FFLModulateType} value - The new modulateType value.
+     */
+    set modulateType(value: FFLModulateType);
+    /**
+     * Gets the modulateType value.
+     * @returns {FFLModulateType|undefined} The modulateType value if it is set.
+     */
+    get modulateType(): FFLModulateType | undefined;
+    /** @type {number|undefined} */
+    _side: number | undefined;
+    /**
+     * Sets the texture map.
+     * @param {import('three').Texture} value - The new texture map.
+     */
+    set map(value: import("three").Texture);
+    /**
+     * Gets the texture map.
+     * @returns {THREE['Texture']} The texture map.
+     */
+    get map(): typeof THREE.Texture;
+    /**
+     * Sets the light direction, overriding w with -1.
+     * @param {import('three').Vector3} value - The new light direction.
+     */
+    set lightDirection(value: import("three").Vector3);
+    /**
+     * Gets the light direction.
+     * @returns {import('three').Vector3} The light direction.
+     */
+    get lightDirection(): import("three").Vector3;
+}
+import * as THREE from 'three';

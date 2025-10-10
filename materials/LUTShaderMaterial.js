@@ -1,9 +1,14 @@
+/**
+ * @file LUTShaderMaterial.js
+ * Three.js material class using the Miitomo LUT shader.
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 // @ts-check
+import * as THREE from 'three';
 
 /**
  * @typedef {number} FFLModulateMode
  * @typedef {number} FFLModulateType
- * @typedef {import('three')} THREE
  */
 
 /**
@@ -17,32 +22,6 @@
  * @property {import('three').Texture} [map] - Texture map.
  */
 
-// eslint-disable-next-line jsdoc/convert-to-jsdoc-comments -- not applicable
-/* global define, require, module -- UMD globals. */
-(function (root, factory) {
-	// @ts-ignore - cannot find name define
-	if (typeof define === 'function' && define.amd) {
-		// AMD. Register as an anonymous module.
-		// @ts-ignore
-		define(['three'], factory);
-	} else if (typeof module === 'object' && module.exports) {
-		// Node.js/CommonJS
-		module.exports = factory(require('three'));
-	} else {
-		// Browser globals
-
-		// Assume THREE is defined in window.
-		/** @type {*} */ (root).LUTShaderMaterial = factory(/** @type {*} */ (root).THREE);
-	}
-}(typeof self !== 'undefined' ? self : this,
-	/* eslint-disable jsdoc/require-returns-type -- Allow TS to predict return type. */
-	/**
-	 * @param {THREE} THREE - Three.js namespace.
-	 * @returns Returns the exported namespace.
-	 */
-	function (THREE) {
-/* eslint-enable jsdoc/require-returns-type -- Allow TS to predict return type. */
-'use strict';
 // // ---------------------------------------------------------------------
 // //  Vertex Shader for LUTShaderMaterial
 // //  Derived from LUT.vsh found in Miitomo.
@@ -730,7 +709,10 @@ else
 // // ---------------------------------------------------------------------
 // //  Helper: HermitianCurve for LUT generation
 // // ---------------------------------------------------------------------
-/** Represents a Hermitian curve interpolation for LUT generation. */
+/**
+ * Represents a Hermitian curve interpolation for LUT generation.
+ * @package
+ */
 class HermitianCurve {
 	/**
 	 * Constructs a HermitianCurve with given control points (keys).
@@ -1318,9 +1300,4 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	// TODO: normalMap, etc...? see: https://github.com/pixiv/three-vrm/blob/776c2823dcf3453d689a2d56aa82b289fdf963cf/packages/three-vrm-materials-mtoon/src/MToonMaterial.ts#L75
 }
 
-/** @global */
-// window.LUTShaderMaterial = LUTShaderMaterial;
-// export { LUTShaderMaterial };
-
-return LUTShaderMaterial;
-}));
+export default LUTShaderMaterial;

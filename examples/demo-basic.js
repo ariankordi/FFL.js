@@ -1,45 +1,24 @@
 // @ts-check
 
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
 	initializeFFL, setRendererState, createCharModel, textureToCanvas, initCharModelTextures,
 	matSupportsFFL, makeExpressionFlag, checkExpressionChangesShapes,
 	makeIconFromCharModel, FFLExpression, exitFFL,
 	FFLCharModelDescDefault, CharModel
 } from '../ffl.js';
-// UMDs below:
 // import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
-import * as FFLShaderMaterialImport from '../materials/FFLShaderMaterial.js';
-import * as LUTShaderMaterialImport from '../materials/LUTShaderMaterial.js';
-import * as SampleShaderMaterialImport from '../materials/SampleShaderMaterial.js';
-// ESM
+// Material classes.
+import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
+import LUTShaderMaterial from '../materials/LUTShaderMaterial.js';
+import SampleShaderMaterial from '../materials/SampleShaderMaterial.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js'; // For WebGPURenderer only.
+// Helpers.
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 
-// Hack to get library globals recognized throughout the file (uncomment for ESM).
-/**
- * @typedef {import('../ffl-emscripten.js')} ModuleFFL
- * @typedef {import('../materials/FFLShaderMaterial.js')} FFLShaderMaterial
- * @typedef {import('../materials/LUTShaderMaterial.js')} LUTShaderMaterial
- * @typedef {import('../materials/SampleShaderMaterial.js')} SampleShaderMaterial
- * @typedef {import('three')} THREE
- */
-/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
-// /** @type {ModuleFFL} */ let ModuleFFL = globalThis.ModuleFFL;
-// ModuleFFL = (!ModuleFFL) ? ModuleFFLImport : ModuleFFL;
-// /** @type {ModuleFFL} */ const ModuleFFL = window.ModuleFFL; // Uncomment for ESM (browser).
-
-/** @type {FFLShaderMaterial} */
-let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
-FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
-/** @type {LUTShaderMaterial} */
-let LUTShaderMaterial = /** @type {*} */ (globalThis).LUTShaderMaterial;
-LUTShaderMaterial = (!LUTShaderMaterial) ? LUTShaderMaterialImport : LUTShaderMaterial;
-/** @type {SampleShaderMaterial} */
-let SampleShaderMaterial = /** @type {*} */ (globalThis).SampleShaderMaterial;
-SampleShaderMaterial = (!SampleShaderMaterial) ? SampleShaderMaterialImport : SampleShaderMaterial;
-/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
+// Assumes that the Emscripten module is already imported from elsewhere.
+/** @typedef {import('../ffl-emscripten.js')} ModuleFFL */
 
 const base64ToBytes = (/** @type {string} */ base64) =>
 	Uint8Array.from(atob(base64), c => c.charCodeAt(0));
@@ -64,12 +43,12 @@ function parseHexOrBase64ToBytes(text) {
 
 /**
  * Emscripten module instance returned after initialization.
- * @type {import('../ffl').Module}
+ * @type {import('../ffl.js').Module}
  */
 let moduleFFL;
 /**
  * FFLResourceDesc returned by {@link initializeFFL}, needed for calling {@link exitFFL}.
- * @type {import('../ffl').FFLResourceDesc}
+ * @type {import('../ffl.js').FFLResourceDesc}
  */
 let resourceDesc;
 
@@ -98,7 +77,7 @@ class FFLShaderBlinnMaterial extends FFLShaderMaterial {
 	/**
 	 * Constructs an FFLShaderMaterial instance.
 	 * @param {import('three').ShaderMaterialParameters
-	 * & import('../FFLShaderMaterial').FFLShaderMaterialParameters} [options] -
+	 * & import('../materials/FFLShaderMaterial.js').FFLShaderMaterialParameters} [options] -
 	 * Parameters for the material.
 	 */
 	constructor(options = {}) {
@@ -360,8 +339,8 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 /**
  * If the input material supports drawing textures, this function
  * will either return it, otherwise it will return the default texture material.
- * @param {import('../ffl').MaterialConstructor} mat - The input material.
- * @returns {import('../ffl').MaterialConstructor} The material that supports textures.
+ * @param {import('../ffl.js').MaterialConstructor} mat - The input material.
+ * @returns {import('../ffl.js').MaterialConstructor} The material that supports textures.
  */
 function getTextureMaterial(mat) {
 	return matSupportsFFL(mat)
@@ -591,7 +570,7 @@ function onShaderMaterialChange() {
 		 * Parameters for the shader material. Using SampleShaderMaterialParameters
 		 * as a lowest common denominator, but others can also be used.
 		 * @type {import('three').MeshBasicMaterialParameters
-		 * & import('../SampleShaderMaterial').SampleShaderMaterialParameters}
+		 * & import('../materials/SampleShaderMaterial.js').SampleShaderMaterialParameters}
 		 */
 		const params = {
 			// _side = original side from LUTShaderMaterial, must be set first

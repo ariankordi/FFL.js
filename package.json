@@ -1,6 +1,7 @@
 {
   "name": "ffl.js",
   "main": "ffl.js",
+  "type": "module",
   "scripts": {
     "lint": "eslint ffl.js",
     "check-types": "tsc --noEmit",

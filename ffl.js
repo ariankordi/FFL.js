@@ -1,5 +1,6 @@
 /*!
  * Bindings for FFL, a Mii renderer, in JavaScript.
+ * Uses the FFL decompilation by aboood40091.
  * https://github.com/ariankordi/FFL.js
  * @author Arian Kordi <https://github.com/ariankordi>
  */
@@ -1669,7 +1670,7 @@ class CharModel {
 	_addCharModelMeshes(module) {
 		console.assert(this.meshes, '_addCharModelMeshes: this.meshes is null or undefined, was this CharModel disposed?');
 
-		/** @type {import('./materials/SampleShaderMaterial').SampleShaderMaterialColorInfo|null} */
+		/** @type {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo|null} */
 		let colorInfo = null;
 		// Prepare colorInfo from CharModel if it is needed on the mesh's material.
 		if ('colorInfo' in this._materialClass.prototype) {
@@ -2114,7 +2115,7 @@ class CharModel {
 	/**
 	 * Gets the ColorInfo object needed for SampleShaderMaterial.
 	 * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.
-	 * @returns {import('./materials/SampleShaderMaterial').SampleShaderMaterialColorInfo}
+	 * @returns {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo}
 	 * The colorInfo object needed by SampleShaderMaterial.
 	 * @public
 	 */
@@ -2734,7 +2735,7 @@ class DrawParam {
 		if (geometry.attributes.tangent === undefined && // "_color" can be tested too.
 			// ... material is FFLShaderMaterial. Which is the only one using that attribute.
 			'useSpecularModeBlinn' in materialClass.prototype) {
-			/** @type {import('./materials/FFLShaderMaterial').FFLShaderMaterialParameters} */
+			/** @type {import('./materials/FFLShaderMaterial.js').FFLShaderMaterialParameters} */
 			(materialParam).useSpecularModeBlinn = true;
 		}
 

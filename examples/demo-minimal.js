@@ -3,29 +3,33 @@
 import * as THREE from 'three';
 import {
 	initializeFFL, setRendererState, createCharModel,
-	initCharModelTextures, parseHexOrB64ToUint8Array,
+	initCharModelTextures,
 	FFLCharModelDescDefault, CharModel, exitFFL
 } from '../ffl.js';
-import * as FFLShaderMaterialImport from '../materials/FFLShaderMaterial.js';
+import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
 import ResourceLoadHelper from './ResourceLoadHelper.js';
-// All UMDs below:
-// import * as ModuleFFLImport from '../ffl-emscripten.js'; // Build with EXPORT_ES6 to not be UMD.
 
-// Hack to get library globals recognized throughout the file (uncomment for ESM).
+// Assumes that the Emscripten module is already imported from elsewhere.
+/** @typedef {import('../ffl-emscripten.js')} ModuleFFL */
+
+const base64ToBytes = (/** @type {string} */ base64) =>
+	Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+const hexToBytes = (/** @type {string} */ hex) =>
+	Uint8Array.from({ length: hex.length >>> 1 }, (_, i) =>
+		parseInt(hex.slice(i << 1, (i << 1) + 2), 16));
 /**
- * @typedef {import('../ffl-emscripten.js')} ModuleFFL
- * @typedef {import('../materials/FFLShaderMaterial.js')} FFLShaderMaterial
- * @typedef {import('three')} THREE
+ * Parses either hex or Base64 -> U8.
+ * Additionally strips spaces from the input.
+ * @param {string} text - Input encoded text.
+ * @returns {Uint8Array} Decoded bytes.
  */
-/* eslint-disable no-self-assign -- Get TypeScript to identify global imports. */
-// /** @type {ModuleFFL} */ let ModuleFFL = globalThis.ModuleFFL;
-// ModuleFFL = (!ModuleFFL) ? ModuleFFLImport : ModuleFFL;
-// /** @type {ModuleFFL} */ const ModuleFFL = window.ModuleFFL; // Uncomment for ESM (browser).
-
-/** @type {FFLShaderMaterial} */
-let FFLShaderMaterial = /** @type {*} */ (globalThis).FFLShaderMaterial;
-FFLShaderMaterial = (!FFLShaderMaterial) ? FFLShaderMaterialImport : FFLShaderMaterial;
-/* eslint-enable no-self-assign -- Get TypeScript to identify global imports. */
+const parseHexOrBase64ToBytes = (text) => {
+	text = text.replace(/\s+/g, ''); // Strip spaces.
+	// Check if it is hex, otherwise assume it is Base64.
+	return /^[0-9a-fA-F]+$/.test(text)
+		? hexToBytes(text)
+		: base64ToBytes(text);
+};
 
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
@@ -135,7 +139,7 @@ function updateBoxHelper(charModel) {
 function updateCharModelInScene(data, modelDesc) {
 	// Decode data.
 	if (typeof data === 'string') {
-		data = parseHexOrB64ToUint8Array(data);
+		data = parseHexOrBase64ToBytes(data);
 	}
 	// Continue assuming it is Uint8Array.
 	// If an existing CharModel exists, update it.

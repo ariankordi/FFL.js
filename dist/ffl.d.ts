@@ -670,11 +670,11 @@ export class CharModel {
     /**
      * Gets the ColorInfo object needed for SampleShaderMaterial.
      * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.
-     * @returns {import('./materials/SampleShaderMaterial').SampleShaderMaterialColorInfo}
+     * @returns {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo}
      * The colorInfo object needed by SampleShaderMaterial.
      * @public
      */
-    public getColorInfo(isSpecial?: boolean): import("./materials/SampleShaderMaterial").SampleShaderMaterialColorInfo;
+    public getColorInfo(isSpecial?: boolean): import("./materials/SampleShaderMaterial.js").SampleShaderMaterialColorInfo;
     /**
      * Gets a vector in which to scale the body model for this CharModel.
      * @returns {import('three').Vector3Like} Scale vector for the body model.
@@ -1027,13 +1027,6 @@ declare class TextureManager {
     /** @package */
     _textureCallbackPtr: number;
     /**
-     * Controls whether or not the TextureManager
-     * will log creations and deletions of textures
-     * in order to better track memory allocations.
-     * @public
-     */
-    public logging: boolean;
-    /**
      * Creates the create/delete functions in Emscripten and allocates and sets
      * the FFLTextureCallback object as {@link TextureManager._textureCallbackPtr}.
      * @param {boolean} addDeleteCallback - Whether or not to bind the delete function to the texture callback.
@@ -1065,11 +1058,7 @@ declare class TextureManager {
      * @private
      */
     private _addMipmaps;
-    /**
-     * @param {number} _ - Originally pObj, unused here.
-     * @param {number} texturePtrPtr - Pointer to the texture handle (pTexture2D).
-     * @private
-     */
+    /** @private */
     private _textureDeleteFunc;
     /**
      * @param {number} id - ID assigned to the texture.

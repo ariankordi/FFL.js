@@ -1,16 +1,25 @@
+/**
+ * @file TextureShaderNodeMaterial.js
+ * Three.js node material class (for WebGPURenderer) that handles
+ * FFL modulated/swizzled textures with mixed colors.
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 // @ts-check
 import { Color } from 'three';
 import {
 	Fn, uniform, materialReference, float, vec4, int
 } from 'three/tsl';
-import NodeMaterial from 'three/src/materials/nodes/NodeMaterial.js';
+import { NodeMaterial } from 'three/webgpu';
+
+// TODO: This type should not be any.
+/** @typedef {import('three/tsl').ShaderNodeObject<*>} ShaderNodeObject */
 
 /**
  * A NodeMaterial (TSL/WebGPURenderer) that renders FFL swizzled (modulateMode) textures.
  * Has no lighting whatsoever, just meant to render 2D planes.
  */
 export default class TextureShaderNodeMaterial extends NodeMaterial {
-	/** @param {import('three').MeshBasicMaterialParameters & {color?: Color|Array<Color>}} [options] */
+	/** @param {import('three').MeshBasicMaterialParameters & {color?: Color|Array<Color>}} [options] - Options */
 	constructor(options = {}) {
 		super();
 
@@ -31,13 +40,28 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 		// This error is very obtuse and always stumps me.
 		// I seemingly get the same error any time I don't have a fragmentNode.
 		// So, for now this will use the fragmentNode, which is ok since it can still be combined.
-		this.fragmentNode = TextureShaderNodeMaterial.fragmentNode(
-			uniform(this.diffuse), uniform(this.color1), uniform(this.color2),
-			uniform(this.opacity), uniform(this.modulateMode),
-			!this.map ? null : materialReference('map', 'texture'));
+		this.fragmentNode = TextureShaderNodeMaterial.fragmentNode({
+			diffuse: uniform(this.diffuse),
+			color1: uniform(this.color1),
+			color2: uniform(this.color2),
+			opacity: uniform(this.opacity),
+			modulateMode: uniform(this.modulateMode),
+			texel: this.map ? materialReference('map', 'texture') : null
+		});
 	}
 
-	static fragmentNode = Fn(({ diffuse, color1, color2, opacity, modulateMode, texel }) => {
+	/**
+	 * @typedef {Object} FragmentInputs
+	 * @property {ShaderNodeObject} diffuse - color
+	 * @property {ShaderNodeObject} color1 - color
+	 * @property {ShaderNodeObject} color2 - color
+	 * @property {ShaderNodeObject} opacity - float
+	 * @property {ShaderNodeObject} modulateMode - int
+	 * @property {ShaderNodeObject|null} texel - texture
+	 */
+	/** @type {import('three/src/nodes/tsl/TSLBase.js').ShaderNodeFn<[FragmentInputs]>} */
+	static fragmentNode = Fn((/** @type {FragmentInputs} */ args) => {
+		const { diffuse, color1, color2, opacity, modulateMode, texel } = args;
 		// Start with diffuse/opacity.
 		const diffuseColor = vec4(diffuse, opacity);
 
@@ -115,12 +139,12 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 		}
 	}
 
-	/** @returns {import('../ffl').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */
+	/** @returns {import('../ffl.js').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */
 	get modulateMode() {
 		return this._modulateMode;
 	}
 
-	/** @param {import('../ffl').FFLModulateMode} value - The new modulateMode value. */
+	/** @param {import('../ffl.js').FFLModulateMode} value - The new modulateMode value. */
 	set modulateMode(value) {
 		this._modulateMode = value;
 	}
