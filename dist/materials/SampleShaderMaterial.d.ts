@@ -63,19 +63,19 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
     static needsFacelineAlpha: boolean;
     /**
      * Default ambient light color.
-     * @type {import('three').Color}
+     * @type {THREE.Color}
      */
-    static defaultLightColor: import("three").Color;
+    static defaultLightColor: THREE.Color;
     /**
      * Default light direction.
-     * @type {import('three').Vector3}
+     * @type {THREE.Vector3}
      */
-    static defaultLightDir: import("three").Vector3;
+    static defaultLightDir: THREE.Vector3;
     /**
      * Alias for default light direction.
-     * @type {import('three').Vector3}
+     * @type {THREE.Vector3}
      */
-    static defaultLightDirection: import("three").Vector3;
+    static defaultLightDirection: THREE.Vector3;
     /**
      * Method to get colorInfo from FFLiCharInfo included in glTFs.
      * @param {string} base64 - Base64-encoded FFLiCharInfo from glTF.
@@ -86,26 +86,26 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
     /**
      * Re-assigns normal attribute on the glass mesh to the
      * normals for glass found in ShapeHigh.dat.
-     * @param {import('three').BufferGeometry} geometry -
+     * @param {THREE.BufferGeometry} geometry -
      * The geometry in which to re-assign the normal attribute.
      */
-    static assignNormalsForGlass(geometry: import("three").BufferGeometry): void;
+    static assignNormalsForGlass(geometry: THREE.BufferGeometry): void;
     /**
      * @param {{modulateParam: {type: number}}} drawParam - The FFLDrawParam for the mesh to check.
-     * @param {import('three').BufferGeometry} geometry - BufferGeometry to modify.
+     * @param {THREE.BufferGeometry} geometry - BufferGeometry to modify.
      */
     static modifyBufferGeometry(drawParam: {
         modulateParam: {
             type: number;
         };
-    }, geometry: import("three").BufferGeometry): void;
-    /** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
+    }, geometry: THREE.BufferGeometry): void;
+    /** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
     /**
      * Constructs an SampleShaderMaterial instance.
-     * @param {import('three').ShaderMaterialParameters & SampleShaderMaterialParameters} [options] -
+     * @param {THREE.ShaderMaterialParameters & SampleShaderMaterialParameters} [options] -
      * Parameters for the material.
      */
-    constructor(options?: import("three").ShaderMaterialParameters & SampleShaderMaterialParameters);
+    constructor(options?: THREE.ShaderMaterialParameters & SampleShaderMaterialParameters);
     /** @type {FFLModulateType} */
     _modulateType: FFLModulateType;
     /** @package */
@@ -114,15 +114,15 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
     _specularColorTable: (number[] | null)[];
     /**
      * Sets the constant color uniforms from THREE.Color.
-     * @param {import('three').Color|Array<import('three').Color>} value - The
+     * @param {THREE.Color|Array<THREE.Color>} value - The
      * constant color (constColor1), or multiple (constColor1/2/3) to set the uniforms for.
      */
-    set color(value: import("three").Color | Array<import("three").Color>);
+    set color(value: THREE.Color | Array<THREE.Color>);
     /**
      * Gets the constant color (constColor1) uniform as THREE.Color.
-     * @returns {import('three').Color|null} The constant color, or null if it is not set.
+     * @returns {THREE.Color|null} The constant color, or null if it is not set.
      */
-    get color(): import("three").Color | null;
+    get color(): THREE.Color | null;
     _color3: THREE.Color | undefined;
     _opacity: number | undefined;
     /**
@@ -158,24 +158,24 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
     setUniformsFromMatParam(matParam: DrawParamMaterial): void;
     /**
      * Sets the texture map (s_Tex uniform).
-     * @param {import('three').Texture} value - The new texture map.
+     * @param {THREE.Texture} value - The new texture map.
      */
-    set map(value: import("three").Texture);
+    set map(value: THREE.Texture);
     /**
      * Gets the texture map if it is set.
-     * @returns {import('three').Texture|null} The texture map, or null if it is unset.
+     * @returns {THREE.Texture|null} The texture map, or null if it is unset.
      */
-    get map(): import("three").Texture | null;
+    get map(): THREE.Texture | null;
     /**
      * Sets the light direction.
-     * @param {import('three').Vector3} value - The new light direction.
+     * @param {THREE.Vector3} value - The new light direction.
      */
-    set lightDirection(value: import("three").Vector3);
+    set lightDirection(value: THREE.Vector3);
     /**
      * Gets the light direction.
-     * @returns {import('three').Vector3} The light direction.
+     * @returns {THREE.Vector3} The light direction.
      */
-    get lightDirection(): import("three").Vector3;
+    get lightDirection(): THREE.Vector3;
     /**
      * Sets the information about color indices that are needed
      * to resolve material table elements for shader uniforms.

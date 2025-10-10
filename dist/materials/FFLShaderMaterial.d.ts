@@ -40,34 +40,34 @@ export type FFLShaderMaterialParameters = {
 declare class FFLShaderMaterial extends THREE.ShaderMaterial {
     /**
      * Default ambient light color.
-     * @type {import('three').Color}
+     * @type {THREE.Color}
      */
-    static defaultLightAmbient: import("three").Color;
+    static defaultLightAmbient: THREE.Color;
     /**
      * Default diffuse light color.
-     * @type {import('three').Color}
+     * @type {THREE.Color}
      */
-    static defaultLightDiffuse: import("three").Color;
+    static defaultLightDiffuse: THREE.Color;
     /**
      * Default specular light color.
-     * @type {import('three').Color}
+     * @type {THREE.Color}
      */
-    static defaultLightSpecular: import("three").Color;
+    static defaultLightSpecular: THREE.Color;
     /**
      * Default light direction.
-     * @type {import('three').Vector3}
+     * @type {THREE.Vector3}
      */
-    static defaultLightDir: import("three").Vector3;
+    static defaultLightDir: THREE.Vector3;
     /**
      * Default rim color.
-     * @type {import('three').Color}
+     * @type {THREE.Color}
      */
-    static defaultRimColor: import("three").Color;
+    static defaultRimColor: THREE.Color;
     /**
      * Default rim color for the body.
-     * @type {import('three').Color}
+     * @type {THREE.Color}
      */
-    static defaultRimColorBody: import("three").Color;
+    static defaultRimColorBody: THREE.Color;
     /**
      * Default rim power (intensity).
      * @type {number}
@@ -75,9 +75,9 @@ declare class FFLShaderMaterial extends THREE.ShaderMaterial {
     static defaultRimPower: number;
     /**
      * Alias for default light direction.
-     * @type {import('three').Vector3}
+     * @type {THREE.Vector3}
      */
-    static defaultLightDirection: import("three").Vector3;
+    static defaultLightDirection: THREE.Vector3;
     /**
      * Material uniform table mapping to FFLModulateType.
      * Reference: https://github.com/aboood40091/FFL-Testing/blob/master/src/Shader.cpp
@@ -90,13 +90,13 @@ declare class FFLShaderMaterial extends THREE.ShaderMaterial {
         specularPower: number;
         specularMode: number;
     }[];
-    /** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
+    /** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
     /**
      * Constructs an FFLShaderMaterial instance.
-     * @param {import('three').ShaderMaterialParameters & FFLShaderMaterialParameters} [options] -
+     * @param {THREE.ShaderMaterialParameters & FFLShaderMaterialParameters} [options] -
      * Parameters for the material.
      */
-    constructor(options?: import("three").ShaderMaterialParameters & FFLShaderMaterialParameters);
+    constructor(options?: THREE.ShaderMaterialParameters & FFLShaderMaterialParameters);
     /** @type {FFLModulateType} */
     _modulateType: FFLModulateType;
     /**
@@ -111,15 +111,15 @@ declare class FFLShaderMaterial extends THREE.ShaderMaterial {
     get useSpecularModeBlinn(): boolean | undefined;
     /**
      * Sets the constant color uniforms from THREE.Color.
-     * @param {import('three').Color|Array<import('three').Color>} value - The
+     * @param {THREE.Color|Array<THREE.Color>} value - The
      * constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
      */
-    set color(value: import("three").Color | Array<import("three").Color>);
+    set color(value: THREE.Color | Array<THREE.Color>);
     /**
      * Gets the constant color (u_const1) uniform as THREE.Color.
-     * @returns {import('three').Color|null} The constant color, or null if it is not set.
+     * @returns {THREE.Color|null} The constant color, or null if it is not set.
      */
-    get color(): import("three").Color | null;
+    get color(): THREE.Color | null;
     _color3: THREE.Color | undefined;
     _opacity: number | undefined;
     /**
@@ -155,23 +155,23 @@ declare class FFLShaderMaterial extends THREE.ShaderMaterial {
     get modulateType(): FFLModulateType | undefined;
     /**
      * Sets the texture map (s_texture uniform).
-     * @param {import('three').Texture} value - The new texture map.
+     * @param {THREE.Texture} value - The new texture map.
      */
-    set map(value: import("three").Texture);
+    set map(value: THREE.Texture);
     /**
      * Gets the texture map if it is set.
-     * @returns {import('three').Texture|null} The texture map, or null if it is unset.
+     * @returns {THREE.Texture|null} The texture map, or null if it is unset.
      */
-    get map(): import("three").Texture | null;
+    get map(): THREE.Texture | null;
     /**
      * Sets the light direction.
-     * @param {import('three').Vector3} value - The new light direction.
+     * @param {THREE.Vector3} value - The new light direction.
      */
-    set lightDirection(value: import("three").Vector3);
+    set lightDirection(value: THREE.Vector3);
     /**
      * Gets the light direction.
-     * @returns {import('three').Vector3} The light direction.
+     * @returns {THREE.Vector3} The light direction.
      */
-    get lightDirection(): import("three").Vector3;
+    get lightDirection(): THREE.Vector3;
 }
 import * as THREE from 'three';

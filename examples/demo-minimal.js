@@ -35,12 +35,12 @@ const parseHexOrBase64ToBytes = (text) => {
 
 /**
  * Emscripten module instance returned after initialization.
- * @type {import('../ffl').Module}
+ * @type {import('../ffl.js').Module}
  */
 let moduleFFL;
 /**
  * FFLResourceDesc returned by {@link initializeFFL}, needed for calling {@link exitFFL}.
- * @type {import('../ffl').FFLResourceDesc}
+ * @type {import('../ffl.js').FFLResourceDesc}
  */
 let resourceDesc;
 
@@ -133,7 +133,7 @@ function updateBoxHelper(charModel) {
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string} data - Data as Uint8Array or hex or Base64 string.
- * @param {import('../ffl').FFLCharModelDesc} modelDesc - CharModelDesc object to update CharModel with.
+ * @param {import('../ffl.js').FFLCharModelDesc} modelDesc - CharModelDesc object to update CharModel with.
  * @throws {Error} cannot exclude modelDesc if no model was initialized yet, currentCharModel.meshes is null
  */
 function updateCharModelInScene(data, modelDesc) {

@@ -15,13 +15,13 @@ import * as THREE from 'three';
  * @typedef {Object} FFLShaderMaterialParameters
  * @property {FFLModulateMode} [modulateMode] - Modulate mode.
  * @property {FFLModulateType} [modulateType] - Modulate type.
- * @property {import('three').Color|Array<import('three').Color>} [color] -
+ * @property {THREE.Color|Array<THREE.Color>} [color] -
  * Constant color assigned to u_const1/2/3 depending on single or array.
  * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
- * @property {import('three').Vector3} [lightDirection] - Light direction.
+ * @property {THREE.Vector3} [lightDirection] - Light direction.
  * @property {boolean} [useSpecularModeBlinn] - Whether to override
  * specular mode on all materials with 0 (Blinn-Phong specular).
- * @property {import('three').Texture} [map] - Texture map.
+ * @property {THREE.Texture} [map] - Texture map.
  */
 
 // // ---------------------------------------------------------------------
@@ -448,32 +448,32 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Default ambient light color.
-	 * @type {import('three').Color}
+	 * @type {THREE.Color}
 	 */
 	static defaultLightAmbient = new THREE.Color(0.73, 0.73, 0.73)/* .convertSRGBToLinear() */;
 	/**
 	 * Default diffuse light color.
-	 * @type {import('three').Color}
+	 * @type {THREE.Color}
 	 */
 	static defaultLightDiffuse = new THREE.Color(0.6, 0.6, 0.6)/* .convertSRGBToLinear() */;
 	/**
 	 * Default specular light color.
-	 * @type {import('three').Color}
+	 * @type {THREE.Color}
 	 */
 	static defaultLightSpecular = new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */;
 	/**
 	 * Default light direction.
-	 * @type {import('three').Vector3}
+	 * @type {THREE.Vector3}
 	 */
 	static defaultLightDir = new THREE.Vector3(-0.4531539381, 0.4226179123, 0.7848858833);
 	/**
 	 * Default rim color.
-	 * @type {import('three').Color}
+	 * @type {THREE.Color}
 	 */
 	static defaultRimColor = new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */;
 	/**
 	 * Default rim color for the body.
-	 * @type {import('three').Color}
+	 * @type {THREE.Color}
 	 */
 	static defaultRimColorBody = new THREE.Color(0.4, 0.4, 0.4);
 	/**
@@ -484,7 +484,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Alias for default light direction.
-	 * @type {import('three').Vector3}
+	 * @type {THREE.Vector3}
 	 */
 	static defaultLightDirection = this.defaultLightDir;
 
@@ -585,16 +585,16 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		}
 	];
 
-	/** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
+	/** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
 
 	/**
 	 * Constructs an FFLShaderMaterial instance.
-	 * @param {import('three').ShaderMaterialParameters & FFLShaderMaterialParameters} [options] -
+	 * @param {THREE.ShaderMaterialParameters & FFLShaderMaterialParameters} [options] -
 	 * Parameters for the material.
 	 */
 	constructor(options = {}) {
 		// Set default uniforms.
-		/** @type {Object<string, import('three').IUniform>} */
+		/** @type {Object<string, THREE.IUniform>} */
 		const uniforms = {
 			u_light_ambient: {
 				value: FFLShaderMaterial.defaultLightAmbient
@@ -628,7 +628,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the constant color (u_const1) uniform as THREE.Color.
-	 * @returns {import('three').Color|null} The constant color, or null if it is not set.
+	 * @returns {THREE.Color|null} The constant color, or null if it is not set.
 	 */
 	get color() {
 		if (!this.uniforms.u_const1) {
@@ -647,14 +647,14 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {import('three').Color|Array<import('three').Color>} value - The
+	 * @param {THREE.Color|Array<THREE.Color>} value - The
 	 * constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
 	 */
 	set color(value) {
 		/**
-		 * @param {import('three').Color} color - THREE.Color instance.
+		 * @param {THREE.Color} color - THREE.Color instance.
 		 * @param {number} opacity - Opacity mapped to .a.
-		 * @returns {import('three').Vector4} Vector4 containing color and opacity.
+		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
 		 */
 		function toColor4(color, opacity = 1.0) {
 			return new THREE.Vector4(color.r, color.g, color.b, opacity);
@@ -672,7 +672,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		}
 		// Set single color as THREE.Color, defaulting to white.
 		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
-		/** @type {import('three').Color} */
+		/** @type {THREE.Color} */
 		this._color3 = color3;
 		// Assign single color with white as a placeholder.
 		const opacity = this.opacity;
@@ -806,7 +806,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the texture map if it is set.
-	 * @returns {import('three').Texture|null} The texture map, or null if it is unset.
+	 * @returns {THREE.Texture|null} The texture map, or null if it is unset.
 	 */
 	get map() {
 		return this.uniforms.s_texture ? this.uniforms.s_texture.value : null;
@@ -814,7 +814,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the texture map (s_texture uniform).
-	 * @param {import('three').Texture} value - The new texture map.
+	 * @param {THREE.Texture} value - The new texture map.
 	 */
 	set map(value) {
 		this.uniforms.s_texture = { value: value };
@@ -822,7 +822,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the light direction.
-	 * @returns {import('three').Vector3} The light direction.
+	 * @returns {THREE.Vector3} The light direction.
 	 */
 	get lightDirection() {
 		// Should always be set as long as this is constructed.
@@ -831,7 +831,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the light direction.
-	 * @param {import('three').Vector3} value - The new light direction.
+	 * @param {THREE.Vector3} value - The new light direction.
 	 */
 	set lightDirection(value) {
 		this.uniforms.u_light_dir = { value: value };

@@ -20,7 +20,7 @@ export type FFLTextureInfo = {
     mipPtr: number;
     mipLevelOffset: Uint32Array;
 };
-export type Renderer = import("three/src/renderers/common/Renderer.js", { with: { "resolution-mode": "import" } }).default;
+export type Renderer = import("three/webgpu").Renderer | THREE.WebGLRenderer;
 /**
  * Emscripten "Module" type.
  * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26
@@ -205,7 +205,7 @@ export type FFLResourceDesc = {
     pData: Array<number>;
     size: Array<number>;
 };
-export type MaterialConstructor = new (...args: any[]) => import("three").Material;
+export type MaterialConstructor = new (...args: any[]) => THREE.Material;
 /**
  * *
  */
@@ -405,7 +405,7 @@ export function setRendererState(renderer: Renderer, module: Module): void;
  * @public
  */
 export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
-/** @typedef {function(new: import('three').Material, ...*): import('three').Material} MaterialConstructor */
+/** @typedef {function(new: THREE.Material, ...*): THREE.Material} MaterialConstructor */
 /**
  * Represents an FFLCharModel, which is the head model.
  * Encapsulates a pointer to the underlying instance and provides helper methods.
@@ -469,15 +469,15 @@ export class CharModel {
      */
     readonly _model: FFLiCharModel;
     /**
-     * @type {import('three').RenderTarget|null}
+     * @type {THREE.RenderTarget|null}
      * @package
      */
-    _facelineTarget: import("three").RenderTarget | null;
+    _facelineTarget: THREE.RenderTarget | null;
     /**
-     * @type {Array<import('three').RenderTarget|null>}
+     * @type {Array<THREE.RenderTarget|null>}
      * @package
      */
-    _maskTargets: Array<import("three").RenderTarget | null>;
+    _maskTargets: Array<THREE.RenderTarget | null>;
     /**
      * List of enabled expressions that can be set with {@link CharModel.setExpression}.
      * @type {Uint32Array}
@@ -485,10 +485,10 @@ export class CharModel {
     expressions: Uint32Array;
     /**
      * Group of THREE.Mesh objects representing the CharModel.
-     * @type {import('three').Group}
+     * @type {THREE.Group}
      * @public
      */
-    public meshes: import("three").Group;
+    public meshes: THREE.Group;
     /**
      * This is the method that populates meshes
      * from the internal FFLiCharModel instance.
@@ -508,12 +508,12 @@ export class CharModel {
      */
     private _getPartsTransform;
     /**
-     * @returns {import('three').Color} The faceline color as THREE.Color.
+     * @returns {THREE.Color} The faceline color as THREE.Color.
      * @private
      */
     private _getFacelineColor;
     /**
-     * @returns {import('three').Color} The favorite color as THREE.Color.
+     * @returns {THREE.Color} The favorite color as THREE.Color.
      * @private
      */
     private _getFavoriteColor;
@@ -539,7 +539,7 @@ export class CharModel {
     _getExpressionFlagPtr(): number;
     /**
      * Calculates the bounding box from the meshes.
-     * @returns {import('three').Box3} The bounding box.
+     * @returns {THREE.Box3} The bounding box.
      * @private
      */
     private _getBoundingBox;
@@ -600,23 +600,23 @@ export class CharModel {
      * such as eyes, mouth, etc. which is the mask.
      * The faceline texture may not exist if it is not needed, in which
      * case the faceline color is used directly, see property CharModel.facelineColor.
-     * @returns {import('three').RenderTarget|null} The faceline render target, or null if it does not exist,
+     * @returns {THREE.RenderTarget|null} The faceline render target, or null if it does not exist,
      * in which case CharModel.facelineColor should be used. Access .texture on this object to
      * get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
      */
-    getFaceline(): import("three").RenderTarget | null;
+    getFaceline(): THREE.RenderTarget | null;
     /**
      * Gets the mask texture, or the texture containing facial
      * features such as eyes, mouth, eyebrows, etc. This is wrapped
      * around the mask shape, which is a transparent shape
      * placed in front of the head model.
      * @param {FFLExpression} expression - The desired expression, or the current expression.
-     * @returns {import('three').RenderTarget|null} The mask render target for the given expression,
+     * @returns {THREE.RenderTarget|null} The mask render target for the given expression,
      * or null if the CharModel was not initialized with that expression.
      * Access .texture on this object to get a {@link THREE.Texture} from it.
      * It becomes invalid if the CharModel is disposed.
      */
-    getMask(expression?: FFLExpression): import("three").RenderTarget | null;
+    getMask(expression?: FFLExpression): THREE.RenderTarget | null;
     /**
      * The current expression for this CharModel.
      * Read-only. Use setExpression to set the expression.
@@ -633,18 +633,18 @@ export class CharModel {
     public get charInfo(): FFLiCharInfo;
     /**
      * The faceline color for this CharModel.
-     * @returns {import('three').Color} The faceline color.
+     * @returns {THREE.Color} The faceline color.
      * @public
      */
-    public get facelineColor(): import("three").Color;
+    public get facelineColor(): THREE.Color;
     /** @private */
     private _facelineColor;
     /**
      * The favorite color for this CharModel.
-     * @returns {import('three').Color} The favorite color.
+     * @returns {THREE.Color} The favorite color.
      * @public
      */
-    public get favoriteColor(): import("three").Color;
+    public get favoriteColor(): THREE.Color;
     /** @private */
     private _favoriteColor;
     /**
@@ -661,10 +661,10 @@ export class CharModel {
     /** @private */
     private _partsTransform;
     /**
-     * @returns {import('three').Box3} The bounding box.
+     * @returns {THREE.Box3} The bounding box.
      * @public
      */
-    public get boundingBox(): import("three").Box3;
+    public get boundingBox(): THREE.Box3;
     /** @private */
     private _boundingBox;
     /**
@@ -677,10 +677,10 @@ export class CharModel {
     public getColorInfo(isSpecial?: boolean): import("./materials/SampleShaderMaterial.js").SampleShaderMaterialColorInfo;
     /**
      * Gets a vector in which to scale the body model for this CharModel.
-     * @returns {import('three').Vector3Like} Scale vector for the body model.
+     * @returns {THREE.Vector3Like} Scale vector for the body model.
      * @public
      */
-    public getBodyScale(): import("three").Vector3Like;
+    public getBodyScale(): THREE.Vector3Like;
 }
 /**
  * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
@@ -726,7 +726,7 @@ export namespace PantsColor {
     let RedRegular: number;
     let GoldSpecial: number;
 }
-/** @type {Object<PantsColor, import('three').Color>} */
+/** @type {Object<PantsColor, THREE.Color>} */
 export const pantsColors: any;
 /**
  * Creates a CharModel from data and FFLCharModelDesc.
@@ -749,15 +749,15 @@ export function createCharModel(data: Uint8Array, descOrExpFlag: CharModelDescOr
 /**
  * Creates a Three.js RenderTarget, renders the scene with
  * the given camera, and returns the render target.
- * @param {import('three').Scene} scene - The scene to render.
- * @param {import('three').Camera} camera - The camera to use.
+ * @param {THREE.Scene} scene - The scene to render.
+ * @param {THREE.Camera} camera - The camera to use.
  * @param {Renderer} renderer - The renderer.
  * @param {number} width - Desired width of the target.
  * @param {number} height - Desired height of the target.
  * @param {Object} [targetOptions] - Optional options for the render target.
- * @returns {import('three').RenderTarget} The render target (which contains .texture).
+ * @returns {THREE.RenderTarget} The render target (which contains .texture).
  */
-export function createAndRenderToTarget(scene: import("three").Scene, camera: import("three").Camera, renderer: Renderer, width: number, height: number, targetOptions?: Object): import("three").RenderTarget;
+export function createAndRenderToTarget(scene: THREE.Scene, camera: THREE.Camera, renderer: Renderer, width: number, height: number, targetOptions?: Object): THREE.RenderTarget;
 /**
  * @param {Function} material - Class constructor for the material to test.
  * @returns {boolean} Whether or not the material class supports FFL swizzled (modulateMode) textures.
@@ -776,7 +776,7 @@ export function matSupportsFFL(material: Function): boolean;
 export function initCharModelTextures(charModel: CharModel, renderer: Renderer, materialClass?: MaterialConstructor): void;
 /**
  * Renders a texture to a canvas. If no canvas is provided, a new one is created.
- * @param {import('three').Texture} texture - The texture to render.
+ * @param {THREE.Texture} texture - The texture to render.
  * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Options for canvas output.
  * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
@@ -784,7 +784,7 @@ export function initCharModelTextures(charModel: CharModel, renderer: Renderer, 
  * Creates a new canvas if this does not exist.
  * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
  */
-export function textureToCanvas(texture: import("three").Texture, renderer: Renderer, { flipY, canvas }?: {
+export function textureToCanvas(texture: THREE.Texture, renderer: Renderer, { flipY, canvas }?: {
     flipY?: boolean | undefined;
     canvas?: HTMLCanvasElement | undefined;
 }): HTMLCanvasElement;
@@ -798,15 +798,15 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
      * @typedef {Object} TextureShaderMaterialParameters
      * @property {FFLModulateMode} [modulateMode] - Modulate mode.
      * @property {FFLModulateType} [modulateType] - Modulate type.
-     * @property {import('three').Color|Array<import('three').Color>} [color] -
+     * @property {THREE.Color|Array<THREE.Color>} [color] -
      * Constant color assigned to u_const1/2/3 depending on single or array.
      */
     /**
      * The material constructor.
-     * @param {import('three').ShaderMaterialParameters & TextureShaderMaterialParameters} [options] -
+     * @param {THREE.ShaderMaterialParameters & TextureShaderMaterialParameters} [options] -
      * Parameters for the material.
      */
-    constructor(options?: import("three").ShaderMaterialParameters & {
+    constructor(options?: THREE.ShaderMaterialParameters & {
         /**
          * - Modulate mode.
          */
@@ -825,25 +825,25 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
     modulateType: number;
     /**
      * Sets the constant color uniforms from THREE.Color.
-     * @param {import('three').Color|Array<import('three').Color>} value -
+     * @param {THREE.Color|Array<THREE.Color>} value -
      * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
      */
-    set color(value: import("three").Color | Array<import("three").Color>);
+    set color(value: THREE.Color | Array<THREE.Color>);
     /**
      * Gets the constant color (diffuse) uniform as THREE.Color.
-     * @returns {import('three').Color|null} The constant color, or null if it is not set.
+     * @returns {THREE.Color|null} The constant color, or null if it is not set.
      */
-    get color(): import("three").Color | null;
-    /** @type {import('three').Color} */
+    get color(): THREE.Color | null;
+    /** @type {THREE.Color} */
     _color3: THREE.Color | undefined;
     /** @param {FFLModulateMode} value - The new modulateMode value. */
     set modulateMode(value: FFLModulateMode);
     /** @returns {FFLModulateMode|null}The modulateMode value, or null if it is unset. */
     get modulateMode(): FFLModulateMode | null;
-    /** @param {import('three').Texture} value - The new texture map. */
-    set map(value: import("three").Texture);
-    /** @returns {import('three').Texture|null}The texture map, or null if it is unset. */
-    get map(): import("three").Texture | null;
+    /** @param {THREE.Texture} value - The new texture map. */
+    set map(value: THREE.Texture);
+    /** @returns {THREE.Texture|null}The texture map, or null if it is unset. */
+    get map(): THREE.Texture | null;
 }
 /**
  * Utilities for converting textures within a CharModel.
@@ -860,10 +860,10 @@ export class ModelTexturesConverter {
      * NOTE: Does NOT handle mipmaps. But these textures
      * usually do not have mipmaps anyway so it's fine
      * @param {Renderer} renderer - The renderer.
-     * @param {import('three').MeshBasicMaterial} material - The original material of the mesh.
+     * @param {THREE.MeshBasicMaterial} material - The original material of the mesh.
      * @param {Object<string, *>} userData - The original mesh.geometry.userData to get modulateMode/Type from.
      * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
-     * @returns {import('three').RenderTarget} The RenderTarget of the final RGBA texture.
+     * @returns {THREE.RenderTarget} The RenderTarget of the final RGBA texture.
      * @private
      */
     private static _texDrawRGBATarget;
@@ -893,18 +893,18 @@ export class GeometryConversion {
      * It currently: deinterleaves attributes, converts half-float to float,
      * and converts signed integer formats (not uint8 for color) to float.
      * Attributes named "normal" are reduced to three components.
-     * @param {import('three').BufferGeometry} geometry - The BufferGeometry to modify in place.
+     * @param {THREE.BufferGeometry} geometry - The BufferGeometry to modify in place.
      * @throws {Error} Throws if an unsupported attribute format is encountered.
      * @public
      */
-    public static convGeometryToGLTFCompatible(geometry: import("three").BufferGeometry): void;
+    public static convGeometryToGLTFCompatible(geometry: THREE.BufferGeometry): void;
     /**
      * Deinterleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
-     * @param {import('three').InterleavedBufferAttribute} attr - The interleaved attribute.
-     * @returns {import('three').BufferAttribute} A new BufferAttribute containing deinterleaved data.
+     * @param {THREE.InterleavedBufferAttribute} attr - The interleaved attribute.
+     * @returns {THREE.BufferAttribute} A new BufferAttribute containing deinterleaved data.
      * @public
      */
-    public static _interleavedToBufferAttribute(attr: import("three").InterleavedBufferAttribute): import("three").BufferAttribute;
+    public static _interleavedToBufferAttribute(attr: THREE.InterleavedBufferAttribute): THREE.BufferAttribute;
     /**
      * Creates a new Float32Array by copying only a subset of components per vertex.
      * @param {Float32Array} src - The source Float32Array.
@@ -942,8 +942,8 @@ export class GeometryConversion {
      */
     private static _snormToFloat;
 }
-/** @returns {import('three').PerspectiveCamera} The camera for FFLMakeIcon. */
-export function getIconCamera(): import("three").PerspectiveCamera;
+/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
+export function getIconCamera(): THREE.PerspectiveCamera;
 /**
  * Creates an icon of the CharModel with the specified view type.
  * @param {CharModel} charModel - The CharModel instance.
@@ -951,9 +951,9 @@ export function getIconCamera(): import("three").PerspectiveCamera;
  * @param {Object} [options] - Optional settings for rendering the icon.
  * @param {number} [options.width] - Desired icon width in pixels.
  * @param {number} [options.height] - Desired icon height in pixels.
- * @param {import('three').Scene} [options.scene] - Optional scene
+ * @param {THREE.Scene} [options.scene] - Optional scene
  * if you want to provide your own (e.g., with background, or models).
- * @param {import('three').Camera} [options.camera] - Optional camera
+ * @param {THREE.Camera} [options.camera] - Optional camera
  * to use instead of the default.
  * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
  * to draw into. Creates a new canvas if this does not exist.
@@ -1020,7 +1020,7 @@ declare class TextureManager {
      */
     private _module;
     /**
-     * @type {Map<number, import('three').Texture>}
+     * @type {Map<number, THREE.Texture>}
      * @private
      */
     private _textures;
@@ -1038,7 +1038,7 @@ declare class TextureManager {
     private _deleteCallback;
     /**
      * @param {number} format - Enum value for FFLTextureFormat.
-     * @returns {import('three').PixelFormat} Three.js texture format constant.
+     * @returns {THREE.PixelFormat} Three.js texture format constant.
      * Note that this function won't work on WebGL1Renderer in Three.js r137-r162
      * since R and RG textures need to use Luminance(Alpha)Format
      * (you'd somehow need to detect which renderer is used)
@@ -1053,7 +1053,7 @@ declare class TextureManager {
      */
     private _textureCreateFunc;
     /**
-     * @param {import('three').Texture} texture - Texture to upload mipmaps into.
+     * @param {THREE.Texture} texture - Texture to upload mipmaps into.
      * @param {FFLTextureInfo} textureInfo - FFLTextureInfo object representing this texture.
      * @private
      */
@@ -1062,16 +1062,16 @@ declare class TextureManager {
     private _textureDeleteFunc;
     /**
      * @param {number} id - ID assigned to the texture.
-     * @returns {import('three').Texture|null|undefined} Returns the texture if it is found.
+     * @returns {THREE.Texture|null|undefined} Returns the texture if it is found.
      * @public
      */
-    public get(id: number): import("three").Texture | null | undefined;
+    public get(id: number): THREE.Texture | null | undefined;
     /**
      * @param {number} id - ID assigned to the texture.
-     * @param {import('three').Texture} texture - Texture to add.
+     * @param {THREE.Texture} texture - Texture to add.
      * @public
      */
-    public set(id: number, texture: import("three").Texture): void;
+    public set(id: number, texture: THREE.Texture): void;
     /**
      * @param {number} id - ID assigned to the texture.
      * @public

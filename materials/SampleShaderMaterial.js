@@ -24,11 +24,11 @@ import * as THREE from 'three';
  * @typedef {Object} SampleShaderMaterialParameters
  * @property {FFLModulateMode} [modulateMode] - Modulate mode.
  * @property {FFLModulateType} [modulateType] - Modulate type.
- * @property {import('three').Color|Array<import('three').Color>} [color] -
+ * @property {THREE.Color|Array<THREE.Color>} [color] -
  * Constant color assigned to constColor1/2/3 depending on single or array.
  * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
- * @property {import('three').Vector3} [lightDirection] - Light direction.
- * @property {import('three').Texture} [map] - Texture map.
+ * @property {THREE.Vector3} [lightDirection] - Light direction.
+ * @property {THREE.Texture} [map] - Texture map.
  * @property {SampleShaderMaterialColorInfo} [colorInfo] -
  * Info needed to resolve shader uniforms. This is required
  * or else lighting will not be applied. It can come from
@@ -915,31 +915,31 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Default ambient light color.
-	 * @type {import('three').Color}
+	 * @type {THREE.Color}
 	 */
 	static defaultLightColor = new THREE.Color(1.0, 1.0, 1.0);
 	/**
 	 * Default light direction.
-	 * @type {import('three').Vector3}
+	 * @type {THREE.Vector3}
 	 */
 	static defaultLightDir = new THREE.Vector3(-0.1227878, 0.70710677, 0.6963642);
 
 	/**
 	 * Alias for default light direction.
-	 * @type {import('three').Vector3}
+	 * @type {THREE.Vector3}
 	 */
 	static defaultLightDirection = this.defaultLightDir;
 
-	/** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
+	/** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
 
 	/**
 	 * Constructs an SampleShaderMaterial instance.
-	 * @param {import('three').ShaderMaterialParameters & SampleShaderMaterialParameters} [options] -
+	 * @param {THREE.ShaderMaterialParameters & SampleShaderMaterialParameters} [options] -
 	 * Parameters for the material.
 	 */
 	constructor(options = {}) {
 		// Set default uniforms.
-		/** @type {Object<string, import('three').IUniform>} */
+		/** @type {Object<string, THREE.IUniform>} */
 		const uniforms = {
 			lightColor: {
 				value: SampleShaderMaterial.defaultLightColor
@@ -975,7 +975,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the constant color (constColor1) uniform as THREE.Color.
-	 * @returns {import('three').Color|null} The constant color, or null if it is not set.
+	 * @returns {THREE.Color|null} The constant color, or null if it is not set.
 	 */
 	get color() {
 		if (!this.uniforms.constColor1) {
@@ -994,14 +994,14 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {import('three').Color|Array<import('three').Color>} value - The
+	 * @param {THREE.Color|Array<THREE.Color>} value - The
 	 * constant color (constColor1), or multiple (constColor1/2/3) to set the uniforms for.
 	 */
 	set color(value) {
 		/**
-		 * @param {import('three').Color} color - THREE.Color instance.
+		 * @param {THREE.Color} color - THREE.Color instance.
 		 * @param {number} opacity - Opacity mapped to .a.
-		 * @returns {import('three').Vector4} Vector4 containing color and opacity.
+		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
 		 */
 		function toColor4(color, opacity = 1.0) {
 			return new THREE.Vector4(color.r, color.g, color.b, opacity);
@@ -1019,7 +1019,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		}
 		// Set single color as THREE.Color, defaulting to white.
 		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
-		/** @type {import('three').Color} */
+		/** @type {THREE.Color} */
 		this._color3 = color3;
 		// Assign single color with white as a placeholder.
 		const opacity = this.opacity;
@@ -1153,7 +1153,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the texture map if it is set.
-	 * @returns {import('three').Texture|null} The texture map, or null if it is unset.
+	 * @returns {THREE.Texture|null} The texture map, or null if it is unset.
 	 */
 	get map() {
 		return this.uniforms.s_Tex ? this.uniforms.s_Tex.value : null;
@@ -1161,7 +1161,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the texture map (s_Tex uniform).
-	 * @param {import('three').Texture} value - The new texture map.
+	 * @param {THREE.Texture} value - The new texture map.
 	 */
 	set map(value) {
 		this.uniforms.s_Tex = { value: value };
@@ -1169,7 +1169,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the light direction.
-	 * @returns {import('three').Vector3} The light direction.
+	 * @returns {THREE.Vector3} The light direction.
 	 */
 	get lightDirection() {
 		// Should always be set as long as this is constructed.
@@ -1178,7 +1178,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the light direction.
-	 * @param {import('three').Vector3} value - The new light direction.
+	 * @param {THREE.Vector3} value - The new light direction.
 	 */
 	set lightDirection(value) {
 		// NOTE: Fourth component will be undefined/NaN, but it's unused anyway.
@@ -1225,7 +1225,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		const workingSpace = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
 		/**
 		 * @param {number} hex - Hexadecimal/numerical color value.
-		 * @returns {import('three').Color} The THREE.Color corresponding to the value.
+		 * @returns {THREE.Color} The THREE.Color corresponding to the value.
 		 */
 		const newColor = hex => new THREE.Color().setHex(hex, workingSpace);
 
@@ -1318,7 +1318,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	/**
 	 * Re-assigns normal attribute on the glass mesh to the
 	 * normals for glass found in ShapeHigh.dat.
-	 * @param {import('three').BufferGeometry} geometry -
+	 * @param {THREE.BufferGeometry} geometry -
 	 * The geometry in which to re-assign the normal attribute.
 	 */
 	static assignNormalsForGlass(geometry) {
@@ -1331,7 +1331,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * @param {{modulateParam: {type: number}}} drawParam - The FFLDrawParam for the mesh to check.
-	 * @param {import('three').BufferGeometry} geometry - BufferGeometry to modify.
+	 * @param {THREE.BufferGeometry} geometry - BufferGeometry to modify.
 	 */
 	static modifyBufferGeometry(drawParam, geometry) {
 		if (drawParam.modulateParam.type === 8) { // SHAPE_GLASS

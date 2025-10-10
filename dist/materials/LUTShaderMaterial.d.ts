@@ -66,9 +66,9 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
     /**
      * Cached LUT textures to avoid redundant generation.
      * @typedef {Object} LUTTextures
-     * @property {Object<LUTSpecularTextureType, import('three').DataTexture>} specular -
+     * @property {Object<LUTSpecularTextureType, THREE.DataTexture>} specular -
      * Specular LUT textures indexed by LUT type.
-     * @property {Object<LUTSpecularTextureType, import('three').DataTexture>} fresnel -
+     * @property {Object<LUTSpecularTextureType, THREE.DataTexture>} fresnel -
      * Fresnel LUT textures indexed by LUT type.
      */
     /**
@@ -104,58 +104,58 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
          */
         fresnel: any;
     };
-    /** @type {import('three').Color} */
-    static defaultHSLightGroundColor: import("three").Color;
-    /** @type {import('three').Color} */
-    static defaultHSLightSkyColor: import("three").Color;
-    /** @type {import('three').Color} */
-    static defaultDirLightColor0: import("three").Color;
-    /** @type {import('three').Color} */
-    static defaultDirLightColor1: import("three").Color;
+    /** @type {THREE.Color} */
+    static defaultHSLightGroundColor: THREE.Color;
+    /** @type {THREE.Color} */
+    static defaultHSLightSkyColor: THREE.Color;
+    /** @type {THREE.Color} */
+    static defaultDirLightColor0: THREE.Color;
+    /** @type {THREE.Color} */
+    static defaultDirLightColor1: THREE.Color;
     static defaultDirLightCount: number;
-    /** @type {import('three').Vector4} */
-    static defaultDirLightDirAndType0: import("three").Vector4;
-    /** @type {import('three').Vector4} */
-    static defaultDirLightDirAndType1: import("three").Vector4;
-    /** @type {import('three').Color} */
-    static defaultLightColor: import("three").Color;
+    /** @type {THREE.Vector4} */
+    static defaultDirLightDirAndType0: THREE.Vector4;
+    /** @type {THREE.Vector4} */
+    static defaultDirLightDirAndType1: THREE.Vector4;
+    /** @type {THREE.Color} */
+    static defaultLightColor: THREE.Color;
     /**
      * Alias for default light direction.
-     * @type {import('three').Vector4}
+     * @type {THREE.Vector4}
      */
-    static defaultLightDirection: import("three").Vector4;
+    static defaultLightDirection: THREE.Vector4;
     /**
      * Multiplies beard and hair colors by a factor seen
      * in libcocos2dcpp.so in order to match its rendering style.
      * Refer to: https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/src/ShaderMiitomo.cpp#L587
-     * @param {import('three').Color} color - The original color.
+     * @param {THREE.Color} color - The original color.
      * @param {FFLModulateType} modulateType - The modulate type, or type of shape.
      * @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
-     * @returns {import('three').Color} The final color.
+     * @returns {THREE.Color} The final color.
      * @package
      */
-    static multiplyColorIfNeeded(color: import("three").Color, modulateType: FFLModulateType, modulateMode: FFLModulateMode): import("three").Color;
-    /** @typedef {import('three').IUniform<import('three').Vector4>} IUniformVector4 */
+    static multiplyColorIfNeeded(color: THREE.Color, modulateType: FFLModulateType, modulateMode: FFLModulateMode): THREE.Color;
+    /** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
     /**
      * Constructs a LUTShaderMaterial instance.
      * NOTE: Pass parameters in this order: side, modulateType, color
-     * @param {import('three').ShaderMaterialParameters & LUTShaderMaterialParameters} [options] -
+     * @param {THREE.ShaderMaterialParameters & LUTShaderMaterialParameters} [options] -
      * Parameters for the material.
      */
-    constructor(options?: import("three").ShaderMaterialParameters & LUTShaderMaterialParameters);
+    constructor(options?: THREE.ShaderMaterialParameters & LUTShaderMaterialParameters);
     /** @type {FFLModulateType} */
     _modulateType: FFLModulateType;
     /**
      * Sets the constant color uniforms from THREE.Color.
-     * @param {import('three').Color|Array<import('three').Color>} value - The
+     * @param {THREE.Color|Array<THREE.Color>} value - The
      * constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
      */
-    set color(value: import("three").Color | Array<import("three").Color>);
+    set color(value: THREE.Color | Array<THREE.Color>);
     /**
      * Gets the constant color (uColor0) uniform as THREE.Color.
-     * @returns {import('three').Color|null} The constant color, or null if it is not set.
+     * @returns {THREE.Color|null} The constant color, or null if it is not set.
      */
-    get color(): import("three").Color | null;
+    get color(): THREE.Color | null;
     _color3: THREE.Color | undefined;
     _opacity: number | undefined;
     /**
@@ -192,9 +192,9 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
     _side: number | undefined;
     /**
      * Sets the texture map.
-     * @param {import('three').Texture} value - The new texture map.
+     * @param {THREE.Texture} value - The new texture map.
      */
-    set map(value: import("three").Texture);
+    set map(value: THREE.Texture);
     /**
      * Gets the texture map.
      * @returns {THREE['Texture']} The texture map.
@@ -202,13 +202,13 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
     get map(): typeof THREE.Texture;
     /**
      * Sets the light direction, overriding w with -1.
-     * @param {import('three').Vector3} value - The new light direction.
+     * @param {THREE.Vector3} value - The new light direction.
      */
-    set lightDirection(value: import("three").Vector3);
+    set lightDirection(value: THREE.Vector3);
     /**
      * Gets the light direction.
-     * @returns {import('three').Vector3} The light direction.
+     * @returns {THREE.Vector3} The light direction.
      */
-    get lightDirection(): import("three").Vector3;
+    get lightDirection(): THREE.Vector3;
 }
 import * as THREE from 'three';

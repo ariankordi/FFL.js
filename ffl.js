@@ -8,8 +8,7 @@
 
 import * as THREE from 'three';
 
-// eslint-disable-next-line jsdoc/valid-types -- TODO: fix "syntax error in type"
-/** @typedef {import('three/src/renderers/common/Renderer.js', {with:{'resolution-mode':'import'}}).default} Renderer */
+/** @typedef {import('three/webgpu').Renderer|THREE.WebGLRenderer} Renderer */
 
 // // ---------------------------------------------------------------------
 // //  Emscripten Types
@@ -646,14 +645,14 @@ const FFLCharModelDescDefault = {
 
 /**
  * PartsTransform with THREE.Vector3 type.
- * @typedef {Object<string, import('three').Vector3>} PartsTransform
- * @property {import('three').Vector3} hatTranslate
- * @property {import('three').Vector3} headFrontRotate
- * @property {import('three').Vector3} headFrontTranslate
- * @property {import('three').Vector3} headSideRotate
- * @property {import('three').Vector3} headSideTranslate
- * @property {import('three').Vector3} headTopRotate
- * @property {import('three').Vector3} headTopTranslate
+ * @typedef {Object<string, THREE.Vector3>} PartsTransform
+ * @property {THREE.Vector3} hatTranslate
+ * @property {THREE.Vector3} headFrontRotate
+ * @property {THREE.Vector3} headFrontTranslate
+ * @property {THREE.Vector3} headSideRotate
+ * @property {THREE.Vector3} headSideTranslate
+ * @property {THREE.Vector3} headTopRotate
+ * @property {THREE.Vector3} headTopTranslate
  */
 
 const FFLiCharModel_size = 2156;
@@ -840,7 +839,7 @@ class TextureManager {
 		 */
 		this._module = module;
 		/**
-		 * @type {Map<number, import('three').Texture>}
+		 * @type {Map<number, THREE.Texture>}
 		 * @private
 		 */
 		this._textures = new Map(); // Internal map of texture id -> THREE.Texture.
@@ -896,7 +895,7 @@ class TextureManager {
 
 	/**
 	 * @param {number} format - Enum value for FFLTextureFormat.
-	 * @returns {import('three').PixelFormat} Three.js texture format constant.
+	 * @returns {THREE.PixelFormat} Three.js texture format constant.
 	 * Note that this function won't work on WebGL1Renderer in Three.js r137-r162
 	 * since R and RG textures need to use Luminance(Alpha)Format
 	 * (you'd somehow need to detect which renderer is used)
@@ -941,7 +940,9 @@ class TextureManager {
 	 */
 	_textureCreateFunc(_, textureInfoPtr, texturePtrPtr) {
 		const textureInfo = _unpackFFLTextureInfo(this._module.HEAPU8, textureInfoPtr);
-		// console.debug(`_textureCreateFunc: width=${textureInfo.width}, height=${textureInfo.height}, format=${textureInfo.format}, imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
+		// console.debug(`_textureCreateFunc: width=${textureInfo.width}, ` +
+		// `height=${textureInfo.height}, format=${textureInfo.format}, ` +
+		// `imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
 
 		/** Resolve THREE.PixelFormat. */
 		const format = this._getTextureFormat(textureInfo.format);
@@ -989,7 +990,7 @@ class TextureManager {
 	}
 
 	/**
-	 * @param {import('three').Texture} texture - Texture to upload mipmaps into.
+	 * @param {THREE.Texture} texture - Texture to upload mipmaps into.
 	 * @param {FFLTextureInfo} textureInfo - FFLTextureInfo object representing this texture.
 	 * @private
 	 */
@@ -1047,7 +1048,7 @@ class TextureManager {
 
 	/**
 	 * @param {number} id - ID assigned to the texture.
-	 * @returns {import('three').Texture|null|undefined} Returns the texture if it is found.
+	 * @returns {THREE.Texture|null|undefined} Returns the texture if it is found.
 	 * @public
 	 */
 	get(id) {
@@ -1056,7 +1057,7 @@ class TextureManager {
 
 	/**
 	 * @param {number} id - ID assigned to the texture.
-	 * @param {import('three').Texture} texture - Texture to add.
+	 * @param {THREE.Texture} texture - Texture to add.
 	 * @public
 	 */
 	set(id, texture) {
@@ -1138,7 +1139,7 @@ class TextureManager {
 function setRendererState(renderer, module) {
 	console.assert(renderer && module, `setRendererState: The renderer and module must both be valid.`);
 	if ('capabilities' in renderer &&
-		!(/** @type {import('three').WebGLCapabilities} */ (renderer.capabilities).isWebGL2)) {
+		!(/** @type {THREE.WebGLCapabilities} */ (renderer.capabilities).isWebGL2)) {
 		TextureManager.isWebGL1 = true;
 	} else if (_isWebGPU(renderer)) {
 		module._FFLSetTextureFlipY(false);
@@ -1534,7 +1535,7 @@ function exitFFL(module, resourceDesc) {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/CharModel.js
 
-/** @typedef {function(new: import('three').Material, ...*): import('three').Material} MaterialConstructor */
+/** @typedef {function(new: THREE.Material, ...*): THREE.Material} MaterialConstructor */
 
 // --------------------------- Class: CharModel -------------------------------
 /**
@@ -1597,12 +1598,12 @@ class CharModel {
 
 		// Add RenderTargets for faceline and mask.
 		/**
-		 * @type {import('three').RenderTarget|null}
+		 * @type {THREE.RenderTarget|null}
 		 * @package
 		 */
 		this._facelineTarget = null;
 		/**
-		 * @type {Array<import('three').RenderTarget|null>}
+		 * @type {Array<THREE.RenderTarget|null>}
 		 * @package
 		 */
 		this._maskTargets = new Array(FFLExpression.MAX).fill(null);
@@ -1615,7 +1616,7 @@ class CharModel {
 
 		/**
 		 * Group of THREE.Mesh objects representing the CharModel.
-		 * @type {import('three').Group}
+		 * @type {THREE.Group}
 		 * @public
 		 */
 		this.meshes = new THREE.Group();
@@ -1737,7 +1738,7 @@ class CharModel {
 	}
 
 	/**
-	 * @returns {import('three').Color} The faceline color as THREE.Color.
+	 * @returns {THREE.Color} The faceline color as THREE.Color.
 	 * @private
 	 */
 	_getFacelineColor() {
@@ -1752,7 +1753,7 @@ class CharModel {
 	}
 
 	/**
-	 * @returns {import('three').Color} The favorite color as THREE.Color.
+	 * @returns {THREE.Color} The favorite color as THREE.Color.
 	 * @private
 	 */
 	_getFavoriteColor() {
@@ -1803,7 +1804,7 @@ class CharModel {
 
 	/**
 	 * Calculates the bounding box from the meshes.
-	 * @returns {import('three').Box3} The bounding box.
+	 * @returns {THREE.Box3} The bounding box.
 	 * @private
 	 */
 	_getBoundingBox() {
@@ -1985,10 +1986,10 @@ class CharModel {
 			throw new Error('setExpression: mask mesh does not exist, cannot set expression on it');
 		}
 		// Update texture and material.
-		/** @type {import('three').Texture&{_target:import('three').RenderTarget}} */
+		/** @type {THREE.Texture & {_target:THREE.RenderTarget}} */
 		(targ.texture)._target = targ;
-		/** @type {import('three').MeshBasicMaterial} */ (mesh.material).map = targ.texture;
-		/** @type {import('three').MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
+		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = targ.texture;
+		/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
 	}
 
 	/**
@@ -1998,7 +1999,7 @@ class CharModel {
 	 * such as eyes, mouth, etc. which is the mask.
 	 * The faceline texture may not exist if it is not needed, in which
 	 * case the faceline color is used directly, see property CharModel.facelineColor.
-	 * @returns {import('three').RenderTarget|null} The faceline render target, or null if it does not exist,
+	 * @returns {THREE.RenderTarget|null} The faceline render target, or null if it does not exist,
 	 * in which case CharModel.facelineColor should be used. Access .texture on this object to
 	 * get a {@link THREE.Texture} from it. It becomes invalid if the CharModel is disposed.
 	 */
@@ -2016,7 +2017,7 @@ class CharModel {
 	 * around the mask shape, which is a transparent shape
 	 * placed in front of the head model.
 	 * @param {FFLExpression} expression - The desired expression, or the current expression.
-	 * @returns {import('three').RenderTarget|null} The mask render target for the given expression,
+	 * @returns {THREE.RenderTarget|null} The mask render target for the given expression,
 	 * or null if the CharModel was not initialized with that expression.
 	 * Access .texture on this object to get a {@link THREE.Texture} from it.
 	 * It becomes invalid if the CharModel is disposed.
@@ -2053,7 +2054,7 @@ class CharModel {
 
 	/**
 	 * The faceline color for this CharModel.
-	 * @returns {import('three').Color} The faceline color.
+	 * @returns {THREE.Color} The faceline color.
 	 * @public
 	 */
 	get facelineColor() {
@@ -2066,7 +2067,7 @@ class CharModel {
 
 	/**
 	 * The favorite color for this CharModel.
-	 * @returns {import('three').Color} The favorite color.
+	 * @returns {THREE.Color} The favorite color.
 	 * @public
 	 */
 	get favoriteColor() {
@@ -2100,7 +2101,7 @@ class CharModel {
 	}
 
 	/**
-	 * @returns {import('three').Box3} The bounding box.
+	 * @returns {THREE.Box3} The bounding box.
 	 * @public
 	 */
 	get boundingBox() {
@@ -2136,7 +2137,7 @@ class CharModel {
 
 	/**
 	 * Gets a vector in which to scale the body model for this CharModel.
-	 * @returns {import('three').Vector3Like} Scale vector for the body model.
+	 * @returns {THREE.Vector3Like} Scale vector for the body model.
 	 * @public
 	 */
 	getBodyScale() {
@@ -2165,7 +2166,7 @@ const PantsColor = {
 	GoldSpecial: 3
 };
 
-/** @type {Object<PantsColor, import('three').Color>} */
+/** @type {Object<PantsColor, THREE.Color>} */
 const pantsColors = {
 	[PantsColor.GrayNormal]: new THREE.Color(0x40474E),
 	[PantsColor.BluePresent]: new THREE.Color(0x28407A),
@@ -2686,7 +2687,7 @@ class DrawParam {
 	 * @param {Module} module - The Emscripten module.
 	 * @param {TextureManager} texManager - The {@link TextureManager} instance
 	 * for which to look for textures referenced by the DrawParam.
-	 * @returns {import('three').Mesh} The THREE.Mesh instance.
+	 * @returns {THREE.Mesh} The THREE.Mesh instance.
 	 * @package
 	 */
 	static toMesh(drawParam, materialClass, module, texManager) {
@@ -2707,7 +2708,7 @@ class DrawParam {
 		}
 
 		// Determine cull mode by mapping FFLCullMode to THREE.Side.
-		/** @type {Object<FFLCullMode, import('three').Side>} */
+		/** @type {Object<FFLCullMode, THREE.Side>} */
 		const cullModeToThreeSide = {
 			[FFLCullMode.NONE]: THREE.DoubleSide,
 			[FFLCullMode.BACK]: THREE.FrontSide,
@@ -2770,7 +2771,7 @@ class DrawParam {
 	 * Binds geometry attributes from drawParam into a THREE.BufferGeometry.
 	 * @param {FFLDrawParam} drawParam - The DrawParam representing the mesh.
 	 * @param {Module} module - The Emscripten module from which to read the heap.
-	 * @returns {import('three').BufferGeometry} The geometry.
+	 * @returns {THREE.BufferGeometry} The geometry.
 	 * @private
 	 * @todo Does not yet handle color stride = 0
 	 */
@@ -2887,7 +2888,7 @@ class DrawParam {
 	 * @param {FFLModulateParam} modulateParam - drawParam.modulateParam.
 	 * @param {TextureManager} textureManager - The {@link TextureManager} instance
 	 * for which to look for the texture referenced.
-	 * @returns {import('three').Texture|null} The texture if found.
+	 * @returns {THREE.Texture|null} The texture if found.
 	 * @private
 	 */
 	static _getTextureFromModulateParam(modulateParam, textureManager) {
@@ -2900,7 +2901,7 @@ class DrawParam {
 			return null; // No texture to bind.
 		}
 		const texturePtr = modulateParam.pTexture2D;
-		const texture = /** @type {import('three').Texture} */ (textureManager.get(texturePtr));
+		const texture = /** @type {THREE.Texture} */ (textureManager.get(texturePtr));
 		console.assert(texture, `_getTextureFromModulateParam: Texture not found for ${texturePtr}.`);
 		// Selective apply mirrored repeat (not supported on NPOT/mipmap textures for WebGL 1.0)
 		const applyMirrorTypes = [
@@ -2990,7 +2991,7 @@ class DrawParam {
 	static _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
 		/* eslint-enable jsdoc/require-returns-type -- Allow TS to predict return type. */
 		// Apply constant colors.
-		/** @type {import('three').Color|Array<import('three').Color>|null} */
+		/** @type {THREE.Color|Array<THREE.Color>|null} */
 		let color = null;
 
 		const f32 = module.HEAPF32;
@@ -3051,7 +3052,7 @@ class DrawParam {
 	/**
 	 * Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
 	 * @param {number} pMtx - Pointer to rio::Matrix34f.
-	 * @param {import('three').Object3D} mesh - The mesh to apply transformations to.
+	 * @param {THREE.Object3D} mesh - The mesh to apply transformations to.
 	 * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
 	 * @private
 	 */
@@ -3211,7 +3212,7 @@ function _drawMaskTextures(charModel, maskParamPtrs, renderer, module, materialC
 	const expressionFlagPtr = charModel._getExpressionFlagPtr();
 
 	// Collect all scenes and only dispose them at the end.
-	/** @type {Array<import('three').Scene>} */
+	/** @type {Array<THREE.Scene>} */
 	const scenes = [];
 
 	// Iterate through pMaskRenderTextures to find out which masks are needed.
@@ -3249,7 +3250,7 @@ function _drawMaskTextures(charModel, maskParamPtrs, renderer, module, materialC
  * @param {Array<FFLDrawParam>} rawMaskParam - The RawMaskDrawParam.
  * @param {Renderer} renderer - The renderer.
  * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
- * @returns {{target: import('three').RenderTarget, scene: import('three').Scene}}
+ * @returns {{target: THREE.RenderTarget, scene: THREE.Scene}}
  * The RenderTarget and scene of this mask texture.
  * @package
  */
@@ -3289,7 +3290,7 @@ function _drawMaskTexture(charModel, rawMaskParam, renderer, materialClass) {
 /**
  * Sets the faceline texture of the given CharModel from the RenderTarget.
  * @param {CharModel} charModel - The CharModel instance.
- * @param {import('three').RenderTarget} target - RenderTarget for the faceline texture.
+ * @param {THREE.RenderTarget} target - RenderTarget for the faceline texture.
  * @throws {Error} CharModel must be initialized with OPA_FACELINE in meshes.
  * @package
  */
@@ -3304,10 +3305,10 @@ function _setFaceline(charModel, target) {
 		throw new Error('setFaceline: faceline shape does not exist');
 	}
 	// Update texture and material.
-	/** @type {import('three').Texture&{_target: import('three').RenderTarget}} */ (target.texture)
+	/** @type {THREE.Texture & {_target: THREE.RenderTarget}} */ (target.texture)
 		._target = target;
-	/** @type {import('three').MeshBasicMaterial} */ (mesh.material).map = target.texture;
-	/** @type {import('three').MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
+	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).map = target.texture;
+	/** @type {THREE.MeshBasicMaterial} */ (mesh.material).needsUpdate = true;
 }
 
 // // ---------------------------------------------------------------------
@@ -3319,9 +3320,9 @@ function _setFaceline(charModel, target) {
  * Gets a plane whose color and opacity can be set.
  * This can be used to simulate background clear, or specifically
  * to set the background's color to a value but alpha to 0.
- * @param {import('three').Color} color - The color of the plane.
+ * @param {THREE.Color} color - The color of the plane.
  * @param {number} [opacity] - The opacity of the plane, default is transparent.
- * @returns {import('three').Mesh} The plane with the color and opacity specified.
+ * @returns {THREE.Mesh} The plane with the color and opacity specified.
  * @package
  */
 const _getBGClearMesh = (color, opacity = 0.0) =>
@@ -3348,10 +3349,10 @@ class ModelTexturesConverter {
 	 * NOTE: Does NOT handle mipmaps. But these textures
 	 * usually do not have mipmaps anyway so it's fine
 	 * @param {Renderer} renderer - The renderer.
-	 * @param {import('three').MeshBasicMaterial} material - The original material of the mesh.
+	 * @param {THREE.MeshBasicMaterial} material - The original material of the mesh.
 	 * @param {Object<string, *>} userData - The original mesh.geometry.userData to get modulateMode/Type from.
 	 * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
-	 * @returns {import('three').RenderTarget} The RenderTarget of the final RGBA texture.
+	 * @returns {THREE.RenderTarget} The RenderTarget of the final RGBA texture.
 	 * @private
 	 */
 	static _texDrawRGBATarget(renderer, material, userData, materialTextureClass) {
@@ -3362,7 +3363,7 @@ class ModelTexturesConverter {
 
 		console.assert(material.map, '_texDrawRGBATarget: material.map is null or undefined');
 		/** Shortcut to the existing texture. */
-		const tex = /** @type {import('three').Texture} */ (material.map);
+		const tex = /** @type {THREE.Texture} */ (material.map);
 		// This material is solely for the texture itself and not the shape.
 		// It actually does not need color set on it, or modulate type (blending)
 		const texMat = new materialTextureClass({
@@ -3387,11 +3388,11 @@ class ModelTexturesConverter {
 				depthBuffer: false, stencilBuffer: false
 			});
 
-		/** @type {import('three').Texture&{_target: import('three').RenderTarget}} */
+		/** @type {THREE.Texture & {_target: THREE.RenderTarget}} */
 		(target.texture)._target = target;
 
 		// Dispose previous texture and replace with this one.
-		/** @type {import('three').Texture} */ (material.map).dispose();
+		/** @type {THREE.Texture} */ (material.map).dispose();
 		material.map = target.texture;
 		// Set color to default and modulateMode to TEXTURE_DIRECT.
 		material.color = new THREE.Color(1, 1, 1);
@@ -3444,12 +3445,23 @@ class ModelTexturesConverter {
 			const tex = mesh.material.map;
 			console.assert(tex.format === THREE.RGBAFormat,
 				'convModelTargetsToDataTex: found a texture that is not of format THREE.RGBAFormat, but, this function is only meant to be used if all textures in CharModel meshes are RGBA (so render targets)...');
-			/** RGBA */
-			const data = new Uint8Array(tex.image.width * tex.image.height * 4);
-			const target = /** @type {import('three').RenderTarget} */ tex._target;
+			const target = /** @type {THREE.RenderTarget} */ tex._target;
 			console.assert(target, 'convModelTargetsToDataTex: mesh.material.map (texture)._target is null or undefined.');
-			await renderer.readRenderTargetPixelsAsync(target, 0, 0,
-				tex.image.width, tex.image.height);
+
+			// This diverges between WebGPURenderer and WebGLRenderer.
+			// Reference: https://github.com/mrdoob/three.js/blob/2a0228c066a7fe4bce0f1d12b3e5bd4058dcc218/examples/jsm/exporters/KTX2Exporter.js#L281
+			// TODO: Untested.
+			const data = _isWebGPU(renderer)
+				? await /** @type {import('three/webgpu').WebGPURenderer} */
+				(renderer).readRenderTargetPixelsAsync(target, 0, 0,
+					tex.image.width, tex.image.height)
+				: await /** @type {THREE.WebGLRenderer} */
+				(renderer).readRenderTargetPixelsAsync(target, 0, 0,
+					tex.image.width, tex.image.height,
+					// Create a new RGBA buffer here, since
+					// the function should return it anyway.
+					new Uint8Array(tex.image.width * tex.image.height * 4));
+
 			// Construct new THREE.DataTexture from the read data.
 			// So... draw the texture, download it out, and upload it again.
 			const dataTex = new THREE.DataTexture(data, tex.image.width,
@@ -3484,18 +3496,18 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 	 * @typedef {Object} TextureShaderMaterialParameters
 	 * @property {FFLModulateMode} [modulateMode] - Modulate mode.
 	 * @property {FFLModulateType} [modulateType] - Modulate type.
-	 * @property {import('three').Color|Array<import('three').Color>} [color] -
+	 * @property {THREE.Color|Array<THREE.Color>} [color] -
 	 * Constant color assigned to u_const1/2/3 depending on single or array.
 	 */
 
 	/**
 	 * The material constructor.
-	 * @param {import('three').ShaderMaterialParameters & TextureShaderMaterialParameters} [options] -
+	 * @param {THREE.ShaderMaterialParameters & TextureShaderMaterialParameters} [options] -
 	 * Parameters for the material.
 	 */
 	constructor(options = {}) {
 		// Set default uniforms.
-		/** @type {Object<string, import('three').IUniform>} */
+		/** @type {Object<string, THREE.IUniform>} */
 		const uniforms = {
 			opacity: { value: 1.0 }
 		};
@@ -3578,7 +3590,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the constant color (diffuse) uniform as THREE.Color.
-	 * @returns {import('three').Color|null} The constant color, or null if it is not set.
+	 * @returns {THREE.Color|null} The constant color, or null if it is not set.
 	 */
 	get color() {
 		return this.uniforms.diffuse ? this.uniforms.diffuse.value : null;
@@ -3586,7 +3598,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {import('three').Color|Array<import('three').Color>} value -
+	 * @param {THREE.Color|Array<THREE.Color>} value -
 	 * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
 	 */
 	set color(value) {
@@ -3600,7 +3612,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		}
 		// Set single color as THREE.Color, defaulting to white.
 		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
-		/** @type {import('three').Color} */
+		/** @type {THREE.Color} */
 		this._color3 = color3;
 		this.uniforms.diffuse = { value: color3 };
 	}
@@ -3615,12 +3627,12 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.modulateMode = { value: value };
 	}
 
-	/** @returns {import('three').Texture|null}The texture map, or null if it is unset. */
+	/** @returns {THREE.Texture|null}The texture map, or null if it is unset. */
 	get map() {
 		return this.uniforms.map ? this.uniforms.map.value : null;
 	}
 
-	/** @param {import('three').Texture} value - The new texture map. */
+	/** @param {THREE.Texture} value - The new texture map. */
 	set map(value) {
 		this.uniforms.map = { value: value };
 	}
@@ -3637,7 +3649,7 @@ class GeometryConversion {
 	 * It currently: deinterleaves attributes, converts half-float to float,
 	 * and converts signed integer formats (not uint8 for color) to float.
 	 * Attributes named "normal" are reduced to three components.
-	 * @param {import('three').BufferGeometry} geometry - The BufferGeometry to modify in place.
+	 * @param {THREE.BufferGeometry} geometry - The BufferGeometry to modify in place.
 	 * @throws {Error} Throws if an unsupported attribute format is encountered.
 	 * @public
 	 */
@@ -3698,8 +3710,8 @@ class GeometryConversion {
 
 	/**
 	 * Deinterleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
-	 * @param {import('three').InterleavedBufferAttribute} attr - The interleaved attribute.
-	 * @returns {import('three').BufferAttribute} A new BufferAttribute containing deinterleaved data.
+	 * @param {THREE.InterleavedBufferAttribute} attr - The interleaved attribute.
+	 * @returns {THREE.BufferAttribute} A new BufferAttribute containing deinterleaved data.
 	 * @public
 	 */
 	static _interleavedToBufferAttribute(attr) {
@@ -3833,7 +3845,7 @@ const _isWebGPU = renderer => 'isWebGPURenderer' in renderer;
  * Returns an ortho camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
  * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
- * @returns {import('three').OrthographicCamera} The orthographic camera.
+ * @returns {THREE.OrthographicCamera} The orthographic camera.
  * @package
  */
 function _getIdentCamera(flipY = false) {
@@ -3849,13 +3861,13 @@ function _getIdentCamera(flipY = false) {
 /**
  * Creates a Three.js RenderTarget, renders the scene with
  * the given camera, and returns the render target.
- * @param {import('three').Scene} scene - The scene to render.
- * @param {import('three').Camera} camera - The camera to use.
+ * @param {THREE.Scene} scene - The scene to render.
+ * @param {THREE.Camera} camera - The camera to use.
  * @param {Renderer} renderer - The renderer.
  * @param {number} width - Desired width of the target.
  * @param {number} height - Desired height of the target.
  * @param {Object} [targetOptions] - Optional options for the render target.
- * @returns {import('three').RenderTarget} The render target (which contains .texture).
+ * @returns {THREE.RenderTarget} The render target (which contains .texture).
  */
 function createAndRenderToTarget(scene, camera, renderer, width, height, targetOptions = {}) {
 	// Set default options for the RenderTarget.
@@ -3870,18 +3882,21 @@ function createAndRenderToTarget(scene, camera, renderer, width, height, targetO
 		: new THREE.WebGLRenderTarget(width, height, options);
 	// Get previous render target to switch back to.
 	const prevTarget = renderer.getRenderTarget();
-	// Only works on Three.js r102 and above.
-	renderer.setRenderTarget(
-		/** @type {import('three').RenderTarget} */ (renderTarget)); // Set new target.
+
+	// Forcing the generic "Renderer" type here to resolve
+	// some confusion between RenderTarget and WebGLRenderTarget.
+	/** @type {import('three/webgpu').Renderer} */ (renderer)
+		.setRenderTarget(renderTarget); // Set new target.
 	renderer.render(scene, camera); // Render.
-	renderer.setRenderTarget(prevTarget); // Set previous target.
+	/** @type {import('three/webgpu').Renderer} */ (renderer)
+		.setRenderTarget(prevTarget); // Set previous target.
 	return renderTarget; // This needs to be disposed when done.
 }
 
 /**
  * Disposes meshes in a {@link THREE.Object3D} and removes them from the {@link THREE.Scene} specified.
- * @param {import('three').Scene|import('three').Object3D} group - The scene or group to dispose meshes from.
- * @param {import('three').Scene} [scene] - The scene to remove the meshes from, if provided.
+ * @param {THREE.Scene|THREE.Object3D} group - The scene or group to dispose meshes from.
+ * @param {THREE.Scene} [scene] - The scene to remove the meshes from, if provided.
  * @package
  */
 function _disposeMany(group, scene) {
@@ -3889,7 +3904,7 @@ function _disposeMany(group, scene) {
 
 	/**
 	 * Disposes a single material along with its texture map.
-	 * @param {import('three').MeshBasicMaterial} material - The material with `map` property to dispose.
+	 * @param {THREE.MeshBasicMaterial} material - The material with `map` property to dispose.
 	 */
 	function disposeMaterial(material) {
 		// Dispose texture in material.
@@ -3919,9 +3934,9 @@ function _disposeMany(group, scene) {
 			Array.isArray(child.material)
 				// Assume that materials are compatible with THREE.MeshBasicMaterial for .map.
 				? child.material.forEach((material) => {
-					disposeMaterial(/** @type {import('three').MeshBasicMaterial} */ (material));
+					disposeMaterial(/** @type {THREE.MeshBasicMaterial} */ (material));
 				})
-				: disposeMaterial(/** @type {import('three').MeshBasicMaterial} */(child.material));
+				: disposeMaterial(/** @type {THREE.MeshBasicMaterial} */(child.material));
 		}
 	});
 
@@ -3942,8 +3957,8 @@ function _disposeMany(group, scene) {
 /**
  * Saves the current renderer state and returns an object to restore it later.
  * @param {Renderer} renderer - The renderer to save state from.
- * @returns {{target: import('three').RenderTarget|null,
- * colorSpace: import('three').ColorSpace, size: import('three').Vector2}}
+ * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
+ * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
  * The saved state object.
  */
 function _saveRendererState(renderer) {
@@ -3952,7 +3967,7 @@ function _saveRendererState(renderer) {
 
 	return {
 		target: renderer.getRenderTarget(),
-		colorSpace: /** @type {import('three').ColorSpace} */ (renderer.outputColorSpace),
+		colorSpace: /** @type {THREE.ColorSpace} */ (renderer.outputColorSpace),
 		size
 	};
 }
@@ -3960,12 +3975,13 @@ function _saveRendererState(renderer) {
 /**
  * Restores a renderer's state from a saved state object.
  * @param {Renderer} renderer - The renderer to restore state to.
- * @param {{target: import('three').RenderTarget|null,
- * colorSpace: import('three').ColorSpace, size: import('three').Vector2}} state -
+ * @param {{target: THREE.RenderTarget|null,
+ * colorSpace: THREE.ColorSpace, size: THREE.Vector2}} state -
  * The saved state object.
  */
 function _restoreRendererState(renderer, state) {
-	renderer.setRenderTarget(state.target);
+	/** @type {import('three/webgpu').Renderer} */ (renderer)
+		.setRenderTarget(state.target);
 	renderer.outputColorSpace = state.colorSpace;
 	renderer.setSize(state.size.x, state.size.y, false);
 }
@@ -3995,7 +4011,7 @@ function _copyRendererToCanvas(renderer, canvas) {
 
 /**
  * Renders a texture to a canvas. If no canvas is provided, a new one is created.
- * @param {import('three').Texture} texture - The texture to render.
+ * @param {THREE.Texture} texture - The texture to render.
  * @param {Renderer} renderer - The renderer.
  * @param {Object} [options] - Options for canvas output.
  * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
@@ -4046,7 +4062,7 @@ function textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/ModelIcon.js
 
-/** @returns {import('three').PerspectiveCamera} The camera for FFLMakeIcon. */
+/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
 function getIconCamera() {
 	/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
 	const fovy = 9.8762;
@@ -4062,9 +4078,9 @@ function getIconCamera() {
  * @param {Object} [options] - Optional settings for rendering the icon.
  * @param {number} [options.width] - Desired icon width in pixels.
  * @param {number} [options.height] - Desired icon height in pixels.
- * @param {import('three').Scene} [options.scene] - Optional scene
+ * @param {THREE.Scene} [options.scene] - Optional scene
  * if you want to provide your own (e.g., with background, or models).
- * @param {import('three').Camera} [options.camera] - Optional camera
+ * @param {THREE.Camera} [options.camera] - Optional camera
  * to use instead of the default.
  * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
  * to draw into. Creates a new canvas if this does not exist.

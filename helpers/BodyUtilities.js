@@ -10,7 +10,6 @@
 import * as THREE from 'three';
 import { applyScaleDesc } from './ModelScaleDesc.js';
 
-
 // Imports for standalone JSDoc types.
 /**
  * @typedef {import('../materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo} SampleShaderMaterialColorInfo

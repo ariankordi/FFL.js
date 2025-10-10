@@ -10,15 +10,15 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
     map: import("three").Texture | null | undefined;
     /**
      * Sets the constant color uniforms from THREE.Color.
-     * @param {import('three').Color|Array<import('three').Color>} value -
+     * @param {Color|Array<Color>} value -
      * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
      */
-    set color(value: import("three").Color | Array<import("three").Color>);
+    set color(value: Color | Array<Color>);
     /**
      * Gets the constant color (diffuse) uniform as THREE.Color.
-     * @returns {import('three').Color|undefined} The constant color if set.
+     * @returns {Color|undefined} The constant color if set.
      */
-    get color(): import("three").Color | undefined;
+    get color(): Color | undefined;
     /** @param {import('../ffl.js').FFLModulateMode} value - The new modulateMode value. */
     set modulateMode(value: import("../ffl.js").FFLModulateMode);
     /** @returns {import('../ffl.js').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */

@@ -53,13 +53,13 @@ let moduleFFL;
 let resourceDesc;
 
 // Global variables for the main scene, renderer, camera, controls, etc.
-/** @type {import('three').Scene} */
+/** @type {THREE.Scene} */
 let scene;
-/** @type {import('three').WebGLRenderer} */
+/** @type {THREE.WebGLRenderer} */
 let renderer;
-/** @type {import('three').Camera} */
+/** @type {THREE.Camera} */
 let camera;
-/** @type {import('three/addons/controls/OrbitControls.js')} */
+/** @type {OrbitControls} */
 /** Initialize to empty so properties can be set. */
 let controls = {};
 /** @type {CharModel|null} */
@@ -76,7 +76,7 @@ let isAnimating = false;
 class FFLShaderBlinnMaterial extends FFLShaderMaterial {
 	/**
 	 * Constructs an FFLShaderMaterial instance.
-	 * @param {import('three').ShaderMaterialParameters
+	 * @param {THREE.ShaderMaterialParameters
 	 * & import('../materials/FFLShaderMaterial.js').FFLShaderMaterialParameters} [options] -
 	 * Parameters for the material.
 	 */
@@ -88,7 +88,7 @@ class FFLShaderBlinnMaterial extends FFLShaderMaterial {
 
 		if (this.uniforms && this.uniforms.u_material_specular_power) {
 			// Adjust specular power, which is the reflection point, to be larger.
-			/** @type {import('three').ShaderMaterial} */ (this)
+			/** @type {THREE.ShaderMaterial} */ (this)
 				.uniforms.u_material_specular_power = { value: 2.0 };
 		}
 	}
@@ -96,7 +96,7 @@ class FFLShaderBlinnMaterial extends FFLShaderMaterial {
 
 /**
  * Global object for storing all available material classes.
- * @type {Object<string, function(new: import('three').Material, ...*): import('three').Material>}
+ * @type {Object<string, function(new: THREE.Material, ...*): THREE.Material>}
  */
 const materials = {
 	// from ffl.js
@@ -136,7 +136,7 @@ let canBlink = false;
 /**
  * Adds {@link THREE.AmbientLight} and {@link THREE.DirectionalLight} to
  * a scene, using values similar to what the FFLShader is using.
- * @param {import('three').Scene} scene - The scene to add lights to.
+ * @param {THREE.Scene} scene - The scene to add lights to.
  * @todo TODO: Why does it look worse when WebGLRenderer.useLegacyLights is not enabled?
  */
 function addLightsToScene(scene) {
@@ -148,7 +148,7 @@ function addLightsToScene(scene) {
 	scene.add(ambientLight, directionalLight);
 }
 
-/** @returns {import('three').Scene} The scene with lights added. */
+/** @returns {THREE.Scene} The scene with lights added. */
 function getSceneWithLights() {
 	const scene = new THREE.Scene();
 	addLightsToScene(scene);
@@ -307,7 +307,7 @@ function startAnimationLoop() {
 /**
  * Displays CharModel render textures, appending their images to `element` for debugging.
  * @param {CharModel} model - The CharModel whose textures to display.
- * @param {import('three').WebGLRenderer} renderer - The renderer.
+ * @param {THREE.WebGLRenderer} renderer - The renderer.
  * @param {HTMLElement} element - The HTML list to append the images inside of.
  */
 function displayCharModelTexturesDebug(model, renderer, element) {
@@ -315,7 +315,7 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 	const maximum = 30;
 	/**
 	 * Displays and appends an image of a render target.
-	 * @param {import('three').RenderTarget} target - The render target.
+	 * @param {THREE.RenderTarget} target - The render target.
 	 */
 	function displayTarget(target) {
 		const img = textureToCanvas(target.texture, renderer);
@@ -569,7 +569,7 @@ function onShaderMaterialChange() {
 		/**
 		 * Parameters for the shader material. Using SampleShaderMaterialParameters
 		 * as a lowest common denominator, but others can also be used.
-		 * @type {import('three').MeshBasicMaterialParameters
+		 * @type {THREE.MeshBasicMaterialParameters
 		 * & import('../materials/SampleShaderMaterial.js').SampleShaderMaterialParameters}
 		 */
 		const params = {

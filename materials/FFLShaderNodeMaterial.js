@@ -168,7 +168,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 
 	/**
 	 * Gets the constant color (diffuse) uniform as THREE.Color.
-	 * @returns {import('three').Color|undefined} The constant color if set.
+	 * @returns {Color|undefined} The constant color if set.
 	 */
 	get color() {
 		return this.diffuse;
@@ -176,7 +176,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 
 	/**
 	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {import('three').Color|Array<import('three').Color>} value -
+	 * @param {Color|Array<Color>} value -
 	 * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
 	 */
 	set color(value) {
