@@ -1479,7 +1479,7 @@ class CharModel {
 		this._module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
 
 		/** @package */
-		this._modelDesc = _descOrExpFlagToModelDesc(descOrExpFlag);
+		this._modelDesc = CharModel._descOrExpFlagToModelDesc(descOrExpFlag);
 		// Set field to enable new expressions. This field
 		// exists because some callers would leave the other
 		// bits undefined but this does not so no reason to not enable
@@ -1736,7 +1736,7 @@ class CharModel {
 		}
 
 		/** The new or updated CharModelDesc with the new expression specified. */
-		const newModelDesc = _descOrExpFlagToModelDesc(descOrExpFlag, charModel._modelDesc);
+		const newModelDesc = this._descOrExpFlagToModelDesc(descOrExpFlag, charModel._modelDesc);
 
 		if (!texOnly) {
 			// Dispose of the old CharModel.
@@ -1766,6 +1766,7 @@ class CharModel {
 			charModel._maskTargets = newCharModel._maskTargets;
 			// Set new CharModel and unset texture only flag.
 			charModel._model = newCharModel._model;
+			charModel._modelDesc = newModelDesc;
 			charModel._modelDesc.modelFlag &= ~FFLModelFlag.NEW_MASK_ONLY;
 			charModel.expressions = newCharModel.expressions;
 			// Apply new faceline and mask to old shapes.
@@ -1778,6 +1779,45 @@ class CharModel {
 		}
 
 		return newCharModel; // Return new or modified CharModel.
+	}
+
+	/**
+	 * Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
+	 * Uses the `defaultDesc` as a fallback to return if input is null or applies expression to it.
+	 * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
+	 * an array of expressions, a single expression, or an expression flag (Uint32Array).
+	 * @param {FFLCharModelDesc} [defaultDesc] - Fallback if descOrExpFlag is null or expression flag only.
+	 * @returns {FFLCharModelDesc} The CharModelDesc with the expression applied, or the default.
+	 * @throws {Error} Throws if `descOrExpFlag` is an unexpected type.
+	 * @private
+	 */
+	static _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDescDefault) {
+		if (!descOrExpFlag && typeof descOrExpFlag !== 'number') {
+			return defaultDesc; // Use default if input is falsey.
+		}
+
+		// Convert descOrExpFlag to an expression flag if needed.
+		if (typeof descOrExpFlag === 'number' || Array.isArray(descOrExpFlag)) {
+			// Array of expressions or single expression was passed in.
+			descOrExpFlag = makeExpressionFlag(descOrExpFlag);
+		}
+
+		/** Shallow clone of {@link defaultDesc}. */
+		let newModelDesc = Object.assign({}, defaultDesc);
+
+		// Process descOrExpFlag based on what it is.
+		if (descOrExpFlag instanceof Uint32Array) {
+			// If this is already an expression flag (Uint32Array),
+			// or set to one previously, use it with existing CharModelDesc.
+			newModelDesc.allExpressionFlag = descOrExpFlag;
+		} else if (typeof descOrExpFlag === 'object') {
+			// Assume that descOrExpFlag is a new FFLCharModelDesc.
+			newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);
+		} else {
+			throw new Error('Unexpected type for descOrExpFlag');
+		}
+
+		return newModelDesc;
 	}
 
 	// --------------------------- Private Get Methods ---------------------------
@@ -2503,50 +2543,6 @@ function makeExpressionFlag(expressions) {
 		flags[part] |= (1 << bitIndex); // Set the bit.
 	}
 	return flags;
-}
-
-// // ---------------------------------------------------------------------
-// //  CharModel Creation
-// // ---------------------------------------------------------------------
-// TODO PATH: src/CharModelCreation.js
-
-/**
- * Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
- * Uses the `defaultDesc` as a fallback to return if input is null or applies expression to it.
- * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
- * an array of expressions, a single expression, or an expression flag (Uint32Array).
- * @param {FFLCharModelDesc} [defaultDesc] - Fallback if descOrExpFlag is null or expression flag only.
- * @returns {FFLCharModelDesc} The CharModelDesc with the expression applied, or the default.
- * @throws {Error} Throws if `descOrExpFlag` is an unexpected type.
- * @package
- */
-function _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDescDefault) {
-	if (!descOrExpFlag && typeof descOrExpFlag !== 'number') {
-		return defaultDesc; // Use default if input is falsey.
-	}
-
-	// Convert descOrExpFlag to an expression flag if needed.
-	if (typeof descOrExpFlag === 'number' || Array.isArray(descOrExpFlag)) {
-		// Array of expressions or single expression was passed in.
-		descOrExpFlag = makeExpressionFlag(descOrExpFlag);
-	}
-
-	/** Shallow clone of {@link defaultDesc}. */
-	let newModelDesc = Object.assign({}, defaultDesc);
-
-	// Process descOrExpFlag based on what it is.
-	if (descOrExpFlag instanceof Uint32Array) {
-		// If this is already an expression flag (Uint32Array),
-		// or set to one previously, use it with existing CharModelDesc.
-		newModelDesc.allExpressionFlag = descOrExpFlag;
-	} else if (typeof descOrExpFlag === 'object') {
-		// Assume that descOrExpFlag is a new FFLCharModelDesc.
-		newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);
-	} else {
-		throw new Error('_descOrExpFlagToModelDesc: Unexpected type for descOrExpFlag');
-	}
-
-	return newModelDesc;
 }
 
 // // ---------------------------------------------------------------------
@@ -4219,6 +4215,11 @@ export {
 	FFLExpression,
 	FFLModelFlag,
 	FFLResourceType,
+
+	// Exception types
+	FFLResultException,
+	FFLiVerifyReasonException,
+	ExpressionNotSet,
 
 	// Types for CharModel initialization
 	FFLCharModelDescDefault,

@@ -68,7 +68,8 @@ let camera;
 let controls = {};
 /** @type {CharModel|null} */
 let currentCharModel;
-let isRendererInitialized = false;
+/** @type {Promise<void>} */
+let initializeRendererPromise;
 let isSceneInitialized = false;
 // window.isInitialized = false;
 let isAnimating = false;
@@ -183,7 +184,6 @@ async function initializeThreeRenderer() {
 	}
 
 	globalThis.spector?.displayUI();
-	isRendererInitialized = true;
 }
 
 /**
@@ -262,12 +262,15 @@ function startAnimationLoop() {
 	/** 100ms */
 	const blinkDuration = 100;
 
-	/** Main animation loop. */
+	/**
+	 * Main animation loop.
+	 * @throws {Error} Rethrows exceptions when setting expression.
+	 */
 	function animate() {
 		requestAnimationFrame(animate);
 
 		// Update OrbitControls.
-		if (controls.update) {
+		if ('update' in controls && typeof controls.update === 'function') {
 			controls.update();
 		}
 
@@ -279,29 +282,29 @@ function startAnimationLoop() {
 		// Update blink state.
 		if (currentCharModel && canBlink) {
 			// Disable blinking if an exception happens.
-			// try {
-			const now = Date.now();
-			// Blink
-			if (!isBlinking && now - lastBlinkTime >= blinkInterval) {
-				// Choose wink or blink by random chance.
-				const expr = (Math.random() < winkChance)
-					? expressionWink
-					: expressionBlink;
-				currentCharModel.setExpression(expr);
-				isBlinking = true;
-				lastBlinkTime = now;
+			try {
+				const now = Date.now();
+				// Blink
+				if (!isBlinking && now - lastBlinkTime >= blinkInterval) {
+					// Choose wink or blink by random chance.
+					const expr = (Math.random() < winkChance)
+						? expressionWink
+						: expressionBlink;
+					currentCharModel.setExpression(expr);
+					isBlinking = true;
+					lastBlinkTime = now;
+				}
+				// Unblink
+				if (isBlinking && now - lastBlinkTime >= blinkDuration) {
+					currentCharModel.setExpression(FFLExpression.NORMAL);
+					isBlinking = false;
+					lastBlinkTime = now;
+				}
+			} catch (e) {
+				canBlink = false;
+				console.warn('Disabled blinking due to an error.');
+				throw e; // usually ExpressionNotSet
 			}
-			// Unblink
-			if (isBlinking && now - lastBlinkTime >= blinkDuration) {
-				currentCharModel.setExpression(FFLExpression.NORMAL);
-				isBlinking = false;
-				lastBlinkTime = now;
-			}
-			// } catch (e) {
-			// 	blinking = false;
-			// 	console.warn('Disabled blinking.');
-			// 	throw e;
-			// }
 		}
 
 		renderer.render(scene, camera);
@@ -356,12 +359,12 @@ function getTextureMaterial(mat) {
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string|null} data - Data as Uint8Array or hex or Base64 string.
- * @param {Object|Array<number>|number|null} [descOrExpFlag] -
+ * @param {import('../ffl.js').CharModelDescOrExpressionFlag} [descOrExpFlag] -
  * Either a new FFLCharModelDesc object or an array of expressions.
  * @param {boolean} [texOnly] - Whether to only update the mask and faceline textures in the CharModel.
  * @throws {Error} cannot exclude modelDesc if no model was initialized yet
  */
-function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
+function updateCharModelInScene(data, descOrExpFlag, texOnly = false) {
 	// Decode data.
 	if (typeof data === 'string') {
 		data = parseHexOrBase64ToBytes(data);
@@ -475,7 +478,7 @@ function resetLightDirection() {
 	}
 	const mat = materials[activeMaterialClassName];
 	// Make sure that the material has light direction before continuing.
-	if (mat.defaultLightDirection === undefined) {
+	if (!('defaultLightDirection' in mat)) {
 		return;
 	}
 	const defDir = mat.defaultLightDirection.clone();
@@ -703,10 +706,7 @@ function updateCharModelIcon() {
 		return;
 	}
 
-	/**
-	 * Asynchronously make the CharModel icon.
-	 * @param {ViewType} [viewType] - The view type for the icon.
-	 */
+	/** Asynchronously make the CharModel icon. */
 	(async () => {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
@@ -841,6 +841,9 @@ async function callInitializeFFL(resource) {
 	// Set globals from initialization result.
 	moduleFFL = initResult.module;
 	resourceDesc = initResult.resourceDesc;
+	await initializeRendererPromise;
+	setRendererState(renderer, moduleFFL); // Tell FFL.js we are WebGL 1 or WebGPU.
+	loadCharacterButtons(); // Make icons after renderer and FFL are ready.
 }
 
 /**
@@ -853,25 +856,17 @@ async function main() {	// Initialize FFL.
 	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
 
 	setupCharModelForm();
-	let initFFLPromise = /** @type {Promise|null} */ (null);
+	initializeRendererPromise = initializeThreeRenderer();
+	// let initFFLPromise = /** @type {Promise<void>|null} */ (null);
 	// Container for the resource loader widget, if available.
 	const resourceContainer = document.getElementById('resourceContainer') || document.body;
 	const loader = new ResourceLoadHelper({
 		container: resourceContainer,
 		initialResource: null,
-		onLoad: r => initFFLPromise = callInitializeFFL(r)
+		onLoad: callInitializeFFL // r => initFFLPromise = callInitializeFFL(r)
 	});
 	await loader.init(); // Initialize the resource loader to load the default resource.
 	// console.info('set initFFLPromise:', initFFLPromise);
-
-	if (!isRendererInitialized) {
-		await initializeThreeRenderer();
-		// Tell FFL.js if WebGL 1.0 or WebGPU is being used.
-		// console.info('awaiting this initFFLPromise:', initFFLPromise)
-		initFFLPromise && await initFFLPromise;
-		setRendererState(renderer, moduleFFL);
-	}
-	loadCharacterButtons(); // Load character buttons after initializing FFL.
 }
 
 // Call main when HTML is done loading.
