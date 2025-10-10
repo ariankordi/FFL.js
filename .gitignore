@@ -4,6 +4,7 @@ node_modules/
 backup/
 three revisions/
 three-*.js
+.DS_Store
 # TODO: temporary
 docs/
 
