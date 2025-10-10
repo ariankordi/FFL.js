@@ -29,8 +29,7 @@ import {
 } from '../helpers/BodyUtilities.js';
 // Standard non-Node dependencies:
 import {
-	initializeFFL, setRendererState, createCharModel,
-	initCharModelTextures,
+	initializeFFL, setRendererState, CharModel,
 	exitFFL, PantsColor, pantsColors, FFLExpression
 } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
@@ -178,9 +177,8 @@ async function renderRequestToPNG(renderer, module, matClass, request) {
 
 	try {
 		// Create Mii model and add to the scene.
-		charModel = createCharModel(request.data, // CharModel CPU step
-			request.expression, matClass, module);
-		initCharModelTextures(charModel, renderer); // CharModel GPU step
+		charModel = new CharModel(request.data,
+			request.expression, matClass, module, renderer);
 
 		// TODO: In certain instances (charline), nose and forehead
 		// may disappear due to frustum culling. This is probably

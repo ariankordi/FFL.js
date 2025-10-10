@@ -13,8 +13,7 @@ import * as THREE from 'three/webgpu';
 import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.js';
 // Standard non-Node dependencies:
 import {
-	initializeFFL, setRendererState, createCharModel,
-	initCharModelTextures,
+	initializeFFL, setRendererState, CharModel,
 	getIconCamera, exitFFL
 } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
@@ -104,10 +103,9 @@ async function main() {
 
 		// Create Mii model and add to the scene.
 		const studioRaw = parseHexOrBase64ToBytes(data);
-		currentCharModel = createCharModel(studioRaw, null,
-			FFLShaderNodeMaterial, ffl.module);
+		currentCharModel = new CharModel(studioRaw, null,
+			FFLShaderNodeMaterial, ffl.module, renderer);
 
-		initCharModelTextures(currentCharModel, renderer);
 		scene.add(currentCharModel.meshes); // Add to scene
 
 		// Use the camera for an icon pose.

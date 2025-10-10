@@ -1,12 +1,14 @@
 // @ts-check
 
 import * as THREE from 'three';
+// import SPECTOR from 'https://cdn.jsdelivr.net/npm/spectorjs@0.9.30/+esm';
+// globalThis.spector = new SPECTOR.Spector();
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-	initializeFFL, setRendererState, createCharModel, textureToCanvas, initCharModelTextures,
-	matSupportsFFL, makeExpressionFlag, checkExpressionChangesShapes,
-	makeIconFromCharModel, FFLExpression, exitFFL,
-	FFLCharModelDescDefault, CharModel
+	initializeFFL, setRendererState, CharModel,
+	FFLCharModelDescDefault, textureToCanvas, matSupportsFFL,
+	makeExpressionFlag, checkExpressionChangesShapes,
+	makeIconFromCharModel, FFLExpression, exitFFL
 } from '../ffl.js';
 // import * as ModuleFFLImport from '../ffl-emscripten.cjs'; // Build with EXPORT_ES6 to not be UMD.
 // Material classes.
@@ -180,6 +182,7 @@ async function initializeThreeRenderer() {
 		await /** @type {*} */ (renderer).init();
 	}
 
+	globalThis.spector?.displayUI();
 	isRendererInitialized = true;
 }
 
@@ -353,7 +356,8 @@ function getTextureMaterial(mat) {
 /**
  * Either creates or updates CharModel and adds it to the scene.
  * @param {Uint8Array|string|null} data - Data as Uint8Array or hex or Base64 string.
- * @param {Object|Array|number|null} [descOrExpFlag] - Either a new FFLCharModelDesc object or an array of expressions.
+ * @param {Object|Array<number>|number|null} [descOrExpFlag] -
+ * Either a new FFLCharModelDesc object or an array of expressions.
  * @param {boolean} [texOnly] - Whether to only update the mask and faceline textures in the CharModel.
  * @throws {Error} cannot exclude modelDesc if no model was initialized yet
  */
@@ -371,7 +375,7 @@ function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
 			scene.remove(currentCharModel.meshes);
 			// Update existing model via updateCharModel.
 			// (will also dispose it for us)
-			currentCharModel = updateCharModel(currentCharModel,
+			currentCharModel = CharModel.update(currentCharModel,
 				data, renderer, descOrExpFlag, {
 					texOnly, materialTextureClass: getTextureMaterial(mat)
 				});
@@ -380,11 +384,11 @@ function updateCharModelInScene(data, descOrExpFlag = null, texOnly = false) {
 			if (!descOrExpFlag || !data) {
 				throw new Error('cannot exclude modelDesc or data if no model was initialized yet');
 			}
-			currentCharModel = createCharModel(data, descOrExpFlag, mat, moduleFFL);
+			currentCharModel = new CharModel(data, descOrExpFlag, mat, moduleFFL);
 			// Initialize textures for the new CharModel.
 			// This is explicitly called with FFLShaderMaterial, which
 			// would be the material drawing only the mask/faceline textures.
-			initCharModelTextures(currentCharModel, renderer, getTextureMaterial(mat));
+			currentCharModel.initTextures(renderer, getTextureMaterial(mat));
 		}
 		if (!currentCharModel.meshes) {
 			throw new Error('updateCharModelInScene: currentCharModel.meshes is null or undefined after initialization');
@@ -625,7 +629,7 @@ function updateCanBlink() {
 	if (!currentCharModel) {
 		return;
 	}
-	const flag = currentCharModel._model.charModelDesc.allExpressionFlag;
+	const flag = currentCharModel._modelDesc.allExpressionFlag;
 	// Compare expressionFlagBlinking to flag to see if they match.
 	canBlink = expressionFlagBlinking.every((val, i) => val === flag[i]);
 }
@@ -717,12 +721,12 @@ const charModelFavoriteColorElement = document.getElementById('charModelFavorite
 /** Updates the info section above the options for the current CharModel. */
 function updateCharModelInfo() {
 	// Skip if currentCharModel was not initialized properly.
-	if (!currentCharModel || !currentCharModel._model) {
+	if (!currentCharModel) {
 		return;
 	}
 
 	// Update name from CharInfo.
-	let name = currentCharModel._model.charInfo.name;
+	let name = currentCharModel.charInfo.name;
 	// Sometimes the name is actually null, in which
 	// case it still has length? Let's check for char 0 = null
 	if (!name.length || !name.charCodeAt(0)) {
@@ -895,8 +899,8 @@ function loadCharacterButtons() {
 		let model;
 		try {
 			const dataU8 = parseHexOrBase64ToBytes(data);
-			model = createCharModel(dataU8, null, materials[activeMaterialClassName], moduleFFL);
-			initCharModelTextures(model, renderer,
+			model = new CharModel(dataU8, null, materials[activeMaterialClassName], moduleFFL);
+			model.initTextures(renderer,
 				getTextureMaterial(materials[activeMaterialClassName]));
 
 			makeIconFromCharModel(model, renderer, {

@@ -156,7 +156,11 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      * @returns {THREE.Color|null} The constant color, or null if it is not set.
      */
     get color(): THREE.Color | null;
-    _color3: THREE.Color | undefined;
+    /**
+     * @type {THREE.Color}
+     * @private
+     */
+    private _color3;
     _opacity: number | undefined;
     /**
      * Sets the value of the modulateMode uniform.

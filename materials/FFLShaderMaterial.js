@@ -641,6 +641,10 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		// Get THREE.Color from u_const1 (Vector4).
 		const color4 = /** @type {IUniformVector4} */ (this.uniforms.u_const1).value;
 		const color3 = new THREE.Color(color4.x, color4.y, color4.z);
+		/**
+		 * @type {THREE.Color}
+		 * @private
+		 */
 		this._color3 = color3; // Cache the THREE.Color instance.
 		return color3;
 	}

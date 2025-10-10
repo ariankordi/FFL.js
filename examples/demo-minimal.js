@@ -2,9 +2,8 @@
 
 import * as THREE from 'three';
 import {
-	initializeFFL, setRendererState, createCharModel,
-	initCharModelTextures,
-	FFLCharModelDescDefault, CharModel, exitFFL
+	initializeFFL, exitFFL, setRendererState,
+	CharModel, FFLCharModelDescDefault
 } from '../ffl.js';
 import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
 import ResourceLoadHelper from './ResourceLoadHelper.js';
@@ -153,9 +152,8 @@ function updateCharModelInScene(data, modelDesc) {
 	}
 
 	// Create a new CharModel.
-	currentCharModel = createCharModel(data, modelDesc, FFLShaderMaterial, moduleFFL);
-	// Initialize textures for the new CharModel.
-	initCharModelTextures(currentCharModel, renderer);
+	currentCharModel = new CharModel(data, modelDesc,
+		FFLShaderMaterial, moduleFFL, renderer);
 
 	// Add CharModel meshes to scene.
 	scene.add(currentCharModel.meshes);

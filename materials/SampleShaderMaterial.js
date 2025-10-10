@@ -988,6 +988,10 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		// Get THREE.Color from constColor1 (Vector4).
 		const color4 = /** @type {IUniformVector4} */ (this.uniforms.constColor1).value;
 		const color3 = new THREE.Color(color4.x, color4.y, color4.z);
+		/**
+		 * @type {THREE.Color}
+		 * @private
+		 */
 		this._color3 = color3; // Cache the THREE.Color instance.
 		return color3;
 	}
