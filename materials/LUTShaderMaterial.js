@@ -1272,7 +1272,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 	/**
 	 * Gets the texture map.
-	 * @returns {THREE['Texture']} The texture map.
+	 * @returns {THREE.Texture|null} The texture map.
 	 */
 	get map() {
 		return this.uniforms.uAlbedoTexture ? this.uniforms.uAlbedoTexture.value : null;

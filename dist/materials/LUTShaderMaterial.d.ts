@@ -201,9 +201,9 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
     set map(value: THREE.Texture);
     /**
      * Gets the texture map.
-     * @returns {THREE['Texture']} The texture map.
+     * @returns {THREE.Texture|null} The texture map.
      */
-    get map(): typeof THREE.Texture;
+    get map(): THREE.Texture | null;
     /**
      * Sets the light direction, overriding w with -1.
      * @param {THREE.Vector3} value - The new light direction.
