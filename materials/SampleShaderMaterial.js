@@ -351,51 +351,51 @@ class NnMiiMaterialTables {
 		// ShapeFaceline
 		{
 			halfLambertFactor: 0.4,
-			sssSpecularBlendFactor: 1.0,
+			sssSpecularBlendFactor: 1,
 			specularFactorA: 2.6,
 			specularFactorB: 0.02,
 			specularShinness: 0.8,
-			rimLightPower: 2.0,
+			rimLightPower: 2,
 			rimLightWidth: 0.3
 		},
 		// ShapeBeard
 		{
 			halfLambertFactor: 0.2,
-			sssSpecularBlendFactor: 0.0,
-			specularFactorA: 1.0,
-			specularFactorB: 0.0,
+			sssSpecularBlendFactor: 0,
+			specularFactorA: 1,
+			specularFactorB: 0,
 			specularShinness: 1.3,
-			rimLightPower: 1.0,
+			rimLightPower: 1,
 			rimLightWidth: 0.5
 		},
 		// ShapeNose
 		{
 			halfLambertFactor: 0.3,
-			sssSpecularBlendFactor: 0.0,
+			sssSpecularBlendFactor: 0,
 			specularFactorA: 2.6,
 			specularFactorB: 0.02,
 			specularShinness: 0.8,
 			rimLightPower: 0.55,
-			rimLightWidth: 0.0
+			rimLightWidth: 0
 		},
 		// ShapeForehead (Same as faceline)
 		{
 			halfLambertFactor: 0.4,
-			sssSpecularBlendFactor: 1.0,
+			sssSpecularBlendFactor: 1,
 			specularFactorA: 2.6,
 			specularFactorB: 0.02,
 			specularShinness: 0.8,
-			rimLightPower: 2.0,
+			rimLightPower: 2,
 			rimLightWidth: 0.3
 		},
 		// ShapeHair
 		{
 			halfLambertFactor: 0.45,
-			sssSpecularBlendFactor: 1.0,
-			specularFactorA: 1.0,
+			sssSpecularBlendFactor: 1,
+			specularFactorA: 1,
 			specularFactorB: 0.06,
 			specularShinness: 0.8,
-			rimLightPower: 1.0,
+			rimLightPower: 1,
 			rimLightWidth: 0.5
 		},
 		// ShapeCap
@@ -405,61 +405,61 @@ class NnMiiMaterialTables {
 		// index 9 (brown): specularShinness = 2.0
 		{
 			halfLambertFactor: 0.6,
-			sssSpecularBlendFactor: 1.0,
-			specularFactorA: 2.0,
+			sssSpecularBlendFactor: 1,
+			specularFactorA: 2,
 			specularFactorB: 0.02,
 			specularShinness: 0.8,
-			rimLightPower: 1.0,
+			rimLightPower: 1,
 			rimLightWidth: 0.5
 		},
 		// ShapeMask
 		{
-			halfLambertFactor: 0.0,
-			sssSpecularBlendFactor: 1.0,
-			specularFactorA: 0.0,
-			specularFactorB: 0.0,
+			halfLambertFactor: 0,
+			sssSpecularBlendFactor: 1,
+			specularFactorA: 0,
+			specularFactorB: 0,
 			specularShinness: 0.1,
-			rimLightPower: 1.0,
+			rimLightPower: 1,
 			rimLightWidth: 0.5
 		},
 		// ShapeNoseline (Same as mask)
 		{
-			halfLambertFactor: 0.0,
-			sssSpecularBlendFactor: 1.0,
-			specularFactorA: 0.0,
-			specularFactorB: 0.0,
+			halfLambertFactor: 0,
+			sssSpecularBlendFactor: 1,
+			specularFactorA: 0,
+			specularFactorB: 0,
 			specularShinness: 0.1,
-			rimLightPower: 1.0,
+			rimLightPower: 1,
 			rimLightWidth: 0.5
 		},
 		// ShapeGlass
 		{
 			halfLambertFactor: 0.35,
-			sssSpecularBlendFactor: 1.0,
+			sssSpecularBlendFactor: 1,
 			specularFactorA: 0.3,
-			specularFactorB: 0.0,
-			specularShinness: 30.0,
-			rimLightPower: 1.0,
-			rimLightWidth: 0.0
+			specularFactorB: 0,
+			specularShinness: 30,
+			rimLightPower: 1,
+			rimLightWidth: 0
 		},
 		// Body
 		{
 			halfLambertFactor: 0.5,
-			sssSpecularBlendFactor: 0.0,
-			specularFactorA: 1.0,
-			specularFactorB: 0.0,
+			sssSpecularBlendFactor: 0,
+			specularFactorA: 1,
+			specularFactorB: 0,
 			specularShinness: 0.8,
-			rimLightPower: 1.0,
-			rimLightWidth: 0.0
+			rimLightPower: 1,
+			rimLightWidth: 0
 		},
 		// Pants
 		{
 			halfLambertFactor: 0.6,
-			sssSpecularBlendFactor: 1.0,
-			specularFactorA: 1.0,
+			sssSpecularBlendFactor: 1,
+			specularFactorA: 1,
 			specularFactorB: 0.02,
 			specularShinness: 0.7,
-			rimLightPower: 1.0,
+			rimLightPower: 1,
 			rimLightWidth: 0.5
 		}
 	];
@@ -885,7 +885,7 @@ class NnMiiMaterialTables {
 	static modifyCapMaterial(material, index) {
 		switch (index) {
 			case 0: // FFL_FAVORITE_COLOR_RED
-				material.specularFactorB = 0.0;
+				material.specularFactorB = 0;
 				break;
 			case 2: // FFL_FAVORITE_COLOR_YELLOW
 				material.specularFactorA = 1.1;
@@ -894,7 +894,7 @@ class NnMiiMaterialTables {
 				material.specularFactorB = 0.8;
 				break;
 			case 9: // FFL_FAVORITE_COLOR_BROWN
-				material.specularShinness = 2.0;
+				material.specularShinness = 2;
 				break;
 		}
 	}
@@ -917,7 +917,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 * Default ambient light color.
 	 * @type {THREE.Color}
 	 */
-	static defaultLightColor = new THREE.Color(1.0, 1.0, 1.0);
+	static defaultLightColor = new THREE.Color(1, 1, 1);
 	/**
 	 * Default light direction.
 	 * @type {THREE.Vector3}
@@ -1007,7 +1007,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		 * @param {number} opacity - Opacity mapped to .a.
 		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
 		 */
-		function toColor4(color, opacity = 1.0) {
+		function toColor4(color, opacity = 1) {
 			return new THREE.Vector4(color.r, color.g, color.b, opacity);
 		}
 		// Set an array of colors, assumed to have 3 elements.
@@ -1022,7 +1022,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 			return;
 		}
 		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
+		const color3 = value || new THREE.Color(1, 1, 1);
 		/** @type {THREE.Color} */
 		this._color3 = color3;
 		// Assign single color with white as a placeholder.
@@ -1048,7 +1048,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	get opacity() {
 		if (!this.uniforms.constColor1) {
 			// Get from _opacity if it is set before constant color.
-			return this._opacity ? this._opacity : 1;
+			return this._opacity || 1;
 		}
 		// Return w (alpha) of the constant color uniform.
 		return /** @type {IUniformVector4} */ (this.uniforms.constColor1).value.w;

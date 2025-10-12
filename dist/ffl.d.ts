@@ -507,7 +507,7 @@ export class CharModel {
      * an array of expressions, a single expression, or an expression flag (Uint32Array).
      * @param {FFLCharModelDesc} [defaultDesc] - Fallback if descOrExpFlag is null or expression flag only.
      * @returns {FFLCharModelDesc} The CharModelDesc with the expression applied, or the default.
-     * @throws {Error} Throws if `descOrExpFlag` is an unexpected type.
+     * @throws {TypeError} Throws if `descOrExpFlag` is an unexpected type.
      * @private
      */
     private static _descOrExpFlagToModelDesc;
@@ -972,7 +972,7 @@ export class GeometryConversion {
      * and converts signed integer formats (not uint8 for color) to float.
      * Attributes named "normal" are reduced to three components.
      * @param {THREE.BufferGeometry} geometry - The BufferGeometry to modify in place.
-     * @throws {Error} Throws if an unsupported attribute format is encountered.
+     * @throws {TypeError} Throws if an unsupported attribute format is encountered.
      * @public
      */
     public static convertForGLTF(geometry: THREE.BufferGeometry): void;

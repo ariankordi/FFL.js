@@ -206,7 +206,7 @@ function addSkeletonScalingExtensions(Skeleton) {
 	 */
 	function (obj, boneName, useBoneScale = false) {
 		const boneIdx = this.bones.findIndex(b => b.name === boneName);
-		if (boneIdx < 0) {
+		if (boneIdx === -1) {
 			throw new Error(`Bone '${boneName}' not found.`);
 		}
 
@@ -214,7 +214,7 @@ function addSkeletonScalingExtensions(Skeleton) {
 		obj.matrixAutoUpdate = false;
 		// obj.matrixWorldAutoUpdate = false; // Not modifying matrixWorld directly.
 
-		const localScale = !useBoneScale ? obj.scale : null;
+		const localScale = useBoneScale ? null : obj.scale;
 		/** @type {SkeletonAttachment} */
 		const att = { obj, boneIdx, localScale };
 

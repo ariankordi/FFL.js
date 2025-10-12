@@ -54,7 +54,10 @@ class ResourceLoadHelper {
 		const DEFAULT_RESOURCE_FETCH_PATH_SELECTOR = 'meta[itemprop=ffl-js-resource-fetch-path]';
 
 		this._createWidget(); // Insert the widget's HTML into the container.
-		if (!this.initialResource) {
+		if (this.initialResource) {
+			// Attempt to load initial resource.
+			await this._loadResource(this.initialResource);
+		} else {
 			// If no resource is explicitly passed in, try to read this meta tag.
 			const defaultURL = /** @type {HTMLMetaElement|null} */
 				(document.querySelector(DEFAULT_RESOURCE_FETCH_PATH_SELECTOR))?.content?.trim();
@@ -70,9 +73,6 @@ class ResourceLoadHelper {
 				throw new Error('ResourceLoadHelper.init: Tried to open detailsEl but it is null or undefined.');
 			}
 			this.detailsEl.open = true;
-		} else {
-			// Attempt to load initial resource.
-			await this._loadResource(this.initialResource);
 		}
 	}
 
@@ -197,6 +197,7 @@ class ResourceLoadHelper {
 	 * If the resource URL ends with ".zip" (or if its contents indicate a zip),
 	 * then process and pass a Uint8Array to onLoad. Otherwise, pass the fetch Response.
 	 * @param {string|Response|Promise<Response>|Uint8Array} resource - The resource URL or promise.
+	 * @throws {TypeError}
 	 * @private
 	 */
 	async _loadResource(resource) {
@@ -204,13 +205,13 @@ class ResourceLoadHelper {
 		try {
 			let loaded;
 			if (typeof resource === 'string') {
-				loaded = await this._loadFromURL(resource);
+				loaded = await ResourceLoadHelper._loadFromURL(resource);
 			} else if (resource instanceof Promise) {
 				loaded = await resource;
 			} else if (resource instanceof Uint8Array) {
 				loaded = resource;
 			} else {
-				throw new Error('_loadResource: Unexpected type for resource passed in.');
+				throw new TypeError('_loadResource: Unexpected type for resource passed in.');
 			}
 
 			/* await */this.onLoad(loaded); // Invoke the onLoad callback with the loaded resource.
@@ -241,9 +242,10 @@ class ResourceLoadHelper {
 	async _loadFromFile(file) {
 		try {
 			// Get file as ArrayBuffer.
-			const buffer = await this._bufferFromFile(file);
+			// const buffer = await file.arrayBuffer();
+			const buffer = await ResourceLoadHelper._bufferFromFile(file);
 			// Potentially unzip it and convert to Uint8Array.
-			const loadedResource = this._maybeUnzipResource(buffer);
+			const loadedResource = ResourceLoadHelper._maybeUnzipResource(buffer);
 			this._clearError(); // Clear previous errors.
 			await this.onLoad(loadedResource); // Call user callback.
 			this._updateWidgetStatus(); // Toggle "Not Loaded" to "Loaded"
@@ -262,7 +264,7 @@ class ResourceLoadHelper {
 	 * The returned fetch Response, or Uint8Array if the resource is from a zip.
 	 * @private
 	 */
-	async _loadFromURL(url) {
+	static async _loadFromURL(url) {
 		const response = await fetch(url);
 		if (!response.ok) {
 			const err = new Error(`_fetchResource: Failed to fetch resource at URL = ${url}, HTTP status = ${response.status}`);
@@ -272,7 +274,7 @@ class ResourceLoadHelper {
 		// If URL ends with ".zip", process unzipping.
 		if (url.endsWith('.zip')) {
 			const buffer = await response.arrayBuffer();
-			return this._maybeUnzipResource(buffer);
+			return ResourceLoadHelper._maybeUnzipResource(buffer);
 		}
 		// Otherwise, pass along the Response as-is so initializeFFL can stream it.
 		return response;
@@ -284,19 +286,19 @@ class ResourceLoadHelper {
 	 * @returns {Promise<ArrayBuffer>} The file read as ArrayBuffer.
 	 * @private
 	 */
-	_bufferFromFile(file) {
+	static _bufferFromFile(file) {
 		return new Promise((resolve, reject) => {
 			const reader = new FileReader();
-			reader.onload = () => {
-				if (!(reader.result instanceof ArrayBuffer)) {
-					reject(new Error('_bufferFromFile: FileReader result is not an ArrayBuffer.'));
-				} else {
+			reader.addEventListener('load', () => {
+				if (reader.result instanceof ArrayBuffer) {
 					resolve(reader.result);
+				} else {
+					reject(new Error('_bufferFromFile: FileReader result is not an ArrayBuffer.'));
 				}
-			};
-			reader.onerror = (event) => {
+			});
+			reader.addEventListener('error', (event) => {
 				reject(new Error(`_bufferFromFile: Failed to read file: ${event.target?.error?.message}`));
-			};
+			});
 			reader.readAsArrayBuffer(file);
 		});
 	}
@@ -310,7 +312,7 @@ class ResourceLoadHelper {
 	 * @throws {Error} Throws if file was not found in zip.
 	 * @private
 	 */
-	_maybeUnzipResource(buffer) {
+	static _maybeUnzipResource(buffer) {
 		/** Expected file suffix for valid files. */
 		const EXPECTED_SUFFIX_IN_ZIP = '.dat';
 		/** Expected fourcc header. */

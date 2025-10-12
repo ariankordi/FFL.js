@@ -480,7 +480,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * Default rim power (intensity).
 	 * @type {number}
 	 */
-	static defaultRimPower = 2.0;
+	static defaultRimPower = 2;
 
 	/**
 	 * Alias for default light direction.
@@ -504,10 +504,10 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		},
 		{
 			// FFL_MODULATE_TYPE_SHAPE_BEARD
-			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			ambient: new THREE.Color(1, 1, 1)/* .convertSRGBToLinear() */,
 			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
-			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
-			specularPower: 40.0,
+			specular: new THREE.Color(0, 0, 0)/* .convertSRGBToLinear() */,
+			specularPower: 40,
 			specularMode: 1
 		},
 		{
@@ -528,10 +528,10 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		},
 		{
 			// FFL_MODULATE_TYPE_SHAPE_HAIR
-			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			ambient: new THREE.Color(1, 1, 1)/* .convertSRGBToLinear() */,
 			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
 			specular: new THREE.Color(0.35, 0.35, 0.35)/* .convertSRGBToLinear() */,
-			specularPower: 10.0,
+			specularPower: 10,
 			specularMode: 1
 		},
 		{
@@ -544,26 +544,26 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		},
 		{
 			// FFL_MODULATE_TYPE_SHAPE_MASK
-			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			ambient: new THREE.Color(1, 1, 1)/* .convertSRGBToLinear() */,
 			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
-			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
-			specularPower: 40.0,
+			specular: new THREE.Color(0, 0, 0)/* .convertSRGBToLinear() */,
+			specularPower: 40,
 			specularMode: 1
 		},
 		{
 			// FFL_MODULATE_TYPE_SHAPE_NOSELINE
-			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			ambient: new THREE.Color(1, 1, 1)/* .convertSRGBToLinear() */,
 			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
-			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
-			specularPower: 40.0,
+			specular: new THREE.Color(0, 0, 0)/* .convertSRGBToLinear() */,
+			specularPower: 40,
 			specularMode: 1
 		},
 		{
 			// FFL_MODULATE_TYPE_SHAPE_GLASS
-			ambient: new THREE.Color(1.0, 1.0, 1.0)/* .convertSRGBToLinear() */,
+			ambient: new THREE.Color(1, 1, 1)/* .convertSRGBToLinear() */,
 			diffuse: new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */,
-			specular: new THREE.Color(0.0, 0.0, 0.0)/* .convertSRGBToLinear() */,
-			specularPower: 40.0,
+			specular: new THREE.Color(0, 0, 0)/* .convertSRGBToLinear() */,
+			specularPower: 40,
 			specularMode: 1
 		},
 
@@ -572,7 +572,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 			ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/* .convertSRGBToLinear() */,
 			diffuse: new THREE.Color(0.49673, 0.49673, 0.49673)/* .convertSRGBToLinear() */,
 			specular: new THREE.Color(0.24099, 0.24099, 0.24099)/* .convertSRGBToLinear() */,
-			specularPower: 3.0,
+			specularPower: 3,
 			specularMode: 0
 		},
 		{
@@ -580,7 +580,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 			ambient: new THREE.Color(0.95622, 0.95622, 0.95622)/* .convertSRGBToLinear() */,
 			diffuse: new THREE.Color(1.08497, 1.08497, 1.08497)/* .convertSRGBToLinear() */,
 			specular: new THREE.Color(0.2409, 0.2409, 0.2409)/* .convertSRGBToLinear() */,
-			specularPower: 3.0,
+			specularPower: 3,
 			specularMode: 0
 		}
 	];
@@ -660,7 +660,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		 * @param {number} opacity - Opacity mapped to .a.
 		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
 		 */
-		function toColor4(color, opacity = 1.0) {
+		function toColor4(color, opacity = 1) {
 			return new THREE.Vector4(color.r, color.g, color.b, opacity);
 		}
 		// Set an array of colors, assumed to have 3 elements.
@@ -675,7 +675,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 			return;
 		}
 		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
+		const color3 = value || new THREE.Color(1, 1, 1);
 		/** @type {THREE.Color} */
 		this._color3 = color3;
 		// Assign single color with white as a placeholder.
@@ -696,7 +696,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	get opacity() {
 		if (!this.uniforms.u_const1) {
 			// Get from _opacity if it is set before constant color.
-			return this._opacity ? this._opacity : 1;
+			return this._opacity || 1;
 		}
 		// Return w (alpha) of the constant color uniform.
 		return /** @type {IUniformVector4} */ (this.uniforms.u_const1).value.w;

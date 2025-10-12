@@ -141,7 +141,7 @@ function prepareBodyForCharModel(body, mat, favoriteColor, bodyScale, pantsColor
 }
 
 /** The absolute world-scale of the head divided by the body's scale. */
-const headToBodyScale = 10.0 / 7.0;
+const headToBodyScale = 10 / 7;
 
 /**
  * Attaches the head model to the body model's head bone.
@@ -160,7 +160,7 @@ function attachHeadToBody(body, head) {
 	}
 
 	const headBone = body.model.getObjectByName(headBoneName);
-	if (!(headBone instanceof THREE.Bone)) {
+	if (!headBone || !(headBone instanceof THREE.Bone)) {
 		throw new Error('Head bone not found.');
 	}
 	// Locate the skeleton in the SkinnedMesh, needed to call attach().
@@ -188,12 +188,12 @@ function attachHeadToBody(body, head) {
  * parameters from the old material and userData to an FFL-compatible material.
  * Also see `onShaderMaterialChange` from FFL.js/examples/demo-basic.js.
  * @param {THREE.Mesh} mesh - The mesh to apply the material to.
- * @param {MaterialConstructor} newMatClass - The new material class to apply.
+ * @param {MaterialConstructor} NewMatClass - The new material class to apply.
  * @param {SampleShaderMaterialColorInfo|null} colorInfo - Specific object needed for SampleShaderMaterial.
  */
-function applyMaterialClassToMesh(mesh, newMatClass, colorInfo) {
+function applyMaterialClassToMesh(mesh, NewMatClass, colorInfo) {
 	/** Whether the new material supports FFL swizzling. */
-	const forFFLMaterial = 'modulateMode' in newMatClass.prototype;
+	const forFFLMaterial = 'modulateMode' in NewMatClass.prototype;
 	// Recreate material with same parameters but using the new shader class.
 	const oldMat = /** @type {THREE.MeshBasicMaterial} */ (mesh.material);
 	/** Get modulateMode/Type */
@@ -229,12 +229,12 @@ function applyMaterialClassToMesh(mesh, newMatClass, colorInfo) {
 		params.modulateMode = userData.modulateMode ?? 0;
 		params.modulateType = userData.modulateType;
 	}
-	if (colorInfo && 'colorInfo' in newMatClass.prototype) {
+	if (colorInfo && 'colorInfo' in NewMatClass.prototype) {
 		// console.debug('got colorinfo on', mesh)
 		params.colorInfo = colorInfo;
 	}
 
-	mesh.material = new newMatClass(params);
+	mesh.material = new NewMatClass(params);
 	oldMat.dispose(); // Dispose the old material, keeping the map.
 
 	// HACK: For SampleShaderMaterial with glTF head models, let's not
@@ -302,7 +302,7 @@ function getFaceCamera() {
 	// Create camera with 15 degrees FOV.
 	const camera = new THREE.PerspectiveCamera(15, 1 /* square */, 50, 1000);
 	// Intended to be used with the head at 0.14 (<- exact) scale.
-	camera.position.set(0.0, 4.805, 57.553); // 4.205 + 0.6
+	camera.position.set(0, 4.805, 57.553); // 4.205 + 0.6
 	return camera;
 }
 
@@ -320,7 +320,7 @@ function getWholeBodyCamera(aspect, height) {
 	// These values are usually included in this order within a table.
 	const yOffset = 0;
 	const yFactor1 = 10.85;
-	const yFactor2 = 90.0;
+	const yFactor2 = 90;
 	// const fovy = 15.0;
 	const coefficientZMin = 0.85;
 	const coefficientZMax = 1.32;
@@ -331,13 +331,13 @@ function getWholeBodyCamera(aspect, height) {
 		(height / 64 * 0.15 + 0.85) + rootHeight;
 
 	/** Height normalized to [-1, 1] range. */
-	const heightFactor = (height / 127.0 - 0.5) * 2;
+	const heightFactor = (height / 127 - 0.5) * 2;
 	/** Camera Z position / zoom. */
-	let z = ((coefficientZMax + coefficientZMin) * 0.5 - 1.0) * heightFactor *
-		heightFactor + (coefficientZMax - coefficientZMin) * 0.5 * heightFactor + 1.0;
+	let z = ((coefficientZMax + coefficientZMin) * 0.5 - 1) * heightFactor *
+		heightFactor + (coefficientZMax - coefficientZMin) * 0.5 * heightFactor + 1;
 	z *= yFactor2;
 
-	camera.position.set(0.0, y + yOffset, z);
+	camera.position.set(0, y + yOffset, z);
 	return camera;
 }
 

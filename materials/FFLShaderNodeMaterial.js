@@ -107,7 +107,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 			/** Specular (Blinn) */
 			const specularBlinn =
 				pow(max(dot(reflect(
-					negate(lightDir), norm), eye), float(0.0)),
+					negate(lightDir), norm), eye), float(0)),
 				float(this.uMaterialSpecularPower));
 
 			// Use tangent for aniso specular.
@@ -118,7 +118,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 			const dotLN = sqrt(oneMinus(dotLT.mul(dotLT)));
 			const dotVR = dotLN.mul(sqrt(oneMinus(dotVT.mul(dotVT)))).sub(dotLT.mul(dotVT));
 			/** Anisotropic specular */
-			const specularAniso = pow(max(dotVR, float(0.0)),
+			const specularAniso = pow(max(dotVR, float(0)),
 				float(this.uMaterialSpecularPower));
 
 			// 0 = Blinn, 1 = Anisotropic
@@ -140,7 +140,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 			const strength = select(
 				useAniso.equal(1),
 				param.g, // Blend ratio.
-				float(1.0)
+				float(1)
 			);
 
 			/** Final specular calculation from blinn/aniso reflection and strength. */

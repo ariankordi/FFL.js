@@ -27,7 +27,7 @@ const base64ToBytes = (/** @type {string} */ base64) =>
 	Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 const hexToBytes = (/** @type {string} */ hex) =>
 	Uint8Array.from({ length: hex.length >>> 1 }, (_, i) =>
-		parseInt(hex.slice(i << 1, (i << 1) + 2), 16));
+		Number.parseInt(hex.slice(i << 1, (i << 1) + 2), 16));
 /**
  * Parses either hex or Base64 -> U8.
  * Additionally strips spaces from the input.
@@ -57,8 +57,10 @@ let scene;
 let renderer;
 /** @type {THREE.Camera} */
 let camera;
-/** @type {OrbitControls} */
-/** Initialize to empty so properties can be set. */
+/**
+ * Initialize to empty so properties can be set.
+ * @type {OrbitControls}
+ */
 let controls = {};
 /** @type {CharModel|null} */
 let currentCharModel;
@@ -88,7 +90,7 @@ class FFLShaderBlinnMaterial extends FFLShaderMaterial {
 		if (this.uniforms && this.uniforms.u_material_specular_power) {
 			// Adjust specular power, which is the reflection point, to be larger.
 			/** @type {THREE.ShaderMaterial} */ (this)
-				.uniforms.u_material_specular_power = { value: 2.0 };
+				.uniforms.u_material_specular_power = { value: 2 };
 		}
 	}
 }
@@ -119,6 +121,7 @@ const expressionFlagBlinking = makeExpressionFlag(
 
 // For debugging.
 let reinitModelEveryFrame = false;
+/** @type {HTMLElement|null} */
 let displayRenderTexturesElement = null;
 // Global options.
 /** Default shader as first. */
@@ -139,10 +142,10 @@ let canBlink = false;
  * @todo TODO: Why does it look worse when WebGLRenderer.useLegacyLights is not enabled?
  */
 function addLightsToScene(scene) {
-	const intensity = Number(THREE.REVISION) >= 155 ? Math.PI : 1.0;
+	const intensity = Number(THREE.REVISION) >= 155 ? Math.PI : 1;
 	const ambientLight = new THREE.AmbientLight(new THREE.Color(0.73, 0.73, 0.73), intensity);
 	const directionalLight = new THREE.DirectionalLight(
-		new THREE.Color(0.60, 0.60, 0.60), intensity);
+		new THREE.Color(0.6, 0.6, 0.6), intensity);
 	directionalLight.position.set(-0.455, 0.348, 0.5);
 	scene.add(ambientLight, directionalLight);
 }
@@ -177,6 +180,7 @@ async function initializeThreeRenderer() {
 		await /** @type {*} */ (renderer).init();
 	}
 
+	// @ts-expect-error -- ignore, spector will be called if it is imported
 	globalThis.spector?.displayUI();
 }
 
@@ -197,7 +201,7 @@ async function initializeScene() {
 	renderer.setPixelRatio(window.devicePixelRatio);
 	// 256 = height of #ffl-js-display-render-textures.
 	renderer.setSize(window.innerWidth, window.innerHeight - 256);
-	document.body.appendChild(renderer.domElement);
+	document.body.append(renderer.domElement);
 
 	// Create camera.
 	camera = new THREE.PerspectiveCamera(15,
@@ -208,7 +212,9 @@ async function initializeScene() {
 	camera.position.set(0, 10, 500);
 
 	// Set up OrbitControls if it is loaded.
-	if (typeof OrbitControls !== 'undefined') {
+	if (OrbitControls === undefined) {
+		console.warn('THREE.OrbitControls is undefined, continuing without controls.');
+	} else {
 		const controlsOld = controls;
 		controls = new OrbitControls(camera, renderer.domElement);
 		// Initialize defaults.
@@ -223,8 +229,6 @@ async function initializeScene() {
 		controls.minDistance = 50;
 		controls.maxDistance = 2000;
 		controls.target.set(0, 20, 0);
-	} else {
-		console.warn('THREE.OrbitControls is undefined, continuing without controls.');
 	}
 
 	isSceneInitialized = true;
@@ -264,7 +268,7 @@ function startAnimationLoop() {
 		requestAnimationFrame(animate);
 
 		// Update OrbitControls.
-		if ('update' in controls && typeof controls.update === 'function') {
+		if ('update' in controls) {
 			controls.update();
 		}
 
@@ -309,7 +313,7 @@ function startAnimationLoop() {
 /**
  * Displays CharModel render textures, appending their images to `element` for debugging.
  * @param {CharModel} model - The CharModel whose textures to display.
- * @param {THREE.WebGLRenderer} renderer - The renderer.
+ * @param {import('three/webgpu').Renderer} renderer - The renderer.
  * @param {HTMLElement} element - The HTML list to append the images inside of.
  */
 function displayCharModelTexturesDebug(model, renderer, element) {
@@ -326,16 +330,23 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 			// Prepend instead of appending if available.
 			element.insertBefore(img, element.firstChild);
 		} else {
-			element.appendChild(img);
+			element.append(img);
 		}
 		// Remove excess images in the list.
 		while (element.children.length > maximum && element.lastChild) {
-			element.removeChild(element.lastChild);
+			element.lastChild.remove();
 		}
 	}
 	const faceTarget = model.getFaceline();
 	faceTarget && displayTarget(faceTarget);
-	model._maskTargets.forEach(tgt => tgt !== null && displayTarget(tgt));
+	// for (let i = 0; i < FFLExpression.MAX; i++) {
+	for (const tgt of model._maskTargets) {
+		// const tgt = model.getMask(i);
+		// While _maskTargets is public, looking here
+		// makes sure that the RGBA textures added
+		// in convModelTexturesToRGBA are also included.
+		tgt !== null && displayTarget(tgt);
+	}
 }
 
 /**
@@ -416,7 +427,7 @@ function updateCharModelInScene(data, descOrExpFlag, texOnly = false) {
 	resetLightDirection();
 
 	// Specifically allow currentCharModel to be accessible on window.
-	/** @type {*} */ (window).currentCharModel = currentCharModel;
+	/** @type {*} */ (globalThis).currentCharModel = currentCharModel;
 }
 
 // // ---------------------------------------------------------------------
@@ -436,9 +447,9 @@ const lightDirZElement = /** @type {HTMLInputElement|null} */ (document.getEleme
  */
 function updateLightDirection(normalize = true) {
 	// Get values from the three sliders.
-	const x = parseFloat(lightDirXElement.value);
-	const y = parseFloat(lightDirYElement.value);
-	const z = parseFloat(lightDirZElement.value);
+	const x = Number.parseFloat(lightDirXElement.value);
+	const y = Number.parseFloat(lightDirYElement.value);
+	const z = Number.parseFloat(lightDirZElement.value);
 	// Normalize the user-provided light direction.
 	let newDir = new THREE.Vector3(x, y, z);
 	if (normalize) {
@@ -475,10 +486,10 @@ function resetLightDirection() {
 	if (!('defaultLightDirection' in mat)) {
 		return;
 	}
-	const defDir = mat.defaultLightDirection.clone();
-	lightDirXElement.value = defDir.x;
-	lightDirYElement.value = defDir.y;
-	lightDirZElement.value = defDir.z;
+	const defDir = /** @type {typeof FFLShaderMaterial} */ (mat).defaultLightDirection.clone();
+	lightDirXElement.value = defDir.x.toString();
+	lightDirYElement.value = defDir.y.toString();
+	lightDirZElement.value = defDir.z.toString();
 	updateLightDirection(false); // Do not normalize default light direction.
 	console.log('Light direction reset to default:', defDir);
 }
@@ -498,7 +509,7 @@ function populateShaderSelector() {
 		return;
 	}
 	shaderMaterialSelectElement.innerHTML = ''; // clear any existing options
-	Object.keys(materials).forEach((name) => {
+	for (const name of Object.keys(materials)) {
 		// Make sure that this really exists.
 		if (materials[name] === undefined) {
 			throw new Error(`Material class name ${name} is listed in materials but is undefined.`);
@@ -506,8 +517,8 @@ function populateShaderSelector() {
 		const opt = document.createElement('option');
 		opt.value = name;
 		opt.textContent = name;
-		shaderMaterialSelectElement.appendChild(opt);
-	});
+		shaderMaterialSelectElement.append(opt);
+	}
 }
 
 /**
@@ -577,7 +588,7 @@ function onShaderMaterialChange() {
 		 */
 		const params = {
 			// _side = original side from LUTShaderMaterial, must be set first
-			side: (oldMat._side !== undefined) ? oldMat._side : oldMat.side,
+			side: (oldMat._side === undefined) ? oldMat.side : oldMat._side,
 			...modulateModeType,
 			color: oldMat.color, // should be after modulateType
 			map: oldMat.map,
@@ -605,7 +616,7 @@ const rotationSpeedElement = /** @type {HTMLInputElement|null} */ (document.getE
 
 /** Updates the global rotation speed from the range input with id "rotationSpeed". */
 function updateRotationSpeed() {
-	controls.autoRotateSpeed = parseFloat(rotationSpeedElement.value);
+	controls.autoRotateSpeed = Number.parseFloat(rotationSpeedElement.value);
 }
 
 const toggleRotationElement = document.getElementById('toggleRotation');
@@ -638,7 +649,7 @@ const expressionSelectElement = /** @type {HTMLInputElement|null} */ (document.g
  * If the selected value is -1, blinking mode is enabled; otherwise, blinking is disabled.
  */
 function updateExpression() {
-	const val = parseInt(expressionSelectElement.value, 10);
+	const val = Number.parseInt(expressionSelectElement.value, 10);
 	// Set currentExpressionFlag global.
 	if (val === -1) {
 		// For value of -1, set as expressionFlagBlinking.
@@ -750,9 +761,9 @@ function addUIControls() {
 	// Toggle rotation checkbox.
 	toggleRotationElement.addEventListener('change', toggleRotation);
 	// Light direction sliders.
-	[lightDirXElement, lightDirYElement, lightDirZElement].forEach((element) => {
+	for (const element of [lightDirXElement, lightDirYElement, lightDirZElement]) {
 		element.addEventListener('input', updateLightDirection);
-	});
+	}
 	// Reset light direction button.
 	resetLightButtonElement.addEventListener('click', resetLightDirection);
 
@@ -806,7 +817,7 @@ function setupCharModelForm() {
 	const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
 
 	// -------------- Form Submission Handler ------------------
-	charFormElement.addEventListener('submit', function (event) {
+	charFormElement.addEventListener('submit', (event) => {
 		event.preventDefault();
 
 		// Read input from the form.
@@ -900,7 +911,7 @@ function loadCharacterButtons() {
 
 	const btnTemplateElement = document.getElementById('btn-template');
 	const elements = document.querySelectorAll('[data-name][data-data]');
-	elements.forEach((el) => {
+	for (const el of elements) {
 		const clone = /** @type {HTMLButtonElement} */ (btnTemplateElement.cloneNode(true));
 		clone.style.display = '';
 		clone.removeAttribute('id');
@@ -911,21 +922,22 @@ function loadCharacterButtons() {
 		const img = /** @type {HTMLCanvasElement|null} */ (btn.querySelector('.image'));
 		const name = btn.querySelector('div.name');
 
-		const dataData = el.getAttribute('data-data') || '';
-		const data = el.getAttribute('data-data-icon') || dataData;
+		const dataset = /** @type {HTMLElement} */ (el).dataset;
+		const dataData = dataset.data || '';
+		const data = dataset.dataIcon || dataData;
 		if (img) {
 			setIcon(img, data);
 		} else {
 			console.warn('setIcon > elements.forEach...: button.querySelector(img) returned null');
 		}
 
-		btn.setAttribute('data-data', dataData);
+		btn.dataset.data = dataData;
 		if (name) {
-			name.textContent = el.getAttribute('data-name');
+			name.textContent = dataset.name;
 		}
 
 		el.replaceWith(clone);
-	});
+	}
 }
 
 // TODO: NULL CHECK
@@ -950,8 +962,8 @@ function loadCharacterButtons() {
  */
 function onPresetCharacterClick(event) {
 	event.preventDefault();
-	const data = /** @type {HTMLButtonElement} */ (event.currentTarget).getAttribute('data-data');
-	console.log('Preset character data clicked, data: ', data);
+	const data = /** @type {HTMLButtonElement} */ (event.currentTarget).dataset.data;
+	console.log('Preset character data clicked, data:', data);
 	if (data) {
 		initAndUpdateScene(data);
 	}

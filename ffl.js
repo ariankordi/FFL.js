@@ -250,7 +250,7 @@ const FFLExpression = {
  */
 const FFLModelFlag = {
 	/** Default model setting. */
-	NORMAL: 1 << 0,
+	NORMAL: 1, // 1 << 0
 	/** Uses a variant of hair designed for hats. */
 	HAT: 1 << 1,
 	/** Discards hair from the model, used for helmets and similar headwear. */
@@ -857,9 +857,9 @@ class TextureManager {
 	 */
 	dispose() {
 		// Dispose of all stored textures.
-		this._textures.forEach((tex) => {
-			tex.dispose();
-		});
+		for (const tex of this._textures) {
+			tex[1].dispose();
+		}
 
 		// Clear texture map.
 		this._textures.clear();
@@ -886,11 +886,9 @@ class FFLResultException extends Error {
 	 */
 	constructor(result, funcName, message) {
 		if (!message) {
-			if (funcName) {
-				message = `${funcName} failed with FFLResult: ${result}`;
-			} else {
-				message = `From FFLResult: ${result}`;
-			}
+			message = funcName
+				? `${funcName} failed with FFLResult: ${result}`
+				: `From FFLResult: ${result}`;
 		}
 		super(message);
 		/** The stored {@link FFLResult} code. */
@@ -943,7 +941,7 @@ class FFLResultBroken extends FFLResultException {
 	 * @param {string} [message] - An optional message for the exception.
 	 */
 	constructor(funcName, message) {
-		super(FFLResult.FILE_INVALID, funcName, message ? message : `${funcName} returned FFL_RESULT_BROKEN. This usually indicates invalid underlying data.`);
+		super(FFLResult.FILE_INVALID, funcName, message || `${funcName} returned FFL_RESULT_BROKEN. This usually indicates invalid underlying data.`);
 	}
 }
 
@@ -1059,7 +1057,7 @@ class FFL {
 				}
 
 				// Allocate into heap using the Content-Length.
-				heapSize = parseInt(contentLength, 10);
+				heapSize = Number.parseInt(contentLength, 10);
 				heapPtr = module._malloc(heapSize);
 
 				// console.debug(`loadDataIntoHeap: Streaming from fetch response. ` +
@@ -1078,7 +1076,7 @@ class FFL {
 					offset += value.length;
 				}
 			} else {
-				throw new Error('loadDataIntoHeap: type is not Uint8Array or Response');
+				throw new TypeError('loadDataIntoHeap: type is not Uint8Array or Response');
 			}
 
 			return { pointer: heapPtr, size: heapSize };
@@ -1163,13 +1161,11 @@ class FFL {
 			// Assume this function gets the promise of the module.
 			moduleOrPromise = moduleOrPromise();
 		}
-		if (moduleOrPromise instanceof Promise) {
+		module = (moduleOrPromise instanceof Promise)
 			// Await if this is now a promise.
-			module = await moduleOrPromise;
-		} else {
+			? module = await moduleOrPromise
 			// Otherwise, assume it is already the module.
-			module = moduleOrPromise;
-		}
+			: module = moduleOrPromise;
 
 		// Wait for the Emscripten runtime to be ready if it isn't already.
 		if (!module.calledRun && !module.onRuntimeInitialized) {
@@ -1490,7 +1486,7 @@ class CharModel {
 			// expressions is a list of expression indices, where each index is non-null here.
 			.map((val, idx) =>
 				// If the value is 0 (null), map it.
-				val !== 0 ? idx : FFLExpression.MAX)
+				val === 0 ? FFLExpression.MAX : idx)
 			.filter(i => i !== FFLExpression.MAX); // MAX = null, filter them out.
 
 		/** @private */
@@ -1601,11 +1597,11 @@ class CharModel {
 
 		// Determine whether textures should be converted to RGBA depending on the material.
 		if (!matSupportsFFL(this._materialClass)) {
-			if (!matSupportsFFL(this._materialTextureClass)) {
-				console.error('CharModel._materialClass does not support modulateMode (no getter), but the _materialTextureClass is either the same or also does not support modulateMode. as a result, textures will have wrong colors');
-			} else {
+			if (matSupportsFFL(this._materialTextureClass)) {
 				ModelTexturesConverter.convModelTexturesToRGBA(this,
 					renderer, this._materialTextureClass);
+			} else {
+				console.error('CharModel._materialClass does not support modulateMode (no getter), but the _materialTextureClass is either the same or also does not support modulateMode. as a result, textures will have wrong colors');
 			}
 		}
 	}
@@ -1742,7 +1738,7 @@ class CharModel {
 
 		// Initialize its textures unconditionally.
 		newCharModel.initTextures(renderer,
-			materialTextureClass ? materialTextureClass : charModel._materialTextureClass);
+			materialTextureClass || charModel._materialTextureClass);
 
 		// Handle textures only case, where new CharModel has textures and old one has shapes.
 		if (texOnly) {
@@ -1776,7 +1772,7 @@ class CharModel {
 	 * an array of expressions, a single expression, or an expression flag (Uint32Array).
 	 * @param {FFLCharModelDesc} [defaultDesc] - Fallback if descOrExpFlag is null or expression flag only.
 	 * @returns {FFLCharModelDesc} The CharModelDesc with the expression applied, or the default.
-	 * @throws {Error} Throws if `descOrExpFlag` is an unexpected type.
+	 * @throws {TypeError} Throws if `descOrExpFlag` is an unexpected type.
 	 * @private
 	 */
 	static _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDescDefault) {
@@ -1802,7 +1798,7 @@ class CharModel {
 			// Assume that descOrExpFlag is a new FFLCharModelDesc.
 			newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);
 		} else {
-			throw new Error('Unexpected type for descOrExpFlag');
+			throw new TypeError('Unexpected type for descOrExpFlag');
 		}
 
 		return newModelDesc;
@@ -1818,14 +1814,14 @@ class CharModel {
 	_getBoundingBox() {
 		// Note: FFL includes three different bounding boxes for each
 		// FFLModelType. This only creates one box per CharModel.
-		const excludeFromBox = [FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS];
+		const excludeFromBox = new Set([FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
 		// Create bounding box selectively excluding mask and glass.
 		const box = new THREE.Box3();
 
 		this.meshes.traverse((child) => {
 			if (!(child instanceof THREE.Mesh) ||
 				// Exclude meshes whose modulateType are in excludeFromBox.
-				excludeFromBox.indexOf(child.geometry.userData.modulateType) !== -1) {
+				excludeFromBox.has(child.geometry.userData.modulateType)) {
 				return;
 			}
 			// Expand the box.
@@ -1878,13 +1874,13 @@ class CharModel {
 			this._facelineTarget = null;
 		}
 
-		this._maskTargets.forEach((target, i) => {
+		for (const [i, target] of this._maskTargets.entries()) {
 			if (target) {
 				// console.debug(`Disposing target ${target.texture.id} for mask ${i}`);
 				target.dispose();
 				this._maskTargets[i] = null;
 			}
-		});
+		}
 	}
 
 	// ---------------------- Public Methods - Cleanup, Data ----------------------
@@ -2104,7 +2100,7 @@ class CharModel {
 		// calculated here in libnn_mii/draw/src/detail/mii_VariableIconBodyImpl.cpp:
 		// void nn::mii::detail::`anonymous namespace'::GetBodyScale(struct nn::util::Float3 *, int, int)
 		// also in Mii Maker USA (0x000500101004A100 v50 ffl_app.rpx): FUN_020737b8
-		const m = 128.0;
+		const m = 128;
 		const x = (build * (height * (0.47 / m) + 0.4)) / m +
 			height * (0.23 / m) + 0.4;
 		const y = (height * (0.77 / m)) + 0.5;
@@ -2448,16 +2444,16 @@ function _allocateModelSource(data, module) {
  */
 function checkExpressionChangesShapes(i, warn = false) {
 	/** Expressions disabling nose: dog/cat, blank */
-	const expressionsDisablingNose = [49, 50, 51, 52, 61, 62];
+	const expressionsDisablingNose = new Set([49, 50, 51, 52, 61, 62]);
 	/** Expressions disabling mask: blank */
-	const expressionsDisablingMask = [61, 62];
+	const expressionsDisablingMask = new Set([61, 62]);
 
 	const prefix = `checkExpressionChangesShapes: An expression was enabled (${i}) that is meant to disable nose or mask shape for the entire CharModel, so it is only recommended to set this as a single expression rather than as one of multiple.`;
-	if (expressionsDisablingMask.indexOf(i) !== -1) {
+	if (expressionsDisablingMask.has(i)) {
 		warn && console.warn(`${prefix} (in this case, MASK SHAPE so there is supposed to be NO FACE)`);
 		return true;
 	}
-	if (expressionsDisablingNose.indexOf(i) !== -1) {
+	if (expressionsDisablingNose.has(i)) {
 		warn && console.warn(`${prefix} (nose shape)`);
 		return true;
 	}
@@ -2496,7 +2492,7 @@ function makeExpressionFlag(expressions) {
 		checkForChangeShapes = false; // Single expression, do not check this
 		// Fall-through.
 	} else if (!Array.isArray(expressions)) {
-		throw new Error('makeExpressionFlag: expected array or single number');
+		throw new TypeError('makeExpressionFlag: expected array or single number');
 	}
 
 	// Set multiple expressions in an array.
@@ -2693,8 +2689,8 @@ class DrawParam {
 			mesh.geometry.userData.modulateType = this.modulateParam.type;
 			// Note that color is a part of THREE.Material and will most always be there
 			mesh.geometry.userData.modulateColor = params.color instanceof THREE.Color
-				? [params.color.r, params.color.g, params.color.b, 1.0]
-				: [1.0, 1.0, 1.0, 1.0];
+				? [params.color.r, params.color.g, params.color.b, 1]
+				: [1, 1, 1, 1];
 			mesh.geometry.userData.cullMode = this.cullMode;
 		}
 		return mesh;
@@ -2735,7 +2731,7 @@ class DrawParam {
 		// Add attribute data.
 		for (const typeStr in attributes) {
 			const buffer = attributes[typeStr];
-			const type = parseInt(typeStr);
+			const type = Number.parseInt(typeStr);
 			// Skip disabled attributes that have size of 0.
 			if (buffer.size === 0) {
 				continue;
@@ -2837,10 +2833,10 @@ class DrawParam {
 		const texture = /** @type {THREE.Texture} */ (textureManager.get(texturePtr));
 		console.assert(texture, `_getTextureFromModulateParam: Texture not found for ${texturePtr}.`);
 		// Selective apply mirrored repeat (not supported on NPOT/mipmap textures for WebGL 1.0)
-		const applyMirrorTypes = [
-			FFLModulateType.SHAPE_FACELINE, FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_GLASS];
+		const applyMirrorTypes = new Set([FFLModulateType.SHAPE_FACELINE,
+			FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_GLASS]);
 		// ^^ Faceline, cap, and glass. NOTE that faceline texture won't go through here
-		if (applyMirrorTypes.indexOf(modulateParam.type) !== -1) {
+		if (applyMirrorTypes.has(modulateParam.type)) {
 			texture.wrapS = THREE.MirroredRepeatWrapping;
 			texture.wrapT = THREE.MirroredRepeatWrapping;
 			texture.needsUpdate = true;
@@ -3073,7 +3069,7 @@ class CharModelTextures {
 	 * @private
 	 */
 	static _unpackFFLiFacelineTextureTempObject(u8, ptr) {
-		const params = new Array(this.FacelinePartType.MAX);
+		const params = Array.from({ length: this.FacelinePartType.MAX });
 		for (let type = 0; type < this.FacelinePartType.MAX; type++) {
 			// Each DrawParam is prefixed by a pointer, so let's take an offset of 4
 			const p = ptr + 4 + ((4 + FFLDrawParam_size) * type);
@@ -3107,7 +3103,7 @@ class CharModelTextures {
 	 * @private
 	 */
 	static _unpackFFLiRawMaskDrawParam(u8, ptr) {
-		const params = new Array(this.MaskPartType.MAX);
+		const params = Array.from({ length: this.MaskPartType.MAX });
 		for (let type = 0; type < this.MaskPartType.MAX; type++) {
 			const p = ptr + (FFLDrawParam_size * type);
 			params[type] = new DrawParam(u8, p);
@@ -3151,9 +3147,9 @@ class CharModelTextures {
 		const offscreenScene = new THREE.Scene();
 		offscreenScene.background = color; // Use faceline color from CharModel.
 
-		drawParams.forEach(param => offscreenScene.add(
-			param.toMesh(materialClass, module, texMgr)
-		));
+		for (const param of drawParams) {
+			offscreenScene.add(param.toMesh(materialClass, module, texMgr));
+		}
 
 		// Determine if the alpha value needs to be 0.
 		if ('needsFacelineAlpha' in materialClass && materialClass.needsFacelineAlpha) {
@@ -3230,7 +3226,9 @@ class CharModelTextures {
 		// Some texures are shared which is why this
 		// needs to be done given that disposeMeshes
 		// unconditionally deletes textures.
-		scenes.forEach(scene => _disposeMany(scene));
+		for (const scene of scenes) {
+			_disposeMany(scene);
+		}
 
 		module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr,
 			expressionFlagPtr, FFL.singleResourceType); // charModel.modelDesc.resourceType);
@@ -3271,9 +3269,9 @@ class CharModelTextures {
 		// Create an offscreen transparent scene for 2D mask rendering.
 		const offscreenScene = new THREE.Scene();
 		offscreenScene.background = null;
-		drawParams.forEach(param => offscreenScene.add(
-			param.toMesh(materialClass, module, texMgr)
-		));
+		for (const param of drawParams) {
+			offscreenScene.add(param.toMesh(materialClass, module, texMgr));
+		}
 
 		const target = createAndRenderToTarget(offscreenScene,
 			_getIdentCamera(), renderer, resolution, resolution, options);
@@ -3297,7 +3295,7 @@ class CharModelTextures {
  * @returns {THREE.Mesh} The plane with the color and opacity specified.
  * @package
  */
-const _getBGClearMesh = (color, opacity = 0.0) =>
+const _getBGClearMesh = (color, opacity = 0) =>
 	new THREE.Mesh(new THREE.PlaneGeometry(2, 2),
 		new THREE.MeshBasicMaterial({
 			color, opacity,
@@ -3483,7 +3481,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		// Set default uniforms.
 		/** @type {Object<string, THREE.IUniform>} */
 		const uniforms = {
-			opacity: { value: 1.0 }
+			opacity: { value: 1 }
 		};
 		const blankMatrix3 = { value: new THREE.Matrix3() };
 		if (Number(THREE.REVISION) < 151) {
@@ -3585,7 +3583,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 			return;
 		}
 		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
+		const color3 = value || new THREE.Color(1, 1, 1);
 		/**
 		 * @type {THREE.Color}
 		 * @private
@@ -3627,12 +3625,12 @@ class GeometryConversion {
 	 * and converts signed integer formats (not uint8 for color) to float.
 	 * Attributes named "normal" are reduced to three components.
 	 * @param {THREE.BufferGeometry} geometry - The BufferGeometry to modify in place.
-	 * @throws {Error} Throws if an unsupported attribute format is encountered.
+	 * @throws {TypeError} Throws if an unsupported attribute format is encountered.
 	 * @public
 	 */
 	static convertForGLTF(geometry) {
 		if (!(geometry instanceof THREE.BufferGeometry) || !geometry.attributes) {
-			throw new Error('convGeometryToGLTFCompatible: geometry is not BufferGeometry with attributes.');
+			throw new TypeError('convGeometryToGLTFCompatible: geometry is not BufferGeometry with attributes.');
 		}
 
 		// Process each attribute in the geometry.
@@ -3676,7 +3674,7 @@ class GeometryConversion {
 				newArray = array;
 				normalized = true; // Not converted to float.
 			} else {
-				throw new Error(`convGeometryToGLTFCompatible: Unsupported attribute data type for ${key}: ${array.constructor.name}`);
+				throw new TypeError(`convGeometryToGLTFCompatible: Unsupported attribute data type for ${key}: ${array.constructor.name}`);
 			}
 
 			// Also not sure if this will leak from the old attribute or not. (Don't think so)
@@ -3740,7 +3738,7 @@ class GeometryConversion {
 			return (sign ? -1 : 1) * Math.pow(2, -14) * (mantissa / Math.pow(2, 10));
 		} else if (exponent === 0x1F) {
 			// NaN or Infinity.
-			return mantissa ? NaN : ((sign ? -1 : 1) * Infinity);
+			return mantissa ? Number.NaN : ((sign ? -1 : 1) * Infinity);
 		}
 		// Normalized number.
 		return (sign ? -1 : 1) *
@@ -3787,7 +3785,7 @@ class GeometryConversion {
 				const z = src[baseIn + 2] / 127;
 				const w = src[baseIn + 3] / 127;
 
-				const mag = Math.sqrt(x * x + y * y + z * z) || 1;
+				const mag = Math.hypot(x, y, z) || 1;
 
 				dst[baseOut] = x / mag;
 				dst[baseOut + 1] = y / mag;
@@ -3907,12 +3905,14 @@ function _disposeMany(group, scene) {
 
 		if (child.material) {
 			// Dispose depending on if it is an array or not.
-			Array.isArray(child.material)
+			if (Array.isArray(child.material)) {
 				// Assume that materials are compatible with THREE.MeshBasicMaterial for .map.
-				? child.material.forEach((material) => {
+				for (const material of child.material) {
 					disposeMaterial(/** @type {THREE.MeshBasicMaterial} */ (material));
-				})
-				: disposeMaterial(/** @type {THREE.MeshBasicMaterial} */(child.material));
+				}
+			} else {
+				disposeMaterial(/** @type {THREE.MeshBasicMaterial} */(child.material));
+			}
 		}
 	});
 

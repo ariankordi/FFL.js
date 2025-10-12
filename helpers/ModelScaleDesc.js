@@ -167,7 +167,7 @@ function applyScaleDesc(model, scaleVector, desc) {
 			// console.debug('scalar:', name);
 			scale.setScalar(scaleVector.x);
 		} else if (desc.xyzYMin1.includes(name)) {
-			scale.set(scaleVector.x, Math.max(scaleVector.y, 1.0), scaleVector.z);
+			scale.set(scaleVector.x, Math.max(scaleVector.y, 1), scaleVector.z);
 		} else {
 			// Default: Either xyz, yxz, or no scale.
 			if (desc.xyz === null) {

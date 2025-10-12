@@ -69,7 +69,7 @@ function initializeScene() {
 	// Create renderer here.
 	renderer = new THREE.WebGLRenderer();
 	renderer.setSize(window.innerWidth, window.innerHeight - 256);
-	document.body.appendChild(renderer.domElement);
+	document.body.append(renderer.domElement);
 
 	ffl.setRenderer(renderer);
 

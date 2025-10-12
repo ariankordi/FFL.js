@@ -87,7 +87,7 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 		);
 		const alpha = vec4(diffuse.mul(texel.r), texel.r);
 		const luminanceAlpha = vec4(diffuse.mul(texel.g), texel.r);
-		const alphaOpa = vec4(diffuse.mul(texel.r), 1.0);
+		const alphaOpa = vec4(diffuse.mul(texel.r), 1);
 
 		// Flags for selection: f2..f5 are 1.0 if modulateMode == 2/3/4/5 else 0.0.
 		const eq2 = float(modulateMode.equal(int(2)));
@@ -97,7 +97,7 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 
 		// For default behavior (mode 0 or any other not in 2..5),
 		// use baseResult. Weight = 1 - (f2+f3+f4+f5).
-		const eq0 = float(1.0).sub(eq2.add(eq3).add(eq4).add(eq5));
+		const eq0 = float(1).sub(eq2.add(eq3).add(eq4).add(eq5));
 
 		const outColor = vec4(
 			baseResult.mul(eq0)

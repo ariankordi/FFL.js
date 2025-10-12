@@ -1,9 +1,10 @@
 import eslint from '@eslint/js';
 import eslintCommentPlugin from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import stylisticPlugin from '@stylistic/eslint-plugin';
-import importPlugin from 'eslint-plugin-import-x';
 import globals from 'globals';
+import importPlugin from 'eslint-plugin-import-x';
 import jsdoc from 'eslint-plugin-jsdoc';
+import eslintPluginUnicorn from 'eslint-plugin-unicorn';
 
 const stylisticConfig = stylisticPlugin.configs.customize({
 	indent: 'tab',
@@ -35,7 +36,18 @@ export default [
 			'no-var': 'error',
 			// TODO: 'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^ignore' }],
 			'one-var': ['error', 'never'],
-			'curly': ['error', 'all'] // Always require curly braces
+			'curly': ['error', 'all'], // Always require curly braces
+
+			'class-methods-use-this': 'warn',
+			'func-names': 'warn',
+			'new-cap': 'warn',
+			'no-return-assign': 'warn',
+			'template-curly-spacing': 'warn'
+			// The following will trigger a bunch of errors:
+			// 'no-param-reassign': 'error', // This is used but ig alternative is larger code
+			// 'no-underscore-dangle': 'warn', // I prefer underscore to # right now as it's not always supported
+			// 'no-unused-expressions': 'warn', // This is the (condition) && function() substitute for one-line if
+			// 'no-plusplus': 'warn', // This is very standard convention in JS, C/C++
 		}
 	},
 
@@ -103,6 +115,20 @@ export default [
 
 	// https://www.npmjs.com/package/eslint-plugin-import - but specifically for TypeScript
 	// (importPlugin.flatConfigs.typescript: unused)
+
+	// https://www.npmjs.com/package/eslint-plugin-unicorn
+	eslintPluginUnicorn.configs.unopinionated,
+	{
+		rules: {
+			// Not a fan of the numeric separators, since I don't think those are a thing in C/C++.
+			'unicorn/numeric-separators-style': 'off',
+			// The below enforces that hex is always uppercase.
+			'unicorn/number-literal-case': 'off',
+			'unicorn/no-static-only-class': 'off',
+			'unicorn/prefer-string-replace-all': 'off', // ES2021 only
+			'unicorn/prefer-code-point': 'off' // Nullability does not match
+		}
+	},
 
 	// https://www.npmjs.com/package/eslint-plugin-jsdoc
 	jsdoc.configs['flat/recommended'],

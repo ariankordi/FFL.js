@@ -731,7 +731,7 @@ class HermitianCurve {
 	 * @param {number} m1 - Tangent at end point.
 	 * @returns {number} Interpolated value.
 	 */
-	interpolate(t, p0, p1, m0, m1) {
+	static interpolate(t, p0, p1, m0, m1) {
 		const h00 = 2 * t * t * t - 3 * t * t + 1;
 		const h10 = t * t * t - 2 * t * t + t;
 		const h01 = -2 * t * t * t + 3 * t * t;
@@ -746,7 +746,7 @@ class HermitianCurve {
 	 * @param {number} max - Maximum allowed value.
 	 * @returns {number} Clamped value.
 	 */
-	clamp(value, min, max) {
+	static clamp(value, min, max) {
 		return Math.min(Math.max(value, min), max);
 	}
 
@@ -766,15 +766,15 @@ class HermitianCurve {
 			const p0 = this.keys[keyIdx];
 			const p1 = this.keys[keyIdx + 1];
 			let t = (pos - p0.x) / (p1.x - p0.x);
-			t = isNaN(t) ? 0 : t;
-			const y = this.interpolate(
+			t = Number.isNaN(t) ? 0 : t;
+			const y = HermitianCurve.interpolate(
 				t,
 				p0.y,
 				p1.y,
 				p0.dx * (p1.x - p0.x),
 				p1.dx * (p1.x - p0.x)
 			);
-			lut[i] = Math.round(this.clamp(y, 0, 1) * 255);
+			lut[i] = Math.round(HermitianCurve.clamp(y, 0, 1) * 255);
 		}
 		return lut;
 	}
@@ -1005,9 +1005,9 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	static defaultDirLightColor1 = new THREE.Color(0.10039, 0.09255, 0.09255);
 	static defaultDirLightCount = 2;
 	/** @type {THREE.Vector4} */
-	static defaultDirLightDirAndType0 = new THREE.Vector4(-0.2, 0.5, 0.8, -1.0);
+	static defaultDirLightDirAndType0 = new THREE.Vector4(-0.2, 0.5, 0.8, -1);
 	/** @type {THREE.Vector4} */
-	static defaultDirLightDirAndType1 = new THREE.Vector4(0.0, -0.19612, 0.98058, -1.0);
+	static defaultDirLightDirAndType1 = new THREE.Vector4(0, -0.19612, 0.98058, -1);
 	/** @type {THREE.Color} */
 	static defaultLightColor = new THREE.Color(0.35137, 0.32392, 0.32392);
 
@@ -1056,7 +1056,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		/** @type {Object<string, THREE.IUniform>} */
 		const uniforms = {
 			uBoneCount: { value: 0 },
-			uAlpha: { value: 1.0 },
+			uAlpha: { value: 1 },
 			uHSLightGroundColor: {
 				value: LUTShaderMaterial.defaultHSLightGroundColor
 			},
@@ -1130,7 +1130,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		 * @param {number} opacity - Opacity mapped to .a.
 		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
 		 */
-		function toColor4(color, opacity = 1.0) {
+		function toColor4(color, opacity = 1) {
 			return new THREE.Vector4(color.r, color.g, color.b, opacity);
 		}
 		// Set an array of colors, assumed to have 3 elements.
@@ -1145,7 +1145,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 			return;
 		}
 		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value ? value : new THREE.Color(1.0, 1.0, 1.0);
+		const color3 = value || new THREE.Color(1, 1, 1);
 		/** @type {THREE.Color} */
 		this._color3 = color3.clone(); // Clone and save the color before modification.
 
@@ -1172,7 +1172,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	get opacity() {
 		if (!this.uniforms.uColor0) {
 			// Get from _opacity if it is set before constant color.
-			return this._opacity ? this._opacity : 1;
+			return this._opacity || 1;
 		}
 		// Return w (alpha) of the constant color uniform.
 		return /** @type {IUniformVector4} */ (this.uniforms.uColor0).value.w;
