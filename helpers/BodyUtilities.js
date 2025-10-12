@@ -188,12 +188,12 @@ function attachHeadToBody(body, head) {
  * parameters from the old material and userData to an FFL-compatible material.
  * Also see `onShaderMaterialChange` from FFL.js/examples/demo-basic.js.
  * @param {THREE.Mesh} mesh - The mesh to apply the material to.
- * @param {MaterialConstructor} NewMatClass - The new material class to apply.
+ * @param {MaterialConstructor} newMatClass - The new material class to apply.
  * @param {SampleShaderMaterialColorInfo|null} colorInfo - Specific object needed for SampleShaderMaterial.
  */
-function applyMaterialClassToMesh(mesh, NewMatClass, colorInfo) {
+function applyMaterialClassToMesh(mesh, newMatClass, colorInfo) {
 	/** Whether the new material supports FFL swizzling. */
-	const forFFLMaterial = 'modulateMode' in NewMatClass.prototype;
+	const forFFLMaterial = 'modulateMode' in newMatClass.prototype;
 	// Recreate material with same parameters but using the new shader class.
 	const oldMat = /** @type {THREE.MeshBasicMaterial} */ (mesh.material);
 	/** Get modulateMode/Type */
@@ -229,12 +229,12 @@ function applyMaterialClassToMesh(mesh, NewMatClass, colorInfo) {
 		params.modulateMode = userData.modulateMode ?? 0;
 		params.modulateType = userData.modulateType;
 	}
-	if (colorInfo && 'colorInfo' in NewMatClass.prototype) {
+	if (colorInfo && 'colorInfo' in newMatClass.prototype) {
 		// console.debug('got colorinfo on', mesh)
 		params.colorInfo = colorInfo;
 	}
 
-	mesh.material = new NewMatClass(params);
+	mesh.material = new newMatClass(params);
 	oldMat.dispose(); // Dispose the old material, keeping the map.
 
 	// HACK: For SampleShaderMaterial with glTF head models, let's not

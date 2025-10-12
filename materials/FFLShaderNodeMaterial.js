@@ -28,6 +28,7 @@ class ParamColorNode extends AttributeNode {
 		super('', 'vec4');
 	}
 
+	// eslint-disable-next-line class-methods-use-this -- Needs to be a method for the inherited class.
 	getAttributeName = () => '_color';
 
 	/**

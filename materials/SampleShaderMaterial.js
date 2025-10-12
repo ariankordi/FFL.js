@@ -341,13 +341,13 @@ void main()
  * @property {number} rimLightWidth
  */
 
-class NnMiiMaterialTables {
+const NnMiiMaterialTables = {
 	/**
 	 * Material uniform table mapping to FFLModulateType.
 	 * @type {Array<DrawParamMaterial>}
 	 * @package
 	 */
-	static drawParamMaterials = [
+	drawParamMaterials: [
 		// ShapeFaceline
 		{
 			halfLambertFactor: 0.4,
@@ -462,7 +462,7 @@ class NnMiiMaterialTables {
 			rimLightPower: 1,
 			rimLightWidth: 0.5
 		}
-	];
+	],
 
 	// // -----------------------------------------------------------------
 	// //  Sub-Specular Scattering Colors
@@ -478,7 +478,7 @@ class NnMiiMaterialTables {
 
 	// Linear -------------------------------------------------------------
 
-	static sssFacelineColors = [
+	sssFacelineColors: [
 		0xA52200,
 		0xA40900,
 		0x4B0000,
@@ -489,9 +489,9 @@ class NnMiiMaterialTables {
 		0x961C09,
 		0x140101,
 		0x050000
-	];
+	],
 
-	static sssFavoriteColorsBody = [
+	sssFavoriteColorsBody: [
 		0x2A0301,
 		0x460000,
 		0x331501,
@@ -504,9 +504,9 @@ class NnMiiMaterialTables {
 		0x000004,
 		0x0B162C,
 		0x000000
-	];
+	],
 
-	static sssFavoriteColorsCap = [
+	sssFavoriteColorsCap: [
 		0x550001,
 		0x82460A,
 		0x64230A,
@@ -519,9 +519,9 @@ class NnMiiMaterialTables {
 		0x0A0502,
 		0x7C7C64,
 		0x000000
-	];
+	],
 
-	static sssCommonColors = [
+	sssCommonColors: [
 		0x020101,
 		0x030100,
 		0x040100,
@@ -622,12 +622,12 @@ class NnMiiMaterialTables {
 		0x090909,
 		0x0B0A0A,
 		0x060606
-	];
+	],
 
-	static sssPantsColors = [
+	sssPantsColors: [
 		0x000000,
 		0x280000
-	];
+	],
 
 	// // -----------------------------------------------------------------
 	// //  Specular Colors
@@ -645,7 +645,7 @@ class NnMiiMaterialTables {
 
 	// Linear -------------------------------------------------------------
 
-	static specularFacelineColors = [
+	specularFacelineColors: [
 		0x2D150F,
 		0x23180A,
 		0x1F0A03,
@@ -656,9 +656,9 @@ class NnMiiMaterialTables {
 		0x23140A,
 		0x0F0501,
 		0x050201
-	];
+	],
 
-	static specularFavoriteColorsBody = [
+	specularFavoriteColorsBody: [
 		0x2A0604,
 		0x331605,
 		0x332B06,
@@ -671,9 +671,9 @@ class NnMiiMaterialTables {
 		0x080301,
 		0x382C2C,
 		0x050505
-	];
+	],
 
-	static specularFavoriteColorsCap = [
+	specularFavoriteColorsCap: [
 		0x3F0002,
 		0x372507,
 		0x3C1E0A,
@@ -686,9 +686,9 @@ class NnMiiMaterialTables {
 		0x0A0502,
 		0x28281E,
 		0x020202
-	];
+	],
 
-	static specularCommonColors = [
+	specularCommonColors: [
 		0x050404,
 		0x200C02,
 		0x2E0901,
@@ -789,14 +789,14 @@ class NnMiiMaterialTables {
 		0x393939,
 		0x42403E,
 		0x010101
-	];
+	],
 
-	static specularPantsColors = [
+	specularPantsColors: [
 		0x050505,
 		0x3C2800
-	];
+	],
 
-	static rimFacelineForeheadColors = [
+	rimFacelineForeheadColors: [
 		0x431E16,
 		0x3C2811,
 		0x3E1406,
@@ -807,10 +807,10 @@ class NnMiiMaterialTables {
 		0x3C2515,
 		0x3C0C03,
 		0x3C140A
-	];
+	],
 
 	/** Single specular color for glass. */
-	static specularGlassColors = [0x191919];
+	specularGlassColors: [0x191919],
 
 	/**
 	 * Gets a table that maps {@link FFLModulateType} to the
@@ -818,8 +818,8 @@ class NnMiiMaterialTables {
 	 * @returns {Array<Array<number>|null>} The sssColor tables mapping to
 	 * each {@link FFLModulateType}, or null if it doesn't apply.
 	 */
-	static getTypeToSssColorTable = () =>
-		[
+	getTypeToSssColorTable() {
+		return [
 			// ShapeFaceline
 			this.sssFacelineColors,
 			// ShapeBeard
@@ -843,6 +843,7 @@ class NnMiiMaterialTables {
 			// Pants
 			this.sssPantsColors
 		];
+	},
 
 	/**
 	 * Gets a table that maps {@link FFLModulateType} to the
@@ -850,8 +851,8 @@ class NnMiiMaterialTables {
 	 * @returns {Array<Array<number>|null>} The specularColor tables mapping to
 	 * each {@link FFLModulateType}, or null if it doesn't apply.
 	 */
-	static getTypeToSpecularColorTable = () =>
-		[
+	getTypeToSpecularColorTable() {
+		return [
 			// ShapeFaceline
 			this.specularFacelineColors,
 			// ShapeBeard
@@ -875,6 +876,7 @@ class NnMiiMaterialTables {
 			// Pants
 			this.specularPantsColors
 		];
+	},
 
 	/**
 	 * Because the cap material is the only one where material
@@ -882,7 +884,7 @@ class NnMiiMaterialTables {
 	 * @param {DrawParamMaterial} material - The material for cap.
 	 * @param {number} index - The favorite color index.
 	 */
-	static modifyCapMaterial(material, index) {
+	modifyCapMaterial(material, index) {
 		switch (index) {
 			case 0: // FFL_FAVORITE_COLOR_RED
 				material.specularFactorB = 0;
@@ -898,7 +900,7 @@ class NnMiiMaterialTables {
 				break;
 		}
 	}
-}
+};
 
 // // ---------------------------------------------------------------------
 // //  SampleShaderMaterial Class
@@ -1189,6 +1191,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.lightDirInView = { value: value };
 	}
 
+	// eslint-disable-next-line class-methods-use-this -- Not an actual method.
 	get colorInfo() {
 		// @ts-expect-error -- The getter needs to work, but a value can't be provided.
 		return null;

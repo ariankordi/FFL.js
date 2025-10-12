@@ -4,6 +4,7 @@ import stylisticPlugin from '@stylistic/eslint-plugin';
 import globals from 'globals';
 import importPlugin from 'eslint-plugin-import-x';
 import jsdoc from 'eslint-plugin-jsdoc';
+// import sortClassMembers from 'eslint-plugin-sort-class-members';
 import eslintPluginUnicorn from 'eslint-plugin-unicorn';
 
 const stylisticConfig = stylisticPlugin.configs.customize({
@@ -38,15 +39,16 @@ export default [
 			'one-var': ['error', 'never'],
 			'curly': ['error', 'all'], // Always require curly braces
 
-			'class-methods-use-this': 'warn',
-			'func-names': 'warn',
-			'new-cap': 'warn',
-			'no-return-assign': 'warn',
-			'template-curly-spacing': 'warn'
+			'class-methods-use-this': 'error',
+			'no-return-assign': 'error',
+			'template-curly-spacing': 'error'
 			// The following will trigger a bunch of errors:
 			// 'no-param-reassign': 'error', // This is used but ig alternative is larger code
+			// 'no-use-before-define': 'error', // We don't have imports right now
+			// 'func-names': 'error', // While ()=>{} is preferred, sometimes this is needed
 			// 'no-underscore-dangle': 'warn', // I prefer underscore to # right now as it's not always supported
 			// 'no-unused-expressions': 'warn', // This is the (condition) && function() substitute for one-line if
+			// 'new-cap': 'error', // Three.js node materials definitely violate this
 			// 'no-plusplus': 'warn', // This is very standard convention in JS, C/C++
 		}
 	},
@@ -116,6 +118,11 @@ export default [
 	// https://www.npmjs.com/package/eslint-plugin-import - but specifically for TypeScript
 	// (importPlugin.flatConfigs.typescript: unused)
 
+	// https://www.npmjs.com/package/eslint-plugin-sort-class-members
+	// sortClassMembers.configs['flat/recommended'],
+	// ^ Not a fan of this. Not sure if the order always matters
+	// , shouldn't we organize by functional area instead of just "type"?
+
 	// https://www.npmjs.com/package/eslint-plugin-unicorn
 	eslintPluginUnicorn.configs.unopinionated,
 	{
@@ -124,8 +131,9 @@ export default [
 			'unicorn/numeric-separators-style': 'off',
 			// The below enforces that hex is always uppercase.
 			'unicorn/number-literal-case': 'off',
-			'unicorn/no-static-only-class': 'off',
+			// 'unicorn/no-static-only-class': 'off',
 			'unicorn/prefer-string-replace-all': 'off', // ES2021 only
+			'unicorn/no-array-sort': 'off', // ES2023 only
 			'unicorn/prefer-code-point': 'off' // Nullability does not match
 		}
 	},

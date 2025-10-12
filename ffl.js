@@ -8,7 +8,10 @@
 
 import * as THREE from 'three';
 
-/** @typedef {import('three/webgpu').Renderer|THREE.WebGLRenderer} Renderer */
+/**
+ * Generic type for both types of Three.js renderers.
+ * @typedef {import('three/webgpu').Renderer|THREE.WebGLRenderer} Renderer
+ */
 
 // // ---------------------------------------------------------------------
 // //  Emscripten Module Type
@@ -1005,7 +1008,7 @@ class ExpressionNotSet extends Error {
 // // ---------------------------------------------------------------------
 // //  FFL Initialization
 // // ---------------------------------------------------------------------
-// TODO PATH: src/Init.js
+// TODO PATH: src/Initialization.js
 
 /**
  * Class for initializing FFL.js.
@@ -1014,120 +1017,10 @@ class ExpressionNotSet extends Error {
  */
 class FFL {
 	/**
-	 * Loads data from TypedArray or fetch response directly into Emscripten heap.
-	 * If passed a fetch response, it streams it directly into memory and avoids copying.
-	 * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data.
-	 * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
-	 * @param {Module} module - The Emscripten module instance.
-	 * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
-	 * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
-	 * @private
-	 */
-	static async _loadDataIntoHeap(resource, module) {
-		// These need to be accessible by the catch statement:
-		let heapSize;
-		let heapPtr;
-		try {
-			// Copy resource into heap.
-			if (resource instanceof ArrayBuffer) {
-				resource = new Uint8Array(resource);
-			}
-			if (resource instanceof Uint8Array) {
-				// Comes in as Uint8Array, allocate and set it.
-				heapSize = resource.length;
-				heapPtr = module._malloc(heapSize);
-				// console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
-				// Allocate and set this area in the heap as the passed buffer.
-				module.HEAPU8.set(resource, heapPtr);
-			} else if (resource instanceof Response) {
-				// Handle as fetch response.
-				if (!resource.ok) {
-					throw new Error(`_loadDataIntoHeap: Failed to fetch resource at URL = ${resource.url}, response code = ${resource.status}`);
-				}
-				// Throw an error if it is not a streamable response.
-				if (!resource.body) {
-					throw new Error(`_loadDataIntoHeap: Fetch response body is null (resource.body = ${resource.body})`);
-				}
-				// Get the total size of the resource from the headers.
-				const contentLength = resource.headers.get('Content-Length');
-				if (!contentLength) {
-					// Cannot stream the response. Read as ArrayBuffer and reinvoke function.
-					console.debug('_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.');
-					return this._loadDataIntoHeap(await resource.arrayBuffer(), module);
-				}
-
-				// Allocate into heap using the Content-Length.
-				heapSize = Number.parseInt(contentLength, 10);
-				heapPtr = module._malloc(heapSize);
-
-				// console.debug(`loadDataIntoHeap: Streaming from fetch response. ` +
-				// 	`Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
-
-				// Begin reading and streaming chunks into the heap.
-				const reader = resource.body.getReader();
-				let offset = heapPtr;
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) {
-						break;
-					}
-					// Copy value directly into HEAPU8 with offset.
-					module.HEAPU8.set(value, offset);
-					offset += value.length;
-				}
-			} else {
-				throw new TypeError('loadDataIntoHeap: type is not Uint8Array or Response');
-			}
-
-			return { pointer: heapPtr, size: heapSize };
-		} catch (error) {
-			// Free memory upon exception, if allocated.
-			if (heapPtr) {
-				module._free(heapPtr);
-			}
-			throw error;
-		}
-	}
-
-	/**
 	 * Resource type to load single resource into = FFL_RESOURCE_TYPE_HIGH
 	 * @package
 	 */
 	static singleResourceType = 1;
-
-	/**
-	 * @typedef {Object} FFLResourceDesc
-	 * @property {Array<number>} pData
-	 * @property {Array<number>} size
-	 * @private
-	 */
-	static FFLResourceDesc_size = 16;
-	/**
-	 * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
-	 * @returns {Uint8Array} Byte form of FFLResourceDesc.
-	 * @private
-	 */
-	static _packFFLResourceDesc(obj) {
-		const u8 = new Uint8Array(this.FFLResourceDesc_size);
-		const view = new DataView(u8.buffer);
-		view.setUint32(0, obj.pData[0], true);
-		view.setUint32(4, obj.pData[1], true);
-		view.setUint32(8, obj.size[0], true);
-		view.setUint32(12, obj.size[1], true);
-		return u8;
-	}
-
-	/**
-	 * @param {Module} module - Emscripten module.
-	 * @param {FFLResourceDesc} resourceDesc - FFLResourceDesc to free later.
-	 * @private
-	 */
-	constructor(module, resourceDesc) {
-		/** @package */
-		this.module = module;
-		/** @package */
-		this.resourceDesc = resourceDesc;
-	}
 
 	/**
 	 * Initializes FFL by copying the resource into heap and calling FFLInitRes.
@@ -1241,6 +1134,104 @@ class FFL {
 	}
 
 	/**
+	 * @typedef {Object} FFLResourceDesc
+	 * @property {Array<number>} pData
+	 * @property {Array<number>} size
+	 * @private
+	 */
+	static FFLResourceDesc_size = 16;
+	/**
+	 * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
+	 * @returns {Uint8Array} Byte form of FFLResourceDesc.
+	 * @private
+	 */
+	static _packFFLResourceDesc(obj) {
+		const u8 = new Uint8Array(this.FFLResourceDesc_size);
+		const view = new DataView(u8.buffer);
+		view.setUint32(0, obj.pData[0], true);
+		view.setUint32(4, obj.pData[1], true);
+		view.setUint32(8, obj.size[0], true);
+		view.setUint32(12, obj.size[1], true);
+		return u8;
+	}
+
+	/**
+	 * Loads data from TypedArray or fetch response directly into Emscripten heap.
+	 * If passed a fetch response, it streams it directly into memory and avoids copying.
+	 * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data.
+	 * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
+	 * @param {Module} module - The Emscripten module instance.
+	 * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
+	 * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
+	 * @private
+	 */
+	static async _loadDataIntoHeap(resource, module) {
+		// These need to be accessible by the catch statement:
+		let heapSize;
+		let heapPtr;
+		try {
+			// Copy resource into heap.
+			if (resource instanceof ArrayBuffer) {
+				resource = new Uint8Array(resource);
+			}
+			if (resource instanceof Uint8Array) {
+				// Comes in as Uint8Array, allocate and set it.
+				heapSize = resource.length;
+				heapPtr = module._malloc(heapSize);
+				// console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
+				// Allocate and set this area in the heap as the passed buffer.
+				module.HEAPU8.set(resource, heapPtr);
+			} else if (resource instanceof Response) {
+				// Handle as fetch response.
+				if (!resource.ok) {
+					throw new Error(`_loadDataIntoHeap: Failed to fetch resource at URL = ${resource.url}, response code = ${resource.status}`);
+				}
+				// Throw an error if it is not a streamable response.
+				if (!resource.body) {
+					throw new Error(`_loadDataIntoHeap: Fetch response body is null (resource.body = ${resource.body})`);
+				}
+				// Get the total size of the resource from the headers.
+				const contentLength = resource.headers.get('Content-Length');
+				if (!contentLength) {
+					// Cannot stream the response. Read as ArrayBuffer and reinvoke function.
+					console.debug('_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.');
+					return this._loadDataIntoHeap(await resource.arrayBuffer(), module);
+				}
+
+				// Allocate into heap using the Content-Length.
+				heapSize = Number.parseInt(contentLength, 10);
+				heapPtr = module._malloc(heapSize);
+
+				// console.debug(`loadDataIntoHeap: Streaming from fetch response. ` +
+				// 	`Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
+
+				// Begin reading and streaming chunks into the heap.
+				const reader = resource.body.getReader();
+				let offset = heapPtr;
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) {
+						break;
+					}
+					// Copy value directly into HEAPU8 with offset.
+					module.HEAPU8.set(value, offset);
+					offset += value.length;
+				}
+			} else {
+				throw new TypeError('loadDataIntoHeap: type is not Uint8Array or Response');
+			}
+
+			return { pointer: heapPtr, size: heapSize };
+		} catch (error) {
+			// Free memory upon exception, if allocated.
+			if (heapPtr) {
+				module._free(heapPtr);
+			}
+			throw error;
+		}
+	}
+
+	/**
 	 * Frees all pData pointers within FFLResourceDesc.
 	 * @param {FFLResourceDesc|null} desc - Resource description containing pointers.
 	 * @param {Module} module - Emscripten module to call _free on.
@@ -1259,6 +1250,18 @@ class FFL {
 				desc.pData[i] = 0;
 			}
 		}
+	}
+
+	/**
+	 * @param {Module} module - Emscripten module.
+	 * @param {FFLResourceDesc} resourceDesc - FFLResourceDesc to free later.
+	 * @private
+	 */
+	constructor(module, resourceDesc) {
+		/** @package */
+		this.module = module;
+		/** @package */
+		this.resourceDesc = resourceDesc;
 	}
 
 	/**
@@ -1362,6 +1365,8 @@ class CharModel {
 			throw new Error('CharModel: data is null or undefined.');
 		}
 
+		// Set private properties.
+
 		/** @private */
 		this._module = ffl.module;
 		/**
@@ -1382,42 +1387,38 @@ class CharModel {
 		 */
 		this._materialTextureClass = materialClass;
 
-		// createCharModel
+		// Initialize FFLCharModel.
 
-		// Allocate memory for model source, description, char model, and char info.
 		const modelSourcePtr = this._module._malloc(FFLCharModelSource_size);
 		const modelDescPtr = this._module._malloc(CharModel.FFLCharModelDesc_size);
-
 		/**
 		 * Pointer to the FFLiCharModel in memory, set to null when deleted.
 		 * @private
 		 */
 		this._ptr = this._module._malloc(CharModel.FFLiCharModel_size);
 
-		// data = getRandomCharInfo(module, FFLGender.FEMALE, FFLAge.ALL, FFLRace.WHITE);
+		// this._data = getRandomCharInfo(module, FFLGender.FEMALE, FFLAge.ALL, FFLRace.WHITE);
 		// console.debug('getRandomCharInfo result:', FFLiCharInfo.unpack(data));
-		// Get FFLCharModelSource. This converts and allocates CharInfo.
+		// Get FFLCharModelSource. This function converts and allocates FFLiCharInfo.
 		const modelSource = _allocateModelSource(this._data, this._module);
 		/** Get pBuffer to free it later. */
 		const charInfoPtr = modelSource.pBuffer;
-
 		const modelSourceBuffer = CharModel._packFFLCharModelSource(modelSource);
 		this._module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
 
 		/** @private */
 		this._modelDesc = CharModel._descOrExpFlagToModelDesc(descOrExpFlag);
-		// Set field to enable expressions past 19. This field
-		// exists because some callers would leave the other
-		// bits undefined but this does not so no reason to not enable
+		// This is needed to enable expressions past 19.
 		this._modelDesc.modelFlag |= FFLModelFlag.NEW_EXPRESSIONS;
 
 		const modelDescBuffer = CharModel._packFFLCharModelDesc(this._modelDesc);
 		this._module.HEAPU8.set(modelDescBuffer, modelDescPtr);
 
+		// At this point, CharModelSource/CharModelDesc are allocated. Create CharInfo.
 		try {
 			// Verify CharInfo before creating.
 			if (verify) {
-				verifyCharInfo(charInfoPtr, { module: this._module }, false); // Don't verify name.
+				verifyCharInfo(charInfoPtr, ffl, false); // Don't verify name.
 			}
 
 			/**
@@ -1431,9 +1432,7 @@ class CharModel {
 				modelSourcePtr, modelDescPtr, this._textureManager.callbackPtr);
 			FFLResultException.handleResult(result, 'FFLInitCharModelCPUStep');
 		} catch (error) {
-			if (this._textureManager) {
-				this._textureManager.dispose();
-			}
+			(this._textureManager) && this._textureManager.dispose();
 			// Free CharModel prematurely.
 			this._module._free(this._ptr);
 			throw error;
@@ -1443,15 +1442,13 @@ class CharModel {
 			this._module._free(modelDescPtr);
 			this._module._free(charInfoPtr);
 			// Callback itself is longer read by FFL.
-			if (this._textureManager) {
-				this._textureManager.disposeCallback();
-			}
+			(this._textureManager) && this._textureManager.disposeCallback();
 		}
 
 		// console.debug(`createCharModel: Initialized for ` +
 		// `"${charModel.this.charInfo.name}", ptr =`, charModelPtr);
 
-		// end createCharModel
+		// End initialization of FFLiCharModel. Further construct the CharModel.
 
 		// this._model = CharModel._unpackFFLiCharModel(module.HEAPU8, this._ptr);
 		/**
@@ -1476,7 +1473,6 @@ class CharModel {
 		 * @package
 		 */
 		this._maskTargets = Array.from({ length: FFLExpression.MAX }).fill(null);
-
 		/**
 		 * List of enabled expressions that can be set with {@link CharModel.setExpression}.
 		 * @type {Uint32Array}
@@ -1488,30 +1484,14 @@ class CharModel {
 				// If the value is 0 (null), map it.
 				val === 0 ? FFLExpression.MAX : idx)
 			.filter(i => i !== FFLExpression.MAX); // MAX = null, filter them out.
-
 		/** @private */
 		this._expression = this._model.getExpression();
-
 		/**
 		 * Skin/face color for this model.
 		 * @type {THREE.Color}
 		 * @public
 		 */
 		this.facelineColor = new THREE.Color();
-
-		/**
-		 * Group of THREE.Mesh objects representing the CharModel.
-		 * @type {THREE.Group}
-		 * @public
-		 */
-		this.meshes = new THREE.Group();
-		// Set boundingBox getter ("this" = CharModel), dummy geometry needed
-		// this.meshes.geometry = { }; // NOTE: is this a good idea?
-		// Object.defineProperty(this.meshes.geometry, 'boundingBox',
-		// { get: () => this.boundingBox }); // NOTE: box is too large using this
-
-		this._addCharModelMeshes(this._module); // Populate this.meshes.
-
 		/**
 		 * Contains the CharInfo of the model.
 		 * Changes to this will not be reflected whatsoever.
@@ -1519,6 +1499,19 @@ class CharModel {
 		 * @public
 		 */
 		this.charInfo = this._model.getCharInfo();
+		/**
+		 * Group of THREE.Mesh objects representing the CharModel.
+		 * @type {THREE.Group}
+		 * @public
+		 */
+		this.meshes = new THREE.Group();
+
+		// Populate this.meshes.
+		// NOTE: The properties defined below this will not be available
+		// in this function. However, they will be treated as if they're
+		// always available in the class.
+		this._addCharModelMeshes(this._module);
+
 		/**
 		 * Favorite color, also used for hats and body.
 		 * @public
@@ -1529,6 +1522,10 @@ class CharModel {
 		 * @public
 		 */
 		this.partsTransform = this._model.getPartsTransform();
+		// Set boundingBox getter ("this" = CharModel), dummy geometry needed
+		// this.meshes.geometry = { }; // NOTE: is this a good idea?
+		// Object.defineProperty(this.meshes.geometry, 'boundingBox',
+		// { get: () => this.boundingBox }); // NOTE: box is too large using this
 		/** @public */
 		this.boundingBox = this._getBoundingBox();
 
@@ -1539,39 +1536,7 @@ class CharModel {
 		}
 	}
 
-	/** @private */
-	static FFLCharModelDesc_size = 24;
-	/**
-	 * @param {FFLCharModelDesc} obj - Object form of FFLCharModelDesc.
-	 * @returns {Uint8Array} Byte form of FFLCharModelDesc.
-	 * @private
-	 */
-	static _packFFLCharModelDesc(obj) {
-		const u8 = new Uint8Array(this.FFLCharModelDesc_size);
-		const view = new DataView(u8.buffer);
-		view.setUint32(0, obj.resolution, true);
-		const flag = obj.allExpressionFlag;
-		view.setUint32(4, flag[0], true);
-		view.setUint32(8, flag[1], true);
-		view.setUint32(12, flag[2], true);
-		view.setUint32(16, obj.modelFlag, true);
-		view.setUint32(20, FFL.singleResourceType, /* obj.resourceType */ true);
-		return u8;
-	}
-
-	/**
-	 * @param {FFLCharModelSource} obj - Object form of FFLCharModelSource.
-	 * @returns {Uint8Array} Byte form of FFLCharModelSource.
-	 * @private
-	 */
-	static _packFFLCharModelSource(obj) {
-		const u8 = new Uint8Array(FFLCharModelSource_size);
-		const view = new DataView(u8.buffer);
-		view.setUint32(0, obj.dataSource >>> 0, true);
-		view.setUint32(4, obj.pBuffer, true);
-		// view.setUint16(8, obj.index, true);
-		return u8;
-	}
+	// Public methods:
 
 	/**
 	 * Initializes textures (faceline and mask) for a CharModel.
@@ -1603,91 +1568,6 @@ class CharModel {
 			} else {
 				console.error('CharModel._materialClass does not support modulateMode (no getter), but the _materialTextureClass is either the same or also does not support modulateMode. as a result, textures will have wrong colors');
 			}
-		}
-	}
-
-	/** @private */
-	static FFLiCharModel_size = 2156;
-
-	/**
-	 * Used to index DrawParam array in FFLiCharModel.
-	 * @enum {number}
-	 * @private
-	 */
-	static FFLiShapeType = {
-		OPA_BEARD: 0,
-		OPA_FACELINE: 1,
-		OPA_HAIR_NORMAL: 2,
-		OPA_FOREHEAD_NORMAL: 3,
-		XLU_MASK: 4,
-		XLU_NOSELINE: 5,
-		OPA_NOSE: 6,
-		OPA_HAT_NORMAL: 7,
-		XLU_GLASS: 8,
-		OPA_HAIR_CAP: 9,
-		OPA_FOREHEAD_CAP: 10,
-		OPA_HAT_CAP: 11,
-		MAX: 12
-	};
-
-	/**
-	 * This is the method that populates meshes
-	 * from the internal FFLiCharModel instance.
-	 * @param {Module} module - Module to pass to DrawParam.toMesh to access mesh data.
-	 * @private
-	 */
-	_addCharModelMeshes(module) {
-		console.assert(this.meshes, '_addCharModelMeshes: this.meshes is null or undefined, was this CharModel disposed?');
-
-		/** @type {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo|null} */
-		let colorInfo = null;
-		// Prepare colorInfo from CharModel if it is needed on the mesh's material.
-		if ('colorInfo' in this._materialClass.prototype) {
-			colorInfo = this.getColorInfo();
-		}
-
-		// Add all meshes in the CharModel to the class instance.
-		for (let shapeType = 0; shapeType < CharModel.FFLiShapeType.MAX; shapeType++) {
-			// Iterate through all DrawParams and convert to THREE.Mesh.
-			const ptr = this._model.getDrawParamPtr(shapeType);
-			const drawParam = new DrawParam(module.HEAPU8, ptr);
-
-			// Copy faceline color from nose mesh, as it's always present/simplest.
-			if (shapeType === CharModel.FFLiShapeType.OPA_NOSE) {
-				this.facelineColor
-					.fromArray(module.HEAPF32, drawParam.modulateParam.pColorR / 4);
-				// Assume this is in working color space because it is used for clear color.
-			}
-
-			// Skip shape if it's not empty.
-			if (!drawParam.primitiveParam.indexCount) {
-				continue;
-			}
-			const mesh = drawParam.toMesh(this._materialClass,
-				module, this._textureManager);
-			// Use FFLModulateType to indicate render order.
-			mesh.renderOrder = drawParam.modulateParam.type + 1;
-			// renderOrder = 0 is sometimes unexpected, so let's make this one-indexed.
-
-			// Assign colorInfo from the CharModel.
-			if ('colorInfo' in mesh.material) {
-				mesh.material.colorInfo = colorInfo;
-			}
-
-			// Set faceline and mask meshes to use later.
-			switch (shapeType) {
-				case CharModel.FFLiShapeType.OPA_FACELINE:
-					/** @private */
-					this._facelineMesh = mesh;
-					break;
-				case CharModel.FFLiShapeType.XLU_MASK:
-					/** @private */
-					this._maskMesh = mesh;
-					break;
-			}
-			// mesh.name = Object.keys(FFLiShapeType)[shapeType];
-
-			this.meshes.add(mesh); // Add the mesh or null.
 		}
 	}
 
@@ -1750,7 +1630,7 @@ class CharModel {
 			// Set new CharModel and unset texture only flag.
 			charModel._model = newCharModel._model;
 			charModel._modelDesc = newModelDesc;
-			charModel._modelDesc.modelFlag &= ~FFLModelFlag.NEW_MASK_ONLY;
+			// charModel._modelDesc.modelFlag &= ~FFLModelFlag.NEW_MASK_ONLY;
 			charModel.expressions = newCharModel.expressions;
 			charModel._expression = newCharModel._expression;
 			// Apply new faceline and mask to old shapes.
@@ -1764,126 +1644,6 @@ class CharModel {
 
 		return newCharModel; // Return new or modified CharModel.
 	}
-
-	/**
-	 * Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
-	 * Uses the `defaultDesc` as a fallback to return if input is null or applies expression to it.
-	 * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
-	 * an array of expressions, a single expression, or an expression flag (Uint32Array).
-	 * @param {FFLCharModelDesc} [defaultDesc] - Fallback if descOrExpFlag is null or expression flag only.
-	 * @returns {FFLCharModelDesc} The CharModelDesc with the expression applied, or the default.
-	 * @throws {TypeError} Throws if `descOrExpFlag` is an unexpected type.
-	 * @private
-	 */
-	static _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDescDefault) {
-		if (!descOrExpFlag && typeof descOrExpFlag !== 'number') {
-			return defaultDesc; // Use default if input is falsey.
-		}
-
-		// Convert descOrExpFlag to an expression flag if needed.
-		if (typeof descOrExpFlag === 'number' || Array.isArray(descOrExpFlag)) {
-			// Array of expressions or single expression was passed in.
-			descOrExpFlag = makeExpressionFlag(descOrExpFlag);
-		}
-
-		/** Shallow clone of {@link defaultDesc}. */
-		let newModelDesc = Object.assign({}, defaultDesc);
-
-		// Process descOrExpFlag based on what it is.
-		if (descOrExpFlag instanceof Uint32Array) {
-			// If this is already an expression flag (Uint32Array),
-			// or set to one previously, use it with existing CharModelDesc.
-			newModelDesc.allExpressionFlag = descOrExpFlag;
-		} else if (typeof descOrExpFlag === 'object') {
-			// Assume that descOrExpFlag is a new FFLCharModelDesc.
-			newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);
-		} else {
-			throw new TypeError('Unexpected type for descOrExpFlag');
-		}
-
-		return newModelDesc;
-	}
-
-	// --------------------------- Private Get Methods ---------------------------
-
-	/**
-	 * Calculates the bounding box from the meshes.
-	 * @returns {THREE.Box3} The bounding box.
-	 * @private
-	 */
-	_getBoundingBox() {
-		// Note: FFL includes three different bounding boxes for each
-		// FFLModelType. This only creates one box per CharModel.
-		const excludeFromBox = new Set([FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
-		// Create bounding box selectively excluding mask and glass.
-		const box = new THREE.Box3();
-
-		this.meshes.traverse((child) => {
-			if (!(child instanceof THREE.Mesh) ||
-				// Exclude meshes whose modulateType are in excludeFromBox.
-				excludeFromBox.has(child.geometry.userData.modulateType)) {
-				return;
-			}
-			// Expand the box.
-			box.expandByObject(child);
-		});
-		return box;
-	}
-
-	/**
-	 * @returns {THREE.Color} The favorite color as THREE.Color.
-	 * @private
-	 */
-	_getFavoriteColor() {
-		const mod = this._module;
-		const favoriteColor = this.charInfo.favoriteColor;
-		/** Allocate return pointer. */
-		const colorPtr = mod._malloc(FFLColor_size);
-		mod._FFLGetFavoriteColor(colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
-		const color = _getFFLColor(mod.HEAPF32, colorPtr);
-		mod._free(colorPtr);
-		return color;
-	}
-
-	// --------------------------------- Disposal ---------------------------------
-
-	/**
-	 * Frees and deletes the FFLCharModel, which can be done after rendering textures.
-	 * This is not the same as `dispose()` which cleans up the scene.
-	 * @private
-	 */
-	_finalizeCharModel() {
-		if (this._ptr) {
-			this._module._FFLDeleteCharModel(this._ptr);
-			this._module._free(this._ptr);
-			this._ptr = 0;
-		}
-		// @ts-expect-error - null not assignable. Always non-null except disposed.
-		this._model = null;
-	}
-
-	/**
-	 * Disposes RenderTargets for textures created by the CharModel.
-	 * @public
-	 */
-	disposeTargets() {
-		// Dispose RenderTargets.
-		if (this._facelineTarget) {
-			// console.debug(`Disposing target ${this._facelineTarget.texture.id} for faceline`);
-			this._facelineTarget.dispose();
-			this._facelineTarget = null;
-		}
-
-		for (const [i, target] of this._maskTargets.entries()) {
-			if (target) {
-				// console.debug(`Disposing target ${target.texture.id} for mask ${i}`);
-				target.dispose();
-				this._maskTargets[i] = null;
-			}
-		}
-	}
-
-	// ---------------------- Public Methods - Cleanup, Data ----------------------
 
 	/**
 	 * Disposes the CharModel and removes all associated resources.
@@ -1915,63 +1675,24 @@ class CharModel {
 	}
 
 	/**
-	 * Serializes the CharModel data to FFLStoreData.
-	 * @returns {Uint8Array} The exported FFLStoreData.
-	 * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
-	 * returns false, usually when CharInfo verification fails.
+	 * Disposes RenderTargets for textures created by the CharModel.
 	 * @public
-	 * @todo TODO: Can they edit the CharInfo to justify this method so they can get it out?
 	 */
-	/*
-	getStoreData() {
-		// Serialize the CharInfo.
-		const charInfoData = FFLiCharInfo.pack(this._model.charInfo);
-
-		const mod = this._module;
-		// Allocate function arguments.
-		const charInfoInPtr = mod._malloc(FFLiCharInfo_size);
-		const storeDataOutPtr = mod._malloc(FFLStoreData_size);
-		mod.HEAPU8.set(charInfoData, charInfoInPtr);
-
-		// Call conversion function.
-		const result = mod._FFLpGetStoreDataFromCharInfo(storeDataOutPtr, charInfoInPtr);
-		// Free and return data.
-		const storeData = mod.HEAPU8.slice(storeDataOutPtr, storeDataOutPtr + FFLStoreData_size);
-		mod._free(charInfoInPtr);
-		mod._free(storeDataOutPtr);
-
-		if (!result) {
-			// call to FFLpGetStoreDataFromCharInfo returned false, CharInfo verification probably failed
-			throw new Error('getStoreData: Input data failed verification.');
+	disposeTargets() {
+		// Dispose RenderTargets.
+		if (this._facelineTarget) {
+			// console.debug(`Disposing target ${this._facelineTarget.texture.id} for faceline`);
+			this._facelineTarget.dispose();
+			this._facelineTarget = null;
 		}
 
-		return storeData;
-	}
-	*/
-
-	// ------------------------ Mask and Faceline Textures ------------------------
-
-	/**
-	 * Sets the faceline texture from the RenderTarget.
-	 * @param {THREE.RenderTarget} target - RenderTarget for the faceline texture.
-	 * @throws {Error} CharModel must be initialized with OPA_FACELINE in meshes.
-	 * @private
-	 */
-	_setFaceline(target) {
-		console.assert(target && target.texture, '_setFaceline: passed in RenderTarget is invalid');
-		this._facelineTarget = target; // Store for later disposal.
-		if (this._isTexOnly) {
-			return;
+		for (const [i, target] of this._maskTargets.entries()) {
+			if (target) {
+				// console.debug(`Disposing target ${target.texture.id} for mask ${i}`);
+				target.dispose();
+				this._maskTargets[i] = null;
+			}
 		}
-		const mesh = /** @type {THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>} */
-			(this._facelineMesh);
-		console.assert(mesh, '_setFaceline: faceline shape does not exist');
-
-		// Update texture and material.
-		/** @type {THREE.Texture & {_target: THREE.RenderTarget}} */ (target.texture)
-			._target = target;
-		mesh.material.map = target.texture;
-		mesh.material.needsUpdate = true;
 	}
 
 	/**
@@ -2048,6 +1769,26 @@ class CharModel {
 	}
 
 	/**
+	 * Gets a vector in which to scale the body model for this CharModel.
+	 * @returns {THREE.Vector3Like} Scale vector for the body model.
+	 * @public
+	 */
+	getBodyScale() {
+		const build = this.charInfo.build;
+		const height = this.charInfo.height;
+
+		// calculated here in libnn_mii/draw/src/detail/mii_VariableIconBodyImpl.cpp:
+		// void nn::mii::detail::`anonymous namespace'::GetBodyScale(struct nn::util::Float3 *, int, int)
+		// also in Mii Maker USA (0x000500101004A100 v50 ffl_app.rpx): FUN_020737b8
+		const m = 128;
+		const x = (build * (height * (0.47 / m) + 0.4)) / m +
+			height * (0.23 / m) + 0.4;
+		const y = (height * (0.77 / m)) + 0.5;
+
+		return { x, y, z: x }; // z is always set to x
+	}
+
+	/**
 	 * Gets the ColorInfo object needed for SampleShaderMaterial.
 	 * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.
 	 * @returns {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo}
@@ -2066,7 +1807,42 @@ class CharModel {
 		};
 	}
 
-	// ------------------------------ Public Getters ------------------------------
+	/**
+	 * Serializes the CharModel data to FFLStoreData.
+	 * @returns {Uint8Array} The exported FFLStoreData.
+	 * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
+	 * returns false, usually when CharInfo verification fails.
+	 * @public
+	 * @todo TODO: Can they edit the CharInfo to justify this method so they can get it out?
+	 */
+	/*
+	getStoreData() {
+		// Serialize the CharInfo.
+		const charInfoData = FFLiCharInfo.pack(this._model.charInfo);
+
+		const mod = this._module;
+		// Allocate function arguments.
+		const charInfoInPtr = mod._malloc(FFLiCharInfo_size);
+		const storeDataOutPtr = mod._malloc(FFLStoreData_size);
+		mod.HEAPU8.set(charInfoData, charInfoInPtr);
+
+		// Call conversion function.
+		const result = mod._FFLpGetStoreDataFromCharInfo(storeDataOutPtr, charInfoInPtr);
+		// Free and return data.
+		const storeData = mod.HEAPU8.slice(storeDataOutPtr, storeDataOutPtr + FFLStoreData_size);
+		mod._free(charInfoInPtr);
+		mod._free(storeDataOutPtr);
+
+		if (!result) {
+			// call to FFLpGetStoreDataFromCharInfo returned false, CharInfo verification probably failed
+			throw new Error('getStoreData: Input data failed verification.');
+		}
+
+		return storeData;
+	}
+	*/
+
+	// Accessors:
 
 	/**
 	 * The current expression for this CharModel.
@@ -2086,32 +1862,253 @@ class CharModel {
 		return this.charInfo.gender;
 	}
 
-	// -------------------------------- Body Scale --------------------------------
+	// Struct related properties/methods:
+
+	/** @private */
+	static FFLiCharModel_size = 2156;
+
+	/** @private */
+	static FFLCharModelDesc_size = 24;
 
 	/**
-	 * Gets a vector in which to scale the body model for this CharModel.
-	 * @returns {THREE.Vector3Like} Scale vector for the body model.
-	 * @public
+	 * Used to index DrawParam array in FFLiCharModel.
+	 * @enum {number}
+	 * @private
 	 */
-	getBodyScale() {
-		const build = this.charInfo.build;
-		const height = this.charInfo.height;
+	static FFLiShapeType = {
+		OPA_BEARD: 0,
+		OPA_FACELINE: 1,
+		OPA_HAIR_NORMAL: 2,
+		OPA_FOREHEAD_NORMAL: 3,
+		XLU_MASK: 4,
+		XLU_NOSELINE: 5,
+		OPA_NOSE: 6,
+		OPA_HAT_NORMAL: 7,
+		XLU_GLASS: 8,
+		OPA_HAIR_CAP: 9,
+		OPA_FOREHEAD_CAP: 10,
+		OPA_HAT_CAP: 11,
+		MAX: 12
+	};
 
-		// calculated here in libnn_mii/draw/src/detail/mii_VariableIconBodyImpl.cpp:
-		// void nn::mii::detail::`anonymous namespace'::GetBodyScale(struct nn::util::Float3 *, int, int)
-		// also in Mii Maker USA (0x000500101004A100 v50 ffl_app.rpx): FUN_020737b8
-		const m = 128;
-		const x = (build * (height * (0.47 / m) + 0.4)) / m +
-			height * (0.23 / m) + 0.4;
-		const y = (height * (0.77 / m)) + 0.5;
+	/**
+	 * @param {FFLCharModelDesc} obj - Object form of FFLCharModelDesc.
+	 * @returns {Uint8Array} Byte form of FFLCharModelDesc.
+	 * @private
+	 */
+	static _packFFLCharModelDesc(obj) {
+		const u8 = new Uint8Array(this.FFLCharModelDesc_size);
+		const view = new DataView(u8.buffer);
+		view.setUint32(0, obj.resolution, true);
+		const flag = obj.allExpressionFlag;
+		view.setUint32(4, flag[0], true);
+		view.setUint32(8, flag[1], true);
+		view.setUint32(12, flag[2], true);
+		view.setUint32(16, obj.modelFlag, true);
+		view.setUint32(20, FFL.singleResourceType, /* obj.resourceType */ true);
+		return u8;
+	}
 
-		return { x, y, z: x }; // z is always set to x
+	/**
+	 * @param {FFLCharModelSource} obj - Object form of FFLCharModelSource.
+	 * @returns {Uint8Array} Byte form of FFLCharModelSource.
+	 * @private
+	 */
+	static _packFFLCharModelSource(obj) {
+		const u8 = new Uint8Array(FFLCharModelSource_size);
+		const view = new DataView(u8.buffer);
+		view.setUint32(0, obj.dataSource >>> 0, true);
+		view.setUint32(4, obj.pBuffer, true);
+		// view.setUint16(8, obj.index, true);
+		return u8;
+	}
+
+	// Private methods:
+
+	/**
+	 * Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
+	 * Uses the `defaultDesc` as a fallback to return if input is null or applies expression to it.
+	 * @param {CharModelDescOrExpressionFlag} [descOrExpFlag] - Either a new {@link FFLCharModelDesc},
+	 * an array of expressions, a single expression, or an expression flag (Uint32Array).
+	 * @param {FFLCharModelDesc} [defaultDesc] - Fallback if descOrExpFlag is null or expression flag only.
+	 * @returns {FFLCharModelDesc} The CharModelDesc with the expression applied, or the default.
+	 * @throws {TypeError} Throws if `descOrExpFlag` is an unexpected type.
+	 * @private
+	 */
+	static _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDescDefault) {
+		if (!descOrExpFlag && typeof descOrExpFlag !== 'number') {
+			return defaultDesc; // Use default if input is falsey.
+		}
+
+		// Convert descOrExpFlag to an expression flag if needed.
+		if (typeof descOrExpFlag === 'number' || Array.isArray(descOrExpFlag)) {
+			// Array of expressions or single expression was passed in.
+			descOrExpFlag = makeExpressionFlag(descOrExpFlag);
+		}
+
+		/** Shallow clone of {@link defaultDesc}. */
+		let newModelDesc = Object.assign({}, defaultDesc);
+
+		// Process descOrExpFlag based on what it is.
+		if (descOrExpFlag instanceof Uint32Array) {
+			// If this is already an expression flag (Uint32Array),
+			// or set to one previously, use it with existing CharModelDesc.
+			newModelDesc.allExpressionFlag = descOrExpFlag;
+		} else if (typeof descOrExpFlag === 'object') {
+			// Assume that descOrExpFlag is a new FFLCharModelDesc.
+			newModelDesc = /** @type {FFLCharModelDesc} */ (descOrExpFlag);
+		} else {
+			throw new TypeError('Unexpected type for descOrExpFlag');
+		}
+
+		return newModelDesc;
+	}
+
+	/**
+	 * This is the method that populates meshes
+	 * from the internal FFLiCharModel instance.
+	 * @param {Module} module - Module to pass to DrawParam.toMesh to access mesh data.
+	 * @private
+	 */
+	_addCharModelMeshes(module) {
+		console.assert(this.meshes, '_addCharModelMeshes: this.meshes is null or undefined, was this CharModel disposed?');
+
+		/** @type {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo|null} */
+		let colorInfo = null;
+		// Prepare colorInfo from CharModel if it is needed on the mesh's material.
+		if ('colorInfo' in this._materialClass.prototype) {
+			colorInfo = this.getColorInfo();
+		}
+
+		// Add all meshes in the CharModel to the class instance.
+		for (let shapeType = 0; shapeType < CharModel.FFLiShapeType.MAX; shapeType++) {
+			// Iterate through all DrawParams and convert to THREE.Mesh.
+			const ptr = this._model.getDrawParamPtr(shapeType);
+			const drawParam = new DrawParam(module.HEAPU8, ptr);
+
+			// Copy faceline color from nose mesh, as it's always present/simplest.
+			if (shapeType === CharModel.FFLiShapeType.OPA_NOSE) {
+				this.facelineColor
+					.fromArray(module.HEAPF32, drawParam.modulateParam.pColorR / 4);
+				// Assume this is in working color space because it is used for clear color.
+			}
+
+			// Skip shape if it's not empty.
+			if (!drawParam.primitiveParam.indexCount) {
+				continue;
+			}
+			const mesh = drawParam.toMesh(this._materialClass,
+				module, this._textureManager);
+			// Use FFLModulateType to indicate render order.
+			mesh.renderOrder = drawParam.modulateParam.type + 1;
+			// renderOrder = 0 is sometimes unexpected, so let's make this one-indexed.
+
+			// Assign colorInfo from the CharModel.
+			if ('colorInfo' in mesh.material) {
+				mesh.material.colorInfo = colorInfo;
+			}
+
+			// Set faceline and mask meshes to use later.
+			switch (shapeType) {
+				case CharModel.FFLiShapeType.OPA_FACELINE:
+					/** @private */
+					this._facelineMesh = mesh;
+					break;
+				case CharModel.FFLiShapeType.XLU_MASK:
+					/** @private */
+					this._maskMesh = mesh;
+					break;
+			}
+			// mesh.name = Object.keys(FFLiShapeType)[shapeType];
+
+			this.meshes.add(mesh); // Add the mesh or null.
+		}
+	}
+
+	/**
+	 * Calculates the bounding box from the meshes.
+	 * @returns {THREE.Box3} The bounding box.
+	 * @private
+	 */
+	_getBoundingBox() {
+		// Note: FFL includes three different bounding boxes for each
+		// FFLModelType. This only creates one box per CharModel.
+		const excludeFromBox = new Set([FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
+		// Create bounding box selectively excluding mask and glass.
+		const box = new THREE.Box3();
+
+		this.meshes.traverse((child) => {
+			if (!(child instanceof THREE.Mesh) ||
+				// Exclude meshes whose modulateType are in excludeFromBox.
+				excludeFromBox.has(child.geometry.userData.modulateType)) {
+				return;
+			}
+			// Expand the box.
+			box.expandByObject(child);
+		});
+		return box;
+	}
+
+	/**
+	 * @returns {THREE.Color} The favorite color as THREE.Color.
+	 * @private
+	 */
+	_getFavoriteColor() {
+		const mod = this._module;
+		const favoriteColor = this.charInfo.favoriteColor;
+		/** Allocate return pointer. */
+		const colorPtr = mod._malloc(FFLColor_size);
+		mod._FFLGetFavoriteColor(colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
+		const color = _getFFLColor(mod.HEAPF32, colorPtr);
+		mod._free(colorPtr);
+		return color;
+	}
+
+	/**
+	 * Frees and deletes the FFLCharModel, which can be done after rendering textures.
+	 * This is not the same as `dispose()` which cleans up the scene.
+	 * @private
+	 */
+	_finalizeCharModel() {
+		if (this._ptr) {
+			this._module._FFLDeleteCharModel(this._ptr);
+			this._module._free(this._ptr);
+			this._ptr = 0;
+		}
+		// @ts-expect-error - null not assignable. Always non-null except disposed.
+		this._model = null;
+	}
+
+	/**
+	 * Sets the faceline texture from the RenderTarget.
+	 * @param {THREE.RenderTarget} target - RenderTarget for the faceline texture.
+	 * @throws {Error} CharModel must be initialized with OPA_FACELINE in meshes.
+	 * @private
+	 */
+	_setFaceline(target) {
+		console.assert(target && target.texture, '_setFaceline: passed in RenderTarget is invalid');
+		this._facelineTarget = target; // Store for later disposal.
+		if (this._isTexOnly) {
+			return;
+		}
+		const mesh = /** @type {THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>} */
+			(this._facelineMesh);
+		console.assert(mesh, '_setFaceline: faceline shape does not exist');
+
+		// Update texture and material.
+		/** @type {THREE.Texture & {_target: THREE.RenderTarget}} */ (target.texture)
+			._target = target;
+		mesh.material.map = target.texture;
+		mesh.material.needsUpdate = true;
 	}
 }
 
 // EXPORTS: _getFFLColor, CharModel
 
-// TODO PATH: src/Body.js (move above function, enum into there?)
+// // ---------------------------------------------------------------------
+// //  Body Related (consider moving out? maybe move getBodyScale here?)
+// // ---------------------------------------------------------------------
+// TODO PATH: src/Body.js
 
 /** @enum {number} */
 const PantsColor = {
@@ -2132,7 +2129,7 @@ const pantsColors = {
 // // ---------------------------------------------------------------------
 // //  CharModelAccessor for Model Internals
 // // ---------------------------------------------------------------------
-// TODO PATH: CharModelAccessor.js
+// TODO PATH: src/CharModelAccessor.js
 
 /** @package */
 const FFLDrawParam_size = 104;
@@ -2155,9 +2152,107 @@ class CharModelAccessor {
 		this.modelDesc = desc;
 	}
 
+	// charInfo
+
 	getCharInfo() {
 		return _unpackFFLiCharInfo(this._module.HEAPU8, this.ptr/* charInfo = offset 0 */);
 	}
+
+	// charModelDesc (resolution, expression, modelFlag), expression
+
+	/**
+	 * Get the texture resolution.
+	 * @returns {number} The texture resolution.
+	 * @package
+	 */
+	getResolution() {
+		return this.modelDesc.resolution & 0x3fffffff; // FFL_RESOLUTION_MASK
+	}
+
+	/**
+	 * @returns {number} Pointer to charModelDesc.allExpressionFlag.
+	 * @public
+	 */
+	getExpressionFlagPtr() {
+		return this.ptr + 0x120 /* charModelDesc */ + 4/* allExpressionFlag */;
+	}
+
+	/**
+	 * Returns the value for whether the CharModel was created without shapes.
+	 * @returns {boolean} Whether the CharModel was created without shapes.
+	 * @package
+	 */
+	isTexOnly() {
+		return (this.modelDesc.modelFlag & FFLModelFlag.NEW_MASK_ONLY) !== 0;
+	}
+
+	/**
+	 * @returns {number} The current expression for this CharModel.
+	 * @public
+	 */
+	getExpression() {
+		return this._dv.getUint32(0x138, true);
+	}
+
+	// pTextureTempObject
+
+	getTempObjectPtr() {
+		return this._dv.getUint32(0x013c, true); // pTextureTempObject
+	}
+
+	/**
+	 * @returns {number} Pointer to pTextureTempObject->facelineTexture.
+	 * @public
+	 */
+	getFacelineTempObjectPtr() {
+		return this.getTempObjectPtr() + 0x388/* facelineTexture */;
+	}
+
+	/**
+	 * @returns {number} Pointer to pTextureTempObject->maskTextures.
+	 * @public
+	 */
+	getMaskTempObjectPtr() {
+		return this.getTempObjectPtr(); // offset of maskTextures is 0
+	}
+
+	/**
+	 * @returns {Uint32Array} Array of pointers to DrawParams for each expression's mask.
+	 * @public
+	 */
+	getMaskDrawParamPtrs() {
+		/** offset = maskTextures (0)->pRawMaskDrawParam */
+		const ptr = this.getTempObjectPtr() + 0x154;
+		// pRawMaskDrawParam = void*[FFL_EXPRESSION_MAX]
+		return new Uint32Array(this._module.HEAPU8.buffer, ptr, FFLExpression.MAX);
+	}
+
+	// drawParam
+
+	/**
+	 * @param {number} shapeType - FFLiShapeType
+	 * @returns {number} Pointer to the FFLDrawParam.
+	 */
+	getDrawParamPtr(shapeType) {
+		return this.ptr + 0x0140 /* drawParam */ + (shapeType * FFLDrawParam_size);
+	}
+
+	// maskTextures
+
+	/**
+	 * @returns {Uint32Array} Pointers to FFLiRenderTexture for each mask's expression.
+	 * @public
+	 */
+	getMaskRenderTextures() {
+		const pRenderTextures = new Uint32Array(FFLExpression.MAX);
+		for (let i = 0; i < FFLExpression.MAX; i++) {
+			pRenderTextures[i] = this._dv.getUint32(0x66c + // maskTextures->pRenderTextures
+				(4 * i), true);
+		}
+		return pRenderTextures;
+	}
+
+	// partsTransform
 
 	/**
 	 * PartsTransform with THREE.Vector3 type.
@@ -2191,92 +2286,6 @@ class CharModelAccessor {
 			headTopTranslate: getVec3(18)
 		};
 	}
-
-	/**
-	 * @param {number} shapeType - FFLiShapeType
-	 * @returns {number} Pointer to the FFLDrawParam.
-	 */
-	getDrawParamPtr(shapeType) {
-		return this.ptr + 0x0140 /* drawParam */ + (shapeType * FFLDrawParam_size);
-	}
-
-	getTempObject() {
-		return this._dv.getUint32(0x013c, true); // pTextureTempObject
-	}
-
-	/**
-	 * @returns {number} Pointer to pTextureTempObject->maskTextures.
-	 * @public
-	 */
-	getMaskTempObjectPtr() {
-		return this.getTempObject(); // offset of maskTextures is 0
-	}
-
-	/**
-	 * @returns {Uint32Array} Array of pointers to DrawParams for each expression's mask.
-	 * @public
-	 */
-	getMaskDrawParamPtrs() {
-		/** offset = maskTextures (0)->pRawMaskDrawParam */
-		const ptr = this.getTempObject() + 0x154;
-		// pRawMaskDrawParam = void*[FFL_EXPRESSION_MAX]
-		return new Uint32Array(this._module.HEAPU8.buffer, ptr, FFLExpression.MAX);
-	}
-
-	/**
-	 * @returns {number} Pointer to pTextureTempObject->facelineTexture.
-	 * @public
-	 */
-	getFacelineTempObjectPtr() {
-		return this.getTempObject() + 0x388/* facelineTexture */;
-	}
-
-	/**
-	 * @returns {Uint32Array} Pointers to FFLiRenderTexture for each mask's expression.
-	 * @public
-	 */
-	getMaskRenderTextures() {
-		const pRenderTextures = new Uint32Array(FFLExpression.MAX);
-		for (let i = 0; i < FFLExpression.MAX; i++) {
-			pRenderTextures[i] = this._dv.getUint32(0x66c + // maskTextures->pRenderTextures
-				(4 * i), true);
-		}
-		return pRenderTextures;
-	}
-
-	/**
-	 * @returns {number} Pointer to charModelDesc.allExpressionFlag.
-	 * @public
-	 */
-	getExpressionFlagPtr() {
-		return this.ptr + 0x120 /* charModelDesc */ + 4/* allExpressionFlag */;
-	}
-
-	/**
-	 * @returns {number} The current expression for this CharModel.
-	 * @public
-	 */
-	getExpression() {
-		return this._dv.getUint32(0x138, true);
-	}
-
-	/**
-	 * Get the texture resolution.
-	 * @returns {number} The texture resolution.
-	 * @package
-	 */
-	getResolution() {
-		return this.modelDesc.resolution & 0x3fffffff; // FFL_RESOLUTION_MASK
-	}
-
-	/**
-	 * Returns the value for whether the CharModel was created without shapes.
-	 * @returns {boolean} Whether the CharModel was created without shapes.
-	 * @package
-	 */
-	isTexOnly() {
-		return (this.modelDesc.modelFlag & FFLModelFlag.NEW_MASK_ONLY) !== 0;
-	}
 }
 
 // EXPORTS: CharModelAccessor, FFLDrawParam_size
@@ -2285,20 +2294,6 @@ class CharModelAccessor {
 // //  CharModel Creation Parameters
 // // ---------------------------------------------------------------------
 // TODO PATH: src/CharModelCreateParam.js
-
-/**
- * Static default for FFLCharModelDesc.
- * @type {FFLCharModelDesc}
- * @readonly
- * @public
- */
-const FFLCharModelDescDefault = {
-	/** Typical default. */
-	resolution: 512,
-	/** Normal expression. */
-	allExpressionFlag: new Uint32Array([1, 0, 0]),
-	modelFlag: FFLModelFlag.NORMAL
-};
 
 /** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
 
@@ -2436,30 +2431,18 @@ function _allocateModelSource(data, module) {
 }
 
 /**
- * Checks if the expression index disables any shapes in the
- * CharModel, meant to be used when setting multiple indices.
- * @param {FFLExpression} i - Expression index to check.
- * @param {boolean} [warn] - Whether to log using {@link console.warn}.
- * @returns {boolean} Whether the expression changes shapes.
+ * Static default for FFLCharModelDesc.
+ * @type {FFLCharModelDesc}
+ * @readonly
+ * @public
  */
-function checkExpressionChangesShapes(i, warn = false) {
-	/** Expressions disabling nose: dog/cat, blank */
-	const expressionsDisablingNose = new Set([49, 50, 51, 52, 61, 62]);
-	/** Expressions disabling mask: blank */
-	const expressionsDisablingMask = new Set([61, 62]);
-
-	const prefix = `checkExpressionChangesShapes: An expression was enabled (${i}) that is meant to disable nose or mask shape for the entire CharModel, so it is only recommended to set this as a single expression rather than as one of multiple.`;
-	if (expressionsDisablingMask.has(i)) {
-		warn && console.warn(`${prefix} (in this case, MASK SHAPE so there is supposed to be NO FACE)`);
-		return true;
-	}
-	if (expressionsDisablingNose.has(i)) {
-		warn && console.warn(`${prefix} (nose shape)`);
-		return true;
-	}
-
-	return false;
-}
+const FFLCharModelDescDefault = {
+	/** Typical default. */
+	resolution: 512,
+	/** Normal expression. */
+	allExpressionFlag: new Uint32Array([1, 0, 0]),
+	modelFlag: FFLModelFlag.NORMAL
+};
 
 /**
  * Creates an expression flag to be used in FFLCharModelDesc.
@@ -2509,6 +2492,32 @@ function makeExpressionFlag(expressions) {
 		flags[part] |= (1 << bitIndex); // Set the bit.
 	}
 	return flags;
+}
+
+/**
+ * Checks if the expression index disables any shapes in the
+ * CharModel, meant to be used when setting multiple indices.
+ * @param {FFLExpression} i - Expression index to check.
+ * @param {boolean} [warn] - Whether to log using {@link console.warn}.
+ * @returns {boolean} Whether the expression changes shapes.
+ */
+function checkExpressionChangesShapes(i, warn = false) {
+	/** Expressions disabling nose: dog/cat, blank */
+	const expressionsDisablingNose = new Set([49, 50, 51, 52, 61, 62]);
+	/** Expressions disabling mask: blank */
+	const expressionsDisablingMask = new Set([61, 62]);
+
+	const prefix = `checkExpressionChangesShapes: An expression was enabled (${i}) that is meant to disable nose or mask shape for the entire CharModel, so it is only recommended to set this as a single expression rather than as one of multiple.`;
+	if (expressionsDisablingMask.has(i)) {
+		warn && console.warn(`${prefix} (in this case, MASK SHAPE so there is supposed to be NO FACE)`);
+		return true;
+	}
+	if (expressionsDisablingNose.has(i)) {
+		warn && console.warn(`${prefix} (nose shape)`);
+		return true;
+	}
+
+	return false;
 }
 
 // EXPORT: FFLCharModelDescDefault, _allocateModelSource, checkExpressionChangesShapes, makeExpressionFlag
@@ -2575,6 +2584,8 @@ class DrawParam {
 	 * @property {FFLPrimitiveParam} primitiveParam
 	 * @private
 	 */
+
+	// Public methods to unpack and convert DrawParam.
 
 	/**
 	 * @param {Uint8Array} u8 - module.HEAPU8
@@ -2695,6 +2706,8 @@ class DrawParam {
 		}
 		return mesh;
 	}
+
+	// Private methods.
 
 	/**
 	 * Binds attributes from DrawParam into a new THREE.BufferGeometry.
@@ -3002,7 +3015,7 @@ class DrawParam {
 // TODO PATH: src/CharModelTextures.js
 
 /** @package */
-class CharModelTextures {
+const CharModelTextures = {
 	/**
 	 * Initializes textures (faceline and mask) for a CharModel.
 	 * Calls private functions to draw faceline and mask textures.
@@ -3018,7 +3031,7 @@ class CharModelTextures {
 	 * @returns {THREE.RenderTarget|null} The faceline texture's render target.
 	 * @public
 	 */
-	static initialize(charModel, renderer, module,
+	initialize(charModel, renderer, module,
 		texMgr, matTexClass, maskTargets, faceColor) {
 		// Check if the passed in renderer is valid by checking the "render" property.
 		console.assert(renderer.render !== undefined,
@@ -3044,19 +3057,21 @@ class CharModelTextures {
 		(clearAlpha !== 0) && renderer.setClearAlpha(clearAlpha);
 
 		return faceTarget;
-	}
+	},
+
+	// Unpacking structs.
 
 	/**
 	 * @enum {number}
 	 * @private
 	 */
-	static FacelinePartType = {
+	FacelinePartType: {
 		/** Wrinkle */
 		LINE: 0,
 		MAKE: 1,
 		BEARD: 2,
 		MAX: 3
-	};
+	},
 
 	// TODO: Would these unpack methods
 	// - be more appropriate in CharModelAccessor?
@@ -3068,7 +3083,7 @@ class CharModelTextures {
 	 * @returns {Array<DrawParam>} Array of DrawParams. Note that this is not the draw order.
 	 * @private
 	 */
-	static _unpackFFLiFacelineTextureTempObject(u8, ptr) {
+	_unpackFFLiFacelineTextureTempObject(u8, ptr) {
 		const params = Array.from({ length: this.FacelinePartType.MAX });
 		for (let type = 0; type < this.FacelinePartType.MAX; type++) {
 			// Each DrawParam is prefixed by a pointer, so let's take an offset of 4
@@ -3076,13 +3091,13 @@ class CharModelTextures {
 			params[type] = new DrawParam(u8, p);
 		}
 		return params;
-	}
+	},
 
 	/**
 	 * @enum {number}
 	 * @private
 	 */
-	static MaskPartType = {
+	MaskPartType: {
 		EYE_R: 0,
 		EYE_L: 1,
 		EYEBROW_R: 2,
@@ -3094,7 +3109,7 @@ class CharModelTextures {
 		/** Alpha clear. Can be skipped. */
 		FILL: 8,
 		MAX: 8
-	};
+	},
 
 	/**
 	 * @param {Uint8Array} u8 - module.HEAPU8
@@ -3102,14 +3117,16 @@ class CharModelTextures {
 	 * @returns {Array<DrawParam>} Array of DrawParams. Note that this is not the draw order.
 	 * @private
 	 */
-	static _unpackFFLiRawMaskDrawParam(u8, ptr) {
+	_unpackFFLiRawMaskDrawParam(u8, ptr) {
 		const params = Array.from({ length: this.MaskPartType.MAX });
 		for (let type = 0; type < this.MaskPartType.MAX; type++) {
 			const p = ptr + (FFLDrawParam_size * type);
 			params[type] = new DrawParam(u8, p);
 		}
 		return params;
-	}
+	},
+
+	// Private methods to draw individual parts.
 
 	/**
 	 * Draws and applies the faceline texture for the CharModel.
@@ -3122,7 +3139,7 @@ class CharModelTextures {
 	 * @returns {THREE.RenderTarget|null} The faceline texture's render target.
 	 * @private
 	 */
-	static _drawFacelineTexture(charModel, renderer, module, texMgr, color, materialClass) {
+	_drawFacelineTexture(charModel, renderer, module, texMgr, color, materialClass) {
 		// Invalidate faceline texture before drawing (ensures correctness)
 		const facelineTempObjectPtr = charModel.getFacelineTempObjectPtr();
 		module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
@@ -3182,7 +3199,7 @@ class CharModelTextures {
 			charModel.ptr, FFL.singleResourceType); // charModel.modelDesc.resourceType);
 		_disposeMany(offscreenScene); // Dispose meshes in scene.
 		return target;
-	}
+	},
 
 	/**
 	 * Iterates through mask textures and draws each mask texture.
@@ -3195,7 +3212,7 @@ class CharModelTextures {
 	 * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
 	 * @private
 	 */
-	static _drawMaskTextures(charModel, maskParamPtrs,
+	_drawMaskTextures(charModel, maskParamPtrs,
 		targets, renderer, module, texMgr, materialClass) {
 		const maskTempObjectPtr = charModel.getMaskTempObjectPtr();
 		const expressionFlagPtr = charModel.getExpressionFlagPtr();
@@ -3233,7 +3250,7 @@ class CharModelTextures {
 		module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr,
 			expressionFlagPtr, FFL.singleResourceType); // charModel.modelDesc.resourceType);
 		module._FFLiDeleteTextureTempObject(charModel.ptr);
-	}
+	},
 
 	/**
 	 * Draws a single mask texture based on a RawMaskDrawParam.
@@ -3248,7 +3265,7 @@ class CharModelTextures {
 	 * The RenderTarget and scene of this mask texture.
 	 * @private
 	 */
-	static _drawMaskTexture(resolution, rawMaskParam, renderer, module, texMgr, materialClass) {
+	_drawMaskTexture(resolution, rawMaskParam, renderer, module, texMgr, materialClass) {
 		// const drawParams = MaskPartOrder.map(i => ({ ...rawMaskParam[i] }));
 		const drawParams = [
 			rawMaskParam[this.MaskPartType.MUSTACHE_R],
@@ -3279,7 +3296,7 @@ class CharModelTextures {
 		return { target, scene: offscreenScene };
 		// Caller needs to dispose meshes in scene.
 	}
-}
+};
 
 // // ---------------------------------------------------------------------
 // //  CharModel Modulate Texture Converter
@@ -3311,7 +3328,37 @@ const _getBGClearMesh = (color, opacity = 0) =>
  * {@link ModelTexturesConverter.convModelTargetsToDataTex} adds texture data by converting
  * render targets to {@link THREE.DataTexture}, allowing exports.
  */
-class ModelTexturesConverter {
+const ModelTexturesConverter = {
+	/**
+	 * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
+	 * textures that are R/RG format, to RGBA and also applying colors, so that
+	 * the CharModel can be rendered without a material that supports modulateMode.
+	 * @param {CharModel} charModel - The CharModel whose textures to convert.
+	 * @param {Renderer} renderer - The renderer.
+	 * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+	 * @public
+	 */
+	convModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
+		const convertTextureForTypes = [
+			FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_NOSELINE, FFLModulateType.SHAPE_GLASS];
+
+		charModel.meshes.traverse((mesh) => {
+			if (mesh instanceof THREE.Mesh &&
+				mesh.geometry.userData.modulateType !== undefined &&
+				mesh.material.map &&
+				convertTextureForTypes.indexOf(mesh.geometry.userData.modulateType) >= 1
+			) {
+				const target = this._texDrawRGBATarget(renderer, mesh.material,
+					mesh.geometry.userData, materialTextureClass);
+
+				// NOTE: The target needs to be disposed after this.
+				// Everything in _maskTargets is already disposed, and
+				// additional entries will be ignored. So, that is where these go.
+				charModel._maskTargets.push(target);
+			}
+		});
+	},
+
 	/**
 	 * Takes the texture in `material` and draws it using `materialTextureClass`, using
 	 * the modulateMode property in `userData`, using the `renderer` and sets it back
@@ -3325,7 +3372,7 @@ class ModelTexturesConverter {
 	 * @returns {THREE.RenderTarget} The RenderTarget of the final RGBA texture.
 	 * @private
 	 */
-	static _texDrawRGBATarget(renderer, material, userData, materialTextureClass) {
+	_texDrawRGBATarget(renderer, material, userData, materialTextureClass) {
 		const scene = new THREE.Scene();
 		// Simulate clearing the background with this color, but opacity of 0.
 		const bgClearRGBMesh = _getBGClearMesh(material.color);
@@ -3369,37 +3416,7 @@ class ModelTexturesConverter {
 		userData.modulateMode = 1;
 
 		return target; // Caller is responsible for disposing the RenderTarget.
-	}
-
-	/**
-	 * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
-	 * textures that are R/RG format, to RGBA and also applying colors, so that
-	 * the CharModel can be rendered without a material that supports modulateMode.
-	 * @param {CharModel} charModel - The CharModel whose textures to convert.
-	 * @param {Renderer} renderer - The renderer.
-	 * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
-	 * @public
-	 */
-	static convModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
-		const convertTextureForTypes = [
-			FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_NOSELINE, FFLModulateType.SHAPE_GLASS];
-
-		charModel.meshes.traverse((mesh) => {
-			if (mesh instanceof THREE.Mesh &&
-				mesh.geometry.userData.modulateType !== undefined &&
-				mesh.material.map &&
-				convertTextureForTypes.indexOf(mesh.geometry.userData.modulateType) >= 1
-			) {
-				const target = this._texDrawRGBATarget(renderer, mesh.material,
-					mesh.geometry.userData, materialTextureClass);
-
-				// NOTE: The target needs to be disposed after this.
-				// Everything in _maskTargets is already disposed, and
-				// additional entries will be ignored. So, that is where these go.
-				charModel._maskTargets.push(target);
-			}
-		});
-	}
+	},
 
 	/**
 	 * Converts all textures in the CharModel that are associated
@@ -3409,7 +3426,7 @@ class ModelTexturesConverter {
 	 * @param {Renderer} renderer - The renderer.
 	 * @public
 	 */
-	static async convModelTargetsToDataTex(charModel, renderer) {
+	async convModelTargetsToDataTex(charModel, renderer) {
 		charModel.meshes.traverse(async (mesh) => {
 			if (!(mesh instanceof THREE.Mesh) || !mesh.material.map) {
 				return;
@@ -3451,7 +3468,7 @@ class ModelTexturesConverter {
 		charModel.disposeTargets();
 		// Note that expressions cannot be set on the CharModel anymore.
 	}
-}
+};
 
 // // ---------------------------------------------------------------------
 // //  TextureShaderMaterial Class
@@ -3618,7 +3635,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/GeometryConversion.js
 
-class GeometryConversion {
+const GeometryConversion = {
 	/**
 	 * Modifies a BufferGeometry in place to be compatible with glTF.
 	 * It currently: deinterleaves attributes, converts half-float to float,
@@ -3628,7 +3645,7 @@ class GeometryConversion {
 	 * @throws {TypeError} Throws if an unsupported attribute format is encountered.
 	 * @public
 	 */
-	static convertForGLTF(geometry) {
+	convertForGLTF(geometry) {
 		if (!(geometry instanceof THREE.BufferGeometry) || !geometry.attributes) {
 			throw new TypeError('convGeometryToGLTFCompatible: geometry is not BufferGeometry with attributes.');
 		}
@@ -3681,7 +3698,7 @@ class GeometryConversion {
 			geometry.setAttribute(key,
 				new THREE.BufferAttribute(newArray, targetItemSize, normalized));
 		}
-	}
+	},
 
 	/**
 	 * Deinterleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
@@ -3689,7 +3706,7 @@ class GeometryConversion {
 	 * @returns {THREE.BufferAttribute} A new BufferAttribute containing deinterleaved data.
 	 * @private
 	 */
-	static _interleavedToBufferAttribute(attr) {
+	_interleavedToBufferAttribute(attr) {
 		const { itemSize, count } = attr;
 		// eslint-disable-next-line jsdoc/valid-types -- TODO: fix "syntax error in type"
 		const dest = new /** @type {{ new(length: number): * }} */ (attr.array.constructor)
@@ -3701,7 +3718,7 @@ class GeometryConversion {
 			}
 		}
 		return new THREE.BufferAttribute(dest, itemSize);
-	}
+	},
 
 	/**
 	 * Creates a new Float32Array by copying only a subset of components per vertex.
@@ -3712,7 +3729,7 @@ class GeometryConversion {
 	 * @returns {Float32Array} A new Float32Array with reduced component count.
 	 * @private
 	 */
-	static _copyFloat32Reduced(src, count, srcItemSize, targetItemSize) {
+	_copyFloat32Reduced(src, count, srcItemSize, targetItemSize) {
 		const dst = new Float32Array(count * targetItemSize);
 		for (let i = 0; i < count; i++) {
 			for (let j = 0; j < targetItemSize; j++) {
@@ -3720,7 +3737,7 @@ class GeometryConversion {
 			}
 		}
 		return dst;
-	}
+	},
 
 	/**
 	 * Converts a 16-bit half-float value to a 32-bit float.
@@ -3728,7 +3745,7 @@ class GeometryConversion {
 	 * @returns {number} The corresponding 32-bit float value.
 	 * @private
 	 */
-	static _halfToFloat(half) {
+	_halfToFloat(half) {
 		const sign = (half & 0x8000) >> 15;
 		const exponent = (half & 0x7C00) >> 10;
 		const mantissa = half & 0x03FF;
@@ -3744,7 +3761,7 @@ class GeometryConversion {
 		return (sign ? -1 : 1) *
 			Math.pow(2, exponent - 15) *
 			(1 + mantissa / 1024);
-	}
+	},
 
 	/**
 	 * Converts a Uint16Array assumed to represent half-float values into a Float32Array.
@@ -3752,13 +3769,13 @@ class GeometryConversion {
 	 * @returns {Float32Array} A Float32Array with converted float values.
 	 * @private
 	 */
-	static _halfArrayToFloat(halfArray) {
+	_halfArrayToFloat(halfArray) {
 		const floatArray = new Float32Array(halfArray.length);
 		for (let i = 0; i < halfArray.length; i++) {
 			floatArray[i] = this._halfToFloat(halfArray[i]);
 		}
 		return floatArray;
-	}
+	},
 
 	/**
 	 * Converts an Int8Array of SNORM values to a Float32Array.
@@ -3771,7 +3788,7 @@ class GeometryConversion {
 	 * @returns {Float32Array} A Float32Array with converted values.
 	 * @private
 	 */
-	static _snormToFloat(src, count, srcItemSize, targetItemSize) {
+	_snormToFloat(src, count, srcItemSize, targetItemSize) {
 		const dst = new Float32Array(count * targetItemSize);
 
 		for (let i = 0; i < count; i++) {
@@ -3802,7 +3819,7 @@ class GeometryConversion {
 
 		return dst;
 	}
-}
+};
 
 // // ---------------------------------------------------------------------
 // //  Scene/Render Target Handling
@@ -3930,16 +3947,7 @@ function _disposeMany(group, scene) {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/ModelIcon.js
 
-class ModelIcon {
-	/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
-	static getCamera() {
-		/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
-		const fovy = 9.8762;
-		const camera = new THREE.PerspectiveCamera(fovy, 1 /* aspect = square */, 500, 1000);
-		camera.position.set(0, 34.5, 600);
-		return camera;
-	}
-
+const ModelIcon = {
 	/**
 	 * Creates an icon of the CharModel with the specified view type.
 	 * @param {CharModel} charModel - The CharModel instance.
@@ -3956,7 +3964,7 @@ class ModelIcon {
 	 * @returns {HTMLCanvasElement} The canvas containing the icon.
 	 * @public
 	 */
-	static create(charModel, renderer, options = {}) {
+	create(charModel, renderer, options = {}) {
 		// Set locals from options object.
 		let {
 			width = 256,
@@ -3992,66 +4000,18 @@ class ModelIcon {
 		this._restoreRendererState(renderer, state);
 		return canvas;
 		// Caller needs to dispose CharModel.
-	}
+	},
+
+	/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
+	getCamera() {
+		/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
+		const fovy = 9.8762;
+		const camera = new THREE.PerspectiveCamera(fovy, 1 /* aspect = square */, 500, 1000);
+		camera.position.set(0, 34.5, 600);
+		return camera;
+	},
 
 	// Utilities for exporting to a texture.
-
-	/**
-	 * Saves the current renderer state and returns an object to restore it later.
-	 * @param {Renderer} renderer - The renderer to save state from.
-	 * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
-	 * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
-	 * The saved state object.
-	 * @private
-	 */
-	static _saveRendererState(renderer) {
-		const size = new THREE.Vector2();
-		renderer.getSize(size);
-
-		return {
-			target: renderer.getRenderTarget(),
-			colorSpace: /** @type {THREE.ColorSpace} */ (renderer.outputColorSpace),
-			size
-		};
-	}
-
-	/**
-	 * Restores a renderer's state from a saved state object.
-	 * @param {Renderer} renderer - The renderer to restore state to.
-	 * @param {ReturnType<typeof this._saveRendererState>} state -
-	 * The saved state object.
-	 * @private
-	 */
-	static _restoreRendererState(renderer, state) {
-		/** @type {import('three/webgpu').Renderer} */ (renderer)
-			.setRenderTarget(state.target);
-		renderer.outputColorSpace = state.colorSpace;
-		renderer.setSize(state.size.x, state.size.y, false);
-	}
-
-	/**
-	 * Copies the renderer's swapchain to a canvas.
-	 * @param {Renderer} renderer - The renderer.
-	 * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
-	 * @returns {HTMLCanvasElement} The canvas containing the rendered output.
-	 * @throws {Error} Throws if the canvas is invalid, yet not undefined.
-	 * @private
-	 */
-	static _copyRendererToCanvas(renderer, canvas) {
-		const sourceCanvas = renderer.domElement;
-		// If the target canvas is not simply undefined, it's null, then error out.
-		if (canvas !== undefined && !(canvas instanceof HTMLCanvasElement)) {
-			throw new Error('copyRendererToCanvas: canvas is neither a valid canvas nor undefined.');
-		}
-		const targetCanvas = canvas || document.createElement('canvas');
-		targetCanvas.width = sourceCanvas.width;
-		targetCanvas.height = sourceCanvas.height;
-		// NOTE: Line below guarantees the canvas to be valid.
-		/** @type {CanvasRenderingContext2D} */ (targetCanvas.getContext('2d'))
-			.drawImage(sourceCanvas, 0, 0);
-
-		return targetCanvas;
-	}
 
 	/**
 	 * Generic utility for rendering a texture to a canvas.
@@ -4066,7 +4026,7 @@ class ModelIcon {
 	 * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
 	 * @public
 	 */
-	static textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
+	textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
 		// Create a new scene using a full-screen quad.
 		const scene = new THREE.Scene();
 		scene.background = null; // Transparent background.
@@ -4102,8 +4062,65 @@ class ModelIcon {
 		this._restoreRendererState(renderer, state);
 
 		return canvas; // Either a new canvas or the same one.
+	},
+
+	/**
+	 * Saves the current renderer state and returns an object to restore it later.
+	 * @param {Renderer} renderer - The renderer to save state from.
+	 * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
+	 * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
+	 * The saved state object.
+	 * @private
+	 */
+	_saveRendererState(renderer) {
+		const size = new THREE.Vector2();
+		renderer.getSize(size);
+
+		return {
+			target: renderer.getRenderTarget(),
+			colorSpace: /** @type {THREE.ColorSpace} */ (renderer.outputColorSpace),
+			size
+		};
+	},
+
+	/**
+	 * Restores a renderer's state from a saved state object.
+	 * @param {Renderer} renderer - The renderer to restore state to.
+	 * @param {ReturnType<typeof this._saveRendererState>} state -
+	 * The saved state object.
+	 * @private
+	 */
+	_restoreRendererState(renderer, state) {
+		/** @type {import('three/webgpu').Renderer} */ (renderer)
+			.setRenderTarget(state.target);
+		renderer.outputColorSpace = state.colorSpace;
+		renderer.setSize(state.size.x, state.size.y, false);
+	},
+
+	/**
+	 * Copies the renderer's swapchain to a canvas.
+	 * @param {Renderer} renderer - The renderer.
+	 * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
+	 * @returns {HTMLCanvasElement} The canvas containing the rendered output.
+	 * @throws {Error} Throws if the canvas is invalid, yet not undefined.
+	 * @private
+	 */
+	_copyRendererToCanvas(renderer, canvas) {
+		const sourceCanvas = renderer.domElement;
+		// If the target canvas is not simply undefined, it's null, then error out.
+		if (canvas !== undefined && !(canvas instanceof HTMLCanvasElement)) {
+			throw new Error('copyRendererToCanvas: canvas is neither a valid canvas nor undefined.');
+		}
+		const targetCanvas = canvas || document.createElement('canvas');
+		targetCanvas.width = sourceCanvas.width;
+		targetCanvas.height = sourceCanvas.height;
+		// NOTE: Line below guarantees the canvas to be valid.
+		/** @type {CanvasRenderingContext2D} */ (targetCanvas.getContext('2d'))
+			.drawImage(sourceCanvas, 0, 0);
+
+		return targetCanvas;
 	}
-}
+};
 
 // // ---------------------------------------------------------------------
 // //  StudioCharInfo Definition, Conversion
@@ -4188,6 +4205,8 @@ function _studioURLObfuscationDecode(data) {
 
 	return decodedData.slice(0, 46); // Clamp to StudioCharInfo.size
 }
+
+// Module exports.
 
 export {
 	// Generic enums
