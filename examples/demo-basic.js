@@ -5,10 +5,9 @@ import * as THREE from 'three';
 // globalThis.spector = new SPECTOR.Spector();
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-	initializeFFL, setRendererState, CharModel,
-	FFLCharModelDescDefault, textureToCanvas, matSupportsFFL,
+	FFL, CharModel, FFLCharModelDescDefault, matSupportsFFL,
 	makeExpressionFlag, checkExpressionChangesShapes,
-	makeIconFromCharModel, FFLExpression, exitFFL
+	ModelIcon, FFLExpression
 } from '../ffl.js';
 // import * as ModuleFFLImport from '../ffl-emscripten.cjs'; // Build with EXPORT_ES6 to not be UMD.
 // Material classes.
@@ -46,15 +45,10 @@ function parseHexOrBase64ToBytes(text) {
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
 /**
- * Emscripten module instance returned after initialization.
- * @type {import('../ffl.js').Module}
+ * FFL.js instance and state.
+ * @type {FFL}
  */
-let moduleFFL;
-/**
- * FFLResourceDesc returned by {@link initializeFFL}, needed for calling {@link exitFFL}.
- * @type {import('../ffl.js').FFLResourceDesc}
- */
-let resourceDesc;
+let ffl;
 
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
@@ -326,7 +320,7 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 	 * @param {THREE.RenderTarget} target - The render target.
 	 */
 	function displayTarget(target) {
-		const img = textureToCanvas(target.texture, renderer);
+		const img = ModelIcon.textureToCanvas(target.texture, renderer);
 
 		if (element.firstChild) {
 			// Prepend instead of appending if available.
@@ -387,7 +381,7 @@ function updateCharModelInScene(data, descOrExpFlag, texOnly = false) {
 			if (!descOrExpFlag || !data) {
 				throw new Error('cannot exclude modelDesc or data if no model was initialized yet');
 			}
-			currentCharModel = new CharModel(data, descOrExpFlag, mat, moduleFFL);
+			currentCharModel = new CharModel(ffl, data, descOrExpFlag, mat);
 			// Initialize textures for the new CharModel.
 			// This is explicitly called with FFLShaderMaterial, which
 			// would be the material drawing only the mask/faceline textures.
@@ -710,7 +704,7 @@ function updateCharModelIcon() {
 	(async () => {
 		// Yield to the event loop, allowing the UI to update.
 		await new Promise(resolve => setTimeout(resolve, 0));
-		makeIconFromCharModel(currentCharModel, renderer,
+		ModelIcon.create(currentCharModel, renderer,
 			{ canvas: modelIconElement, scene: getSceneWithLights() });
 	})();
 }
@@ -830,19 +824,13 @@ function setupCharModelForm() {
  */
 async function callInitializeFFL(resource) {
 	// If FFL is already initialized, exit it first.
-	if (moduleFFL) {
-		exitFFL(moduleFFL, resourceDesc); // Frees the existing resource.
-	}
+	(ffl) && ffl.dispose(); // Frees the existing resource.
 	// Initialize FFL with the resource.
-	const initResult = await initializeFFL(resource, moduleFFL ?? ModuleFFL);
-	if (!initResult || !initResult.module) {
-		throw new Error(`initializeFFL returned unexpected result: ${initResult}`);
-	}
-	// Set globals from initialization result.
-	moduleFFL = initResult.module;
-	resourceDesc = initResult.resourceDesc;
-	await initializeRendererPromise;
-	setRendererState(renderer, moduleFFL); // Tell FFL.js we are WebGL 1 or WebGPU.
+	ffl = await FFL.initWithResource(resource, ffl?.module ?? ModuleFFL);
+
+	// Run post-initialization tasks.
+	await initializeRendererPromise; // Wait for renderer to be ready.
+	ffl.setRenderer(renderer); // Tell FFL.js we are WebGL 1 or WebGPU.
 	loadCharacterButtons(); // Make icons after renderer and FFL are ready.
 }
 
@@ -853,7 +841,7 @@ async function callInitializeFFL(resource) {
  */
 async function main() {	// Initialize FFL.
 	// await callInitializeFFL(window.ffljsResourceFetchResponse);
-	// moduleFFL._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
+	// ffl.module._FFLSetLinearGammaMode(1); // Use linear gamma colors in FFL.
 
 	setupCharModelForm();
 	initializeRendererPromise = initializeThreeRenderer();
@@ -894,11 +882,11 @@ function loadCharacterButtons() {
 		let model;
 		try {
 			const dataU8 = parseHexOrBase64ToBytes(data);
-			model = new CharModel(dataU8, null, materials[activeMaterialClassName], moduleFFL);
+			model = new CharModel(ffl, dataU8, null, materials[activeMaterialClassName]);
 			model.initTextures(renderer,
 				getTextureMaterial(materials[activeMaterialClassName]));
 
-			makeIconFromCharModel(model, renderer, {
+			ModelIcon.create(model, renderer, {
 				canvas: el, camera, scene: getSceneWithLights()
 			});
 		} catch (e) {

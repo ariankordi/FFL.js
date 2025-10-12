@@ -1,7 +1,34 @@
+export type FFLCharModelSource = {
+    /**
+     * - Originally FFLDataSource enum.
+     */
+    dataSource: number;
+    pBuffer: number;
+    /**
+     * - Only for default, official, MiddleDB; unneeded for raw data
+     */
+    index: number;
+};
+/**
+ * NOTE: FFLResourceType has been removed from here.
+ */
+export type FFLCharModelDesc = {
+    /**
+     * - Texture resolution for faceline/mask. It's recommended to only use powers of two.
+     */
+    resolution: number;
+    /**
+     * - Expression flag, created by {@link makeExpressionFlag}
+     */
+    allExpressionFlag: Uint32Array;
+    modelFlag: FFLModelFlag;
+};
 export type Renderer = import("three/webgpu").Renderer | THREE.WebGLRenderer;
 /**
  * Emscripten "Module" type.
  * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26
+ * This lists common Emscripten methods for interacting with memory,
+ * as well as functions used in the FFL library itself.
  */
 export type Module = {
     onRuntimeInitialized: () => void;
@@ -118,39 +145,10 @@ export type FFLiCharInfo = {
     authorType: number;
     authorID: Uint8Array;
 };
-export type CharModelDescOrExpressionFlag = FFLCharModelDesc | Array<FFLExpression> | FFLExpression | Uint32Array | null;
-export type FFLCharModelSource = {
-    /**
-     * - Originally FFLDataSource enum.
-     */
-    dataSource: number;
-    pBuffer: number;
-    /**
-     * - Only for default, official, MiddleDB; unneeded for raw data
-     */
-    index: number;
-};
-/**
- * NOTE: FFLResourceType has been removed from here.
- */
-export type FFLCharModelDesc = {
-    /**
-     * - Texture resolution for faceline/mask. It's recommended to only use powers of two.
-     */
-    resolution: number;
-    /**
-     * - Expression flag, created by {@link makeExpressionFlag}
-     */
-    allExpressionFlag: Uint32Array;
-    modelFlag: FFLModelFlag;
-};
-export type FFLResourceDesc = {
-    pData: Array<number>;
-    size: Array<number>;
-};
 export type MaterialConstructor = new (...args: any[]) => THREE.Material;
+export type CharModelDescOrExpressionFlag = FFLCharModelDesc | Array<FFLExpression> | FFLExpression | Uint32Array | null;
 /**
- * Indicates how the shape should be colored by the fragment shader.
+ * *
  */
 export type FFLModulateMode = number;
 export namespace FFLModulateMode {
@@ -162,9 +160,7 @@ export namespace FFLModulateMode {
     let ALPHA_OPA: number;
 }
 /**
- * This is the type of shape to be rendered.
- * It's separated into: opaque, translucent,
- * and past SHAPE_MAX is for faceline/mask.
+ * *
  */
 export type FFLModulateType = number;
 export namespace FFLModulateType {
@@ -283,16 +279,6 @@ export namespace FFLModelFlag {
     export let NEW_MASK_ONLY: number;
 }
 /**
- * *
- */
-export type FFLResourceType = number;
-export namespace FFLResourceType {
-    export let MIDDLE: number;
-    export let HIGH: number;
-    let MAX_1: number;
-    export { MAX_1 as MAX };
-}
-/**
  * Base exception type for all exceptions based on FFLResult.
  * https://github.com/ariankordi/FFLSharp/blob/master/FFLSharp.FFLManager/FFLExceptions.cs
  * https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/FFLResult.h
@@ -336,88 +322,115 @@ export class ExpressionNotSet extends Error {
     expression: number;
 }
 /**
- * Removes (unofficial) mask: FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK
- * to a common color index to reveal the original common color index.
- * @param {number} color - The flagged color index.
- * @returns {number} The original color index before flagging.
- */
-/**
  * Static default for FFLCharModelDesc.
  * @type {FFLCharModelDesc}
  * @readonly
  * @public
  */
 export const FFLCharModelDescDefault: FFLCharModelDesc;
-export type FFLGender = number;
-export namespace FFLGender {
-    let MALE: number;
-    let FEMALE: number;
-    let ALL: number;
-}
-export type FFLAge = number;
-export namespace FFLAge {
-    export let CHILD: number;
-    export let ADULT: number;
-    export let ELDER: number;
-    let ALL_1: number;
-    export { ALL_1 as ALL };
-}
-export type FFLRace = number;
-export namespace FFLRace {
-    export let BLACK: number;
-    export let WHITE: number;
-    export let ASIAN: number;
-    let ALL_2: number;
-    export { ALL_2 as ALL };
-}
 /**
- * Initializes FFL by copying the resource into heap and calling FFLInitRes.
- * It will first wait for the Emscripten module to be ready.
- * @param {Uint8Array|Response} resource - The FFL resource data. Use a Uint8Array
- * if you have the raw bytes, or a fetch response containing the FFL resource file.
- * @param {Module|Promise<Module>|function(): Promise<Module>} moduleOrPromise - The Emscripten module
- * by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
- * or as a function returning a promise (window.Module when MODULARIZE=1).
- * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when FFL is fully initialized,
- * returning the final Emscripten {@link Module} instance and the FFLResourceDesc buffer
- * that can later be passed into {@link exitFFL}.
+ * Class for initializing FFL.js.
+ * The instance of this class is meant to be passed when creating
+ * CharModels or to functions that need the {@link Module}.
  */
-export function initializeFFL(resource: Uint8Array | Response, moduleOrPromise: Module | Promise<Module> | (() => Promise<Module>)): Promise<{
+export class FFL {
+    /**
+     * Loads data from TypedArray or fetch response directly into Emscripten heap.
+     * If passed a fetch response, it streams it directly into memory and avoids copying.
+     * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data.
+     * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
+     * @param {Module} module - The Emscripten module instance.
+     * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
+     * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
+     * @private
+     */
+    private static _loadDataIntoHeap;
+    /**
+     * Resource type to load single resource into = FFL_RESOURCE_TYPE_HIGH
+     * @package
+     */
+    static singleResourceType: number;
+    /**
+     * @typedef {Object} FFLResourceDesc
+     * @property {Array<number>} pData
+     * @property {Array<number>} size
+     * @private
+     */
+    private static FFLResourceDesc_size;
+    /**
+     * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
+     * @returns {Uint8Array} Byte form of FFLResourceDesc.
+     * @private
+     */
+    private static _packFFLResourceDesc;
+    /**
+     * Initializes FFL by copying the resource into heap and calling FFLInitRes.
+     * It will first wait for the Emscripten module to be ready.
+     * @param {Uint8Array|Response} resource - The FFL resource data. Use a Uint8Array
+     * if you have the raw bytes, or a fetch response containing the FFL resource file.
+     * @param {Module|Promise<Module>|function(): Promise<Module>} moduleOrPromise - The Emscripten module
+     * by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
+     * or as a function returning a promise (window.Module when MODULARIZE=1).
+     * @returns {Promise<FFL>} Resolves when FFL is fully initialized.
+     * returning the final Emscripten {@link Module} instance and the FFLResourceDesc buffer
+     * that can later be passed into `FFL.dispose()`.
+     * @public
+     */
+    public static initWithResource(resource: Uint8Array | Response, moduleOrPromise: Module | Promise<Module> | (() => Promise<Module>)): Promise<FFL>;
+    /**
+     * Frees all pData pointers within FFLResourceDesc.
+     * @param {FFLResourceDesc|null} desc - Resource description containing pointers.
+     * @param {Module} module - Emscripten module to call _free on.
+     * @private
+     */
+    private static _freeResource;
+    /**
+     * @param {Module} module - Emscripten module.
+     * @param {FFLResourceDesc} resourceDesc - FFLResourceDesc to free later.
+     * @private
+     */
+    private constructor();
+    /** @package */
     module: Module;
-    resourceDesc: FFLResourceDesc;
-}>;
-/**
- * Sets the state for whether WebGL 1.0 or WebGPU is being used.
- * Otherwise, textures will appear wrong when not using WebGL 2.0.
- * @param {Renderer} renderer - The WebGLRenderer or WebGPURenderer.
- * @param {Module} module - The module. Must be initialized along with the renderer.
- */
-export function setRendererState(renderer: Renderer, module: Module): void;
-/**
- * @param {Module} module - Emscripten module.
- * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
- * @public
- */
-export function exitFFL(module: Module, resourceDesc: FFLResourceDesc): void;
+    /** @package */
+    resourceDesc: {
+        pData: Array<number>;
+        size: Array<number>;
+    };
+    /**
+     * Frees the FFL resource from WASM memory.
+     * @public
+     */
+    public dispose(): void;
+    /**
+     * Sets the state for whether WebGL 1.0 or WebGPU is being used.
+     * Otherwise, textures will appear wrong when not using WebGL 2.0.
+     * @param {Renderer} renderer - The WebGLRenderer or WebGPURenderer.
+     * @public
+     */
+    public setRenderer(renderer: Renderer): void;
+}
 /**
  * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
  * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
- * @param {Module} module - Module to access the data and call FFL through.
+ * @param {{module: Module}} ffl - FFL module/resource state.
  * @param {boolean} verifyName - Whether the name and creator name should be verified.
  * @returns {void} Returns nothing if verification passes.
  * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
  * @public
  */
-export function verifyCharInfo(data: Uint8Array | number, module: Module, verifyName?: boolean): void;
+export function verifyCharInfo(data: Uint8Array | number, ffl: {
+    module: Module;
+}, verifyName?: boolean): void;
 /**
  * Generates a random FFLiCharInfo instance calling FFLiGetRandomCharInfo.
- * @param {Module} module - The Emscripten module.
+ * @param {FFL} ffl - FFL module/resource state.
  * @param {FFLGender} gender - Gender of the character.
  * @param {FFLAge} age - Age of the character.
  * @param {FFLRace} race - Race of the character.
  * @returns {Uint8Array} The random FFLiCharInfo.
  */
-export function getRandomCharInfo(module: Module, gender?: FFLGender, age?: FFLAge, race?: FFLRace): Uint8Array;
+export function getRandomCharInfo(ffl: FFL, gender?: FFLGender, age?: FFLAge, race?: FFLRace): Uint8Array;
 /**
  * Creates an expression flag to be used in FFLCharModelDesc.
  * Use this whenever you need to describe which expression,
@@ -436,16 +449,6 @@ export function makeExpressionFlag(expressions: Array<FFLExpression> | FFLExpres
  * @returns {boolean} Whether the expression changes shapes.
  */
 export function checkExpressionChangesShapes(i: FFLExpression, warn?: boolean): boolean;
-export type PantsColor = number;
-export namespace PantsColor {
-    let GrayNormal: number;
-    let BluePresent: number;
-    let RedRegular: number;
-    let GoldSpecial: number;
-}
-/** @type {Object<PantsColor, THREE.Color>} */
-export const pantsColors: any;
-/** @typedef {function(new: THREE.Material, ...*): THREE.Material} MaterialConstructor */
 /**
  * Class for creating and maintaining a Mii head model,
  * also known as the "CharModel". Once constructed, a Three.js
@@ -511,6 +514,7 @@ export class CharModel {
     /**
      * Creates a CharModel from data and FFLCharModelDesc.
      * Don't forget to call `dispose()` on the CharModel when you are done with it.
+     * @param {{module: Module}} ffl - FFL module/resource state.
      * @param {Uint8Array} data - Character data. Accepted types:
      * FFLStoreData, RFLCharData, StudioCharInfo, FFLiCharInfo as Uint8Array
      * @param {CharModelDescOrExpressionFlag} descOrExpFlag - Either a new {@link FFLCharModelDesc},
@@ -518,14 +522,15 @@ export class CharModel {
      * expression flag (Uint32Array). Default: {@link FFLCharModelDescDefault}
      * @param {MaterialConstructor} materialClass - Class for the material (constructor). It must be compatible
      * with FFL, so if your material isn't, try: {@link TextureShaderMaterial}, FFL/LUTShaderMaterial
-     * @param {Module} module - The Emscripten module.
      * @param {Renderer} [renderer] - The Three.js renderer used for the render textures.
      * If this is not provided, you must call {@link CharModel.initTextures}.
      * @param {boolean} [verify] - Whether the CharInfo provided should be verified.
      * @throws {FFLResultException|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc`,
      * or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
      */
-    constructor(data: Uint8Array, descOrExpFlag: CharModelDescOrExpressionFlag, materialClass: MaterialConstructor, module: Module, renderer?: Renderer, verify?: boolean);
+    constructor(ffl: {
+        module: Module;
+    }, data: Uint8Array, descOrExpFlag: CharModelDescOrExpressionFlag, materialClass: MaterialConstructor, renderer?: Renderer, verify?: boolean);
     /** @private */
     private _module;
     /**
@@ -757,21 +762,107 @@ export function createAndRenderToTarget(scene: THREE.Scene, camera: THREE.Camera
  * @public
  */
 export function matSupportsFFL(material: Function): boolean;
-/**
- * Renders a texture to a canvas. If no canvas is provided, a new one is created.
- * @param {THREE.Texture} texture - The texture to render.
- * @param {Renderer} renderer - The renderer.
- * @param {Object} [options] - Options for canvas output.
- * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
- * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into.
- * Creates a new canvas if this does not exist.
- * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
- * @public
- */
-export function textureToCanvas(texture: THREE.Texture, renderer: Renderer, { flipY, canvas }?: {
-    flipY?: boolean | undefined;
-    canvas?: HTMLCanvasElement | undefined;
-}): HTMLCanvasElement;
+export class ModelIcon {
+    /** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
+    static getCamera(): THREE.PerspectiveCamera;
+    /**
+     * Creates an icon of the CharModel with the specified view type.
+     * @param {CharModel} charModel - The CharModel instance.
+     * @param {Renderer} renderer - The renderer.
+     * @param {Object} [options] - Optional settings for rendering the icon.
+     * @param {number} [options.width] - Desired icon width in pixels.
+     * @param {number} [options.height] - Desired icon height in pixels.
+     * @param {THREE.Scene} [options.scene] - Optional scene
+     * if you want to provide your own (e.g., with background, or models).
+     * @param {THREE.Camera} [options.camera] - Optional camera
+     * to use instead of the default.
+     * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
+     * to draw into. Creates a new canvas if this does not exist.
+     * @returns {HTMLCanvasElement} The canvas containing the icon.
+     * @public
+     */
+    public static create(charModel: CharModel, renderer: Renderer, options?: {
+        width?: number | undefined;
+        height?: number | undefined;
+        scene?: THREE.Scene | undefined;
+        camera?: THREE.Camera | undefined;
+        canvas?: HTMLCanvasElement | undefined;
+    }): HTMLCanvasElement;
+    /**
+     * Saves the current renderer state and returns an object to restore it later.
+     * @param {Renderer} renderer - The renderer to save state from.
+     * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
+     * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
+     * The saved state object.
+     * @private
+     */
+    private static _saveRendererState;
+    /**
+     * Restores a renderer's state from a saved state object.
+     * @param {Renderer} renderer - The renderer to restore state to.
+     * @param {ReturnType<typeof this._saveRendererState>} state -
+     * The saved state object.
+     * @private
+     */
+    private static _restoreRendererState;
+    /**
+     * Copies the renderer's swapchain to a canvas.
+     * @param {Renderer} renderer - The renderer.
+     * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
+     * @returns {HTMLCanvasElement} The canvas containing the rendered output.
+     * @throws {Error} Throws if the canvas is invalid, yet not undefined.
+     * @private
+     */
+    private static _copyRendererToCanvas;
+    /**
+     * Generic utility for rendering a texture to a canvas.
+     * The canvas can then further be converted to bytes via dataURL or Blob.
+     * If no canvas is provided, a new one is created.
+     * @param {THREE.Texture} texture - The texture to render.
+     * @param {Renderer} renderer - The renderer.
+     * @param {Object} [options] - Options for canvas output.
+     * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
+     * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into.
+     * Creates a new canvas if this does not exist.
+     * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
+     * @public
+     */
+    public static textureToCanvas(texture: THREE.Texture, renderer: Renderer, { flipY, canvas }?: {
+        flipY?: boolean | undefined;
+        canvas?: HTMLCanvasElement | undefined;
+    }): HTMLCanvasElement;
+}
+export type PantsColor = number;
+export namespace PantsColor {
+    let GrayNormal: number;
+    let BluePresent: number;
+    let RedRegular: number;
+    let GoldSpecial: number;
+}
+/** @type {Object<PantsColor, THREE.Color>} */
+export const pantsColors: any;
+export type FFLGender = number;
+export namespace FFLGender {
+    let MALE: number;
+    let FEMALE: number;
+    let ALL: number;
+}
+export type FFLAge = number;
+export namespace FFLAge {
+    export let CHILD: number;
+    export let ADULT: number;
+    export let ELDER: number;
+    let ALL_1: number;
+    export { ALL_1 as ALL };
+}
+export type FFLRace = number;
+export namespace FFLRace {
+    export let BLACK: number;
+    export let WHITE: number;
+    export let ASIAN: number;
+    let ALL_2: number;
+    export { ALL_2 as ALL };
+}
 /**
  * A material class that renders FFL swizzled (modulateMode) textures.
  * Has no lighting whatsoever, just meant to render 2D planes.
@@ -929,31 +1020,6 @@ export class GeometryConversion {
      */
     private static _snormToFloat;
 }
-/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
-export function getIconCamera(): THREE.PerspectiveCamera;
-/**
- * Creates an icon of the CharModel with the specified view type.
- * @param {CharModel} charModel - The CharModel instance.
- * @param {Renderer} renderer - The renderer.
- * @param {Object} [options] - Optional settings for rendering the icon.
- * @param {number} [options.width] - Desired icon width in pixels.
- * @param {number} [options.height] - Desired icon height in pixels.
- * @param {THREE.Scene} [options.scene] - Optional scene
- * if you want to provide your own (e.g., with background, or models).
- * @param {THREE.Camera} [options.camera] - Optional camera
- * to use instead of the default.
- * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
- * to draw into. Creates a new canvas if this does not exist.
- * @returns {HTMLCanvasElement} The canvas containing the icon.
- * @public
- */
-export function makeIconFromCharModel(charModel: CharModel, renderer: Renderer, options?: {
-    width?: number | undefined;
-    height?: number | undefined;
-    scene?: THREE.Scene | undefined;
-    camera?: THREE.Camera | undefined;
-    canvas?: HTMLCanvasElement | undefined;
-}): HTMLCanvasElement;
 import * as THREE from 'three';
 /**
  * *
@@ -973,7 +1039,7 @@ declare namespace FFLResult {
     export let UNKNOWN_17: number;
     export let FS_ERROR: number;
     export let FS_NOT_FOUND: number;
-    let MAX_2: number;
-    export { MAX_2 as MAX };
+    let MAX_1: number;
+    export { MAX_1 as MAX };
 }
 export {};

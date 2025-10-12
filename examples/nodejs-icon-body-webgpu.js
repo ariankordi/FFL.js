@@ -29,8 +29,8 @@ import {
 } from '../helpers/BodyUtilities.js';
 // Standard non-Node dependencies:
 import {
-	initializeFFL, setRendererState, CharModel,
-	exitFFL, PantsColor, pantsColors, FFLExpression
+	FFL, CharModel, PantsColor,
+	pantsColors, FFLExpression
 } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
 import ModuleFFL from './ffl-emscripten-single-file.cjs';
@@ -92,7 +92,7 @@ const bodyTemplates = [];
 async function loadGLTFFromFS(path) {
 	const content = await fs.readFile(path);
 	return new Promise((resolve, reject) => {
-		new GLTFLoader().parse(content.buffer,
+		new GLTFLoader().parse(/** @type {ArrayBuffer} */ (content.buffer),
 			', ', resolve, reject);
 	});
 }
@@ -161,12 +161,12 @@ function loadBodyModel(gender) {
 
 /**
  * @param {THREE.Renderer} renderer - The Three.js renderer.
- * @param {import('../ffl.js').Module} module - The FFL.js module.
+ * @param {FFL} ffl - The FFL.js instance.
  * @param {MaterialConstructor} matClass - The material class for the head and body.
  * @param {IconRenderRequest} request - Parameters for rendering the icon.
  * @returns {Promise<Uint8Array>} Rendered image as PNG pixels.
  */
-async function renderRequestToPNG(renderer, module, matClass, request) {
+async function renderRequestToPNG(renderer, ffl, matClass, request) {
 	const scene = new THREE.Scene();
 	// Scene should have a transparent background.
 	// Usually, it's transparent white (FFFFFF00) - then colored glasses
@@ -177,8 +177,8 @@ async function renderRequestToPNG(renderer, module, matClass, request) {
 
 	try {
 		// Create Mii model and add to the scene.
-		charModel = new CharModel(request.data,
-			request.expression, matClass, module, renderer);
+		charModel = new CharModel(ffl, request.data,
+			request.expression, matClass, renderer);
 
 		// TODO: In certain instances (charline), nose and forehead
 		// may disappear due to frustum culling. This is probably
@@ -311,15 +311,15 @@ Example:
 		throw e;
 	}
 
-	/** @type {Awaited<ReturnType<typeof initializeFFL>>|null} */ let ffl = null;
+	/** @type {FFL|null} */ let ffl = null;
 	// TODO: Why doesn't this type show up properly?
 	const matClass = /** @type {MaterialConstructor} */
 		(/** @type {*} */ (FFLShaderNodeMaterial));
 
 	try {
 		// Initialize FFL, which loads resource into memory.
-		ffl = await initializeFFL(await resourceFile, ModuleFFL);
-		setRendererState(renderer, ffl.module); // Tell FFL.js we are WebGPU
+		ffl = await FFL.initWithResource(await resourceFile, ModuleFFL);
+		ffl.setRenderer(renderer); // Tell FFL.js we are WebGPU
 
 		// Go through all Mii data inputs.
 		for (const dataString of charDataArray) {
@@ -333,12 +333,12 @@ Example:
 				width, isAllBody, expression
 			};
 			// Create the icon render and write it to its file output.
-			const pngData = await renderRequestToPNG(renderer, ffl.module, matClass, request);
+			const pngData = await renderRequestToPNG(renderer, ffl, matClass, request);
 			await fs.writeFile(outFile, pngData);
 		}
 	} finally {
 		// Clean up.
-		ffl && exitFFL(ffl.module, ffl.resourceDesc); // Free FFL resource from WASM heap.
+		(ffl) && ffl.dispose(); // Free FFL resource from WASM heap.
 		renderer.dispose(); // Dispose Three.js renderer.
 
 		// Destroy the GPUDevice.

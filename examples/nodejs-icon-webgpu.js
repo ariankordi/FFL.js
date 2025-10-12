@@ -12,10 +12,7 @@ import { encode } from 'fast-png';
 import * as THREE from 'three/webgpu';
 import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.js';
 // Standard non-Node dependencies:
-import {
-	initializeFFL, setRendererState, CharModel,
-	getIconCamera, exitFFL
-} from '../ffl.js';
+import { FFL, CharModel, ModelIcon } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
 import ModuleFFL from './ffl-emscripten-single-file.cjs';
 
@@ -94,22 +91,21 @@ async function main() {
 	let ffl;
 	let currentCharModel;
 	try {
-		ffl = await initializeFFL(await resourceFile, ModuleFFL);
-
-		setRendererState(renderer, ffl.module); // Tell FFL.js we are WebGPU
+		ffl = await FFL.initWithResource(await resourceFile, ModuleFFL);
+		ffl.setRenderer(renderer); // Tell FFL.js we are WebGPU
 
 		const scene = new THREE.Scene();
 		scene.background = null; // Transparent background.
 
 		// Create Mii model and add to the scene.
 		const studioRaw = parseHexOrBase64ToBytes(data);
-		currentCharModel = new CharModel(studioRaw, null,
-			FFLShaderNodeMaterial, ffl.module, renderer);
+		currentCharModel = new CharModel(ffl, studioRaw,
+			null, FFLShaderNodeMaterial, renderer);
 
 		scene.add(currentCharModel.meshes); // Add to scene
 
 		// Use the camera for an icon pose.
-		const camera = getIconCamera();
+		const camera = ModelIcon.getCamera();
 
 		// Render the scene, and read the pixels into a buffer.
 		const rt = new THREE.RenderTarget(width, height, {
@@ -132,7 +128,7 @@ async function main() {
 	} finally {
 		// Clean up.
 		(currentCharModel) && currentCharModel.dispose(); // Mii model
-		ffl && exitFFL(ffl.module, ffl.resourceDesc); // Free fflRes from memory.
+		(ffl) && ffl.dispose(); // Free fflRes from memory.
 		renderer.dispose(); // Dispose Three.js renderer.
 
 		// Destroy the GPUDevice.

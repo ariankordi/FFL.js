@@ -11,13 +11,15 @@ import * as THREE from 'three';
 /** @typedef {import('three/webgpu').Renderer|THREE.WebGLRenderer} Renderer */
 
 // // ---------------------------------------------------------------------
-// //  Emscripten Types
+// //  Emscripten Module Type
 // // ---------------------------------------------------------------------
 // TODO PATH: src/ModuleType.js
 
 /**
  * Emscripten "Module" type.
  * https://github.com/DefinitelyTyped/DefinitelyTyped/blob/c03bddd4d3c7774d00fa256a9e165d68c7534ccc/types/emscripten/index.d.ts#L26
+ * This lists common Emscripten methods for interacting with memory,
+ * as well as functions used in the FFL library itself.
  * @typedef {Object} Module
  * @property {function(): void} onRuntimeInitialized
  * @property {function(object): void} destroy
@@ -61,6 +63,7 @@ import * as THREE from 'three';
  * @property {function(number): *} _FFLiInvalidateRawMask
  * @property {function(number, boolean): *} _FFLiVerifyCharInfoWithReason
  * @property {function(): void} _exit
+ * @package
  */
 
 // // ---------------------------------------------------------------------
@@ -145,18 +148,6 @@ const FFLModulateType = {
 	FACE_BEARD: 16,
 	FILL: 17,
 	SHAPE_MAX: 9
-};
-
-/**
- * FFL supports loading middle and high resources
- * in separate slots, but we only use the high type.
- * @enum {number}
- * @package
- */
-const FFLResourceType = {
-	MIDDLE: 0,
-	HIGH: 1,
-	MAX: 2
 };
 
 /**
@@ -276,28 +267,36 @@ const FFLModelFlag = {
 	NEW_MASK_ONLY: 1 << 5
 };
 
+// The enums below are only for FFLiGetRandomCharInfo.
+// Hence, why each one has a value called ALL.
+
+/** @enum {number} */
+const FFLGender = {
+	MALE: 0,
+	FEMALE: 1,
+	ALL: 2
+};
+
+/** @enum {number} */
+const FFLAge = {
+	CHILD: 0,
+	ADULT: 1,
+	ELDER: 2,
+	ALL: 3
+};
+
+/** @enum {number} */
+const FFLRace = {
+	BLACK: 0,
+	WHITE: 1,
+	ASIAN: 2,
+	ALL: 3
+};
+
 // // ---------------------------------------------------------------------
-// //  Struct Definitions
+// // CharInfo Unpacking, Verification, Random
 // // ---------------------------------------------------------------------
-// TODO PATH: src/Structs.js
-// Mostly leading up to FFLDrawParam.
-
-/** @package */
-const FFLColor_size = 16;
-/**
- * Converts an FFLColor pointer to a THREE.Color.
- * @param {Float32Array} f32 - HEAPF32 buffer view within {@link Module}.
- * @param {number} colorPtr - The pointer to the color.
- * @returns {THREE.Color} The RGB color.
- */
-const _getFFLColor = (f32, colorPtr) =>
-	new THREE.Color().fromArray(f32, colorPtr / 4);
-
-/** @package */
-const FFLDrawParam_size = 104;
-
-// ---------------------- Begin FFLiCharInfo Definition ----------------------
-// TODO PATH: src/StructFFLiCharModel.js
+// TODO PATH: src/CharInfo.js
 
 /**
  * @typedef {Object} FFLiCharInfo
@@ -454,6 +453,60 @@ function _unpackFFLiCharInfo(u8, ptr) {
 /** sizeof(FFLStoreData) */
 const FFLStoreData_size = 96;
 
+/**
+ * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
+ * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
+ * @param {{module: Module}} ffl - FFL module/resource state.
+ * @param {boolean} verifyName - Whether the name and creator name should be verified.
+ * @returns {void} Returns nothing if verification passes.
+ * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
+ * @public
+ */
+function verifyCharInfo(data, ffl, verifyName = false) {
+	const mod = ffl.module;
+	// Resolve charInfoPtr as pointer to CharInfo.
+	let charInfoPtr = 0;
+	let charInfoAllocated = false;
+	// Assume that number means pointer.
+	if (typeof data === 'number') {
+		charInfoPtr = data;
+		charInfoAllocated = false;
+	} else {
+		// Assume everything else means Uint8Array. TODO: untested
+		charInfoAllocated = true;
+		// Allocate and copy CharInfo.
+		charInfoPtr = mod._malloc(FFLiCharInfo_size);
+		mod.HEAPU8.set(data, charInfoPtr);
+	}
+	const result = mod._FFLiVerifyCharInfoWithReason(charInfoPtr, verifyName);
+	// Free CharInfo as soon as the function returns.
+	if (charInfoAllocated) {
+		mod._free(charInfoPtr);
+	}
+
+	if (result !== 0) {
+		// Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/detail/FFLiCharInfo.h#L90
+		throw new FFLiVerifyReasonException(result);
+	}
+}
+
+/**
+ * Generates a random FFLiCharInfo instance calling FFLiGetRandomCharInfo.
+ * @param {FFL} ffl - FFL module/resource state.
+ * @param {FFLGender} gender - Gender of the character.
+ * @param {FFLAge} age - Age of the character.
+ * @param {FFLRace} race - Race of the character.
+ * @returns {Uint8Array} The random FFLiCharInfo.
+ */
+function getRandomCharInfo(ffl, gender = FFLGender.ALL, age = FFLAge.ALL, race = FFLRace.ALL) {
+	const mod = ffl.module;
+	const ptr = mod._malloc(FFLiCharInfo_size);
+	mod._FFLiGetRandomCharInfo(ptr, gender, age, race);
+	const result = mod.HEAPU8.slice(ptr, ptr + FFLiCharInfo_size);
+	mod._free(ptr);
+	return result;
+}
+
 // ---------------------- Common Color Mask Definitions ----------------------
 
 /** @package */
@@ -478,92 +531,11 @@ const commonColorMask = color => color | commonColorEnableMask;
 // 	? color
 // 	: color & ~commonColorEnableMask;
 
-// --------------------- Begin FFLiCharModel Definitions ---------------------
-
-/**
- * Static default for FFLCharModelDesc.
- * @type {FFLCharModelDesc}
- * @readonly
- * @public
- */
-const FFLCharModelDescDefault = {
-	/** Typical default. */
-	resolution: 512,
-	/** Normal expression. */
-	allExpressionFlag: new Uint32Array([1, 0, 0]),
-	modelFlag: FFLModelFlag.NORMAL
-};
-
-/** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
-
-const FFLCharModelSource_size = 10;
-/**
- * @typedef {Object} FFLCharModelSource
- * @property {number} dataSource - Originally FFLDataSource enum.
- * @property {number} pBuffer
- * @property {number} index - Only for default, official, MiddleDB; unneeded for raw data
- */
-
-/**
- * NOTE: FFLResourceType has been removed from here.
- * @typedef {Object} FFLCharModelDesc
- * @property {number} resolution - Texture resolution for faceline/mask. It's recommended to only use powers of two.
- * @property {Uint32Array} allExpressionFlag - Expression flag, created by {@link makeExpressionFlag}
- * @property {FFLModelFlag} modelFlag
- */
-
-// The enums below are only for FFLiGetRandomCharInfo.
-// Hence, why each one has a value called ALL.
-
-/** @enum {number} */
-const FFLGender = {
-	MALE: 0,
-	FEMALE: 1,
-	ALL: 2
-};
-
-/** @enum {number} */
-const FFLAge = {
-	CHILD: 0,
-	ADULT: 1,
-	ELDER: 2,
-	ALL: 3
-};
-
-/** @enum {number} */
-const FFLRace = {
-	BLACK: 0,
-	WHITE: 1,
-	ASIAN: 2,
-	ALL: 3
-};
-
-/**
- * @typedef {Object} FFLResourceDesc
- * @property {Array<number>} pData
- * @property {Array<number>} size
- */
-const FFLResourceDesc_size = 16;
-/**
- * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
- * @returns {Uint8Array} Byte form of FFLResourceDesc.
- * @private
- */
-function _packFFLResourceDesc(obj) {
-	const u8 = new Uint8Array(FFLResourceDesc_size);
-	const view = new DataView(u8.buffer);
-	view.setUint32(0, obj.pData[0], true);
-	view.setUint32(4, obj.pData[1], true);
-	view.setUint32(8, obj.size[0], true);
-	view.setUint32(12, obj.size[1], true);
-	return u8;
-}
+// EXPORTS: _unpackFFLiCharInfo, verifyCharInfo, getRandomCharInfo, commonColorMask
 
 // // ---------------------------------------------------------------------
 // //  Texture Management
 // // ---------------------------------------------------------------------
-
-// ------------------------ Class: TextureManager -----------------------------
 // TODO PATH: src/TextureManager.js
 /**
  * Manages THREE.Texture objects created via FFL.
@@ -896,22 +868,6 @@ class TextureManager {
 	}
 }
 
-/**
- * Sets the state for whether WebGL 1.0 or WebGPU is being used.
- * Otherwise, textures will appear wrong when not using WebGL 2.0.
- * @param {Renderer} renderer - The WebGLRenderer or WebGPURenderer.
- * @param {Module} module - The module. Must be initialized along with the renderer.
- */
-function setRendererState(renderer, module) {
-	console.assert(renderer && module, `setRendererState: The renderer and module must both be valid.`);
-	if ('capabilities' in renderer &&
-		!(/** @type {THREE.WebGLCapabilities} */ (renderer.capabilities).isWebGL2)) {
-		TextureManager.isWebGL1 = true;
-	} else if (_isWebGPU(renderer)) {
-		module._FFLSetTextureFlipY(false);
-	}
-}
-
 // // ---------------------------------------------------------------------
 // //  Classes for FFL Exceptions
 // // ---------------------------------------------------------------------
@@ -1054,250 +1010,308 @@ class ExpressionNotSet extends Error {
 // TODO PATH: src/Init.js
 
 /**
- * Loads data from TypedArray or fetch response directly into Emscripten heap.
- * If passed a fetch response, it streams it directly into memory and avoids copying.
- * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data.
- * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
- * @param {Module} module - The Emscripten module instance.
- * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
- * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
- * @private
+ * Class for initializing FFL.js.
+ * The instance of this class is meant to be passed when creating
+ * CharModels or to functions that need the {@link Module}.
  */
-async function _loadDataIntoHeap(resource, module) {
-	// These need to be accessible by the catch statement:
-	let heapSize;
-	let heapPtr;
-	try {
-		// Copy resource into heap.
-		if (resource instanceof ArrayBuffer) {
-			resource = new Uint8Array(resource);
-		}
-		if (resource instanceof Uint8Array) {
-			// Comes in as Uint8Array, allocate and set it.
-			heapSize = resource.length;
-			heapPtr = module._malloc(heapSize);
-			// console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
-			// Allocate and set this area in the heap as the passed buffer.
-			module.HEAPU8.set(resource, heapPtr);
-		} else if (resource instanceof Response) {
-			// Handle as fetch response.
-			if (!resource.ok) {
-				throw new Error(`_loadDataIntoHeap: Failed to fetch resource at URL = ${resource.url}, response code = ${resource.status}`);
+class FFL {
+	/**
+	 * Loads data from TypedArray or fetch response directly into Emscripten heap.
+	 * If passed a fetch response, it streams it directly into memory and avoids copying.
+	 * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data.
+	 * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
+	 * @param {Module} module - The Emscripten module instance.
+	 * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
+	 * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
+	 * @private
+	 */
+	static async _loadDataIntoHeap(resource, module) {
+		// These need to be accessible by the catch statement:
+		let heapSize;
+		let heapPtr;
+		try {
+			// Copy resource into heap.
+			if (resource instanceof ArrayBuffer) {
+				resource = new Uint8Array(resource);
 			}
-			// Throw an error if it is not a streamable response.
-			if (!resource.body) {
-				throw new Error(`_loadDataIntoHeap: Fetch response body is null (resource.body = ${resource.body})`);
-			}
-			// Get the total size of the resource from the headers.
-			const contentLength = resource.headers.get('Content-Length');
-			if (!contentLength) {
-				// Cannot stream the response. Read as ArrayBuffer and reinvoke function.
-				console.debug('_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.');
-				return _loadDataIntoHeap(await resource.arrayBuffer(), module);
-			}
-
-			// Allocate into heap using the Content-Length.
-			heapSize = parseInt(contentLength, 10);
-			heapPtr = module._malloc(heapSize);
-
-			// console.debug(`loadDataIntoHeap: Streaming from fetch response. ` +
-			// 	`Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
-
-			// Begin reading and streaming chunks into the heap.
-			const reader = resource.body.getReader();
-			let offset = heapPtr;
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) {
-					break;
+			if (resource instanceof Uint8Array) {
+				// Comes in as Uint8Array, allocate and set it.
+				heapSize = resource.length;
+				heapPtr = module._malloc(heapSize);
+				// console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
+				// Allocate and set this area in the heap as the passed buffer.
+				module.HEAPU8.set(resource, heapPtr);
+			} else if (resource instanceof Response) {
+				// Handle as fetch response.
+				if (!resource.ok) {
+					throw new Error(`_loadDataIntoHeap: Failed to fetch resource at URL = ${resource.url}, response code = ${resource.status}`);
 				}
-				// Copy value directly into HEAPU8 with offset.
-				module.HEAPU8.set(value, offset);
-				offset += value.length;
+				// Throw an error if it is not a streamable response.
+				if (!resource.body) {
+					throw new Error(`_loadDataIntoHeap: Fetch response body is null (resource.body = ${resource.body})`);
+				}
+				// Get the total size of the resource from the headers.
+				const contentLength = resource.headers.get('Content-Length');
+				if (!contentLength) {
+					// Cannot stream the response. Read as ArrayBuffer and reinvoke function.
+					console.debug('_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.');
+					return this._loadDataIntoHeap(await resource.arrayBuffer(), module);
+				}
+
+				// Allocate into heap using the Content-Length.
+				heapSize = parseInt(contentLength, 10);
+				heapPtr = module._malloc(heapSize);
+
+				// console.debug(`loadDataIntoHeap: Streaming from fetch response. ` +
+				// 	`Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
+
+				// Begin reading and streaming chunks into the heap.
+				const reader = resource.body.getReader();
+				let offset = heapPtr;
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) {
+						break;
+					}
+					// Copy value directly into HEAPU8 with offset.
+					module.HEAPU8.set(value, offset);
+					offset += value.length;
+				}
+			} else {
+				throw new Error('loadDataIntoHeap: type is not Uint8Array or Response');
 			}
+
+			return { pointer: heapPtr, size: heapSize };
+		} catch (error) {
+			// Free memory upon exception, if allocated.
+			if (heapPtr) {
+				module._free(heapPtr);
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * Resource type to load single resource into = FFL_RESOURCE_TYPE_HIGH
+	 * @package
+	 */
+	static singleResourceType = 1;
+
+	/**
+	 * @typedef {Object} FFLResourceDesc
+	 * @property {Array<number>} pData
+	 * @property {Array<number>} size
+	 * @private
+	 */
+	static FFLResourceDesc_size = 16;
+	/**
+	 * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
+	 * @returns {Uint8Array} Byte form of FFLResourceDesc.
+	 * @private
+	 */
+	static _packFFLResourceDesc(obj) {
+		const u8 = new Uint8Array(this.FFLResourceDesc_size);
+		const view = new DataView(u8.buffer);
+		view.setUint32(0, obj.pData[0], true);
+		view.setUint32(4, obj.pData[1], true);
+		view.setUint32(8, obj.size[0], true);
+		view.setUint32(12, obj.size[1], true);
+		return u8;
+	}
+
+	/**
+	 * @param {Module} module - Emscripten module.
+	 * @param {FFLResourceDesc} resourceDesc - FFLResourceDesc to free later.
+	 * @private
+	 */
+	constructor(module, resourceDesc) {
+		/** @package */
+		this.module = module;
+		/** @package */
+		this.resourceDesc = resourceDesc;
+	}
+
+	/**
+	 * Initializes FFL by copying the resource into heap and calling FFLInitRes.
+	 * It will first wait for the Emscripten module to be ready.
+	 * @param {Uint8Array|Response} resource - The FFL resource data. Use a Uint8Array
+	 * if you have the raw bytes, or a fetch response containing the FFL resource file.
+	 * @param {Module|Promise<Module>|function(): Promise<Module>} moduleOrPromise - The Emscripten module
+	 * by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
+	 * or as a function returning a promise (window.Module when MODULARIZE=1).
+	 * @returns {Promise<FFL>} Resolves when FFL is fully initialized.
+	 * returning the final Emscripten {@link Module} instance and the FFLResourceDesc buffer
+	 * that can later be passed into `FFL.dispose()`.
+	 * @public
+	 */
+	static async initWithResource(resource, moduleOrPromise) {
+		// console.debug('FFL.initWithResource: Entrypoint, waiting for module to be ready.');
+
+		/**
+		 * Pointer to the FFLResourceDesc structure to free when FFLInitRes call is done.
+		 * @type {number}
+		 */
+		let resourceDescPtr = 0;
+
+		/**
+		 * The Emscripten Module instance to set and return at the end.
+		 * @type {Module}
+		 */
+		let module;
+		// Resolve moduleOrPromise to the Module instance.
+		if (typeof moduleOrPromise === 'function') {
+			// Assume this function gets the promise of the module.
+			moduleOrPromise = moduleOrPromise();
+		}
+		if (moduleOrPromise instanceof Promise) {
+			// Await if this is now a promise.
+			module = await moduleOrPromise;
 		} else {
-			throw new Error('loadDataIntoHeap: type is not Uint8Array or Response');
+			// Otherwise, assume it is already the module.
+			module = moduleOrPromise;
 		}
 
-		return { pointer: heapPtr, size: heapSize };
-	} catch (error) {
-		// Free memory upon exception, if allocated.
-		if (heapPtr) {
-			module._free(heapPtr);
+		// Wait for the Emscripten runtime to be ready if it isn't already.
+		if (!module.calledRun && !module.onRuntimeInitialized) {
+			// calledRun is not defined. Set onRuntimeInitialized and wait for it in a new promise.
+			await new Promise((resolve) => {
+				/** If onRuntimeInitialized is not defined on module, add it. */
+				module.onRuntimeInitialized = () => {
+					// console.debug('FFL.initWithResource: Emscripten runtime initialized, resolving.');
+					resolve(null);
+				};
+				// console.debug(`FFL.initWithResource: module.calledRun: ${module.calledRun}, ` +
+				// 	`module.onRuntimeInitialized:\n${module.onRuntimeInitialized}\n // ^^ assigned and waiting.`);
+				// If you are stuck here, the object passed in may not actually be an Emscripten module?
+			});
+		} else {
+			// console.debug('FFL.initWithResource: Assuming module is ready.');
 		}
-		throw error;
+
+		// Module should be ready after this point, begin loading the resource.
+		/** @type {FFLResourceDesc|null} */
+		let desc = null;
+		try {
+			// If resource is itself a promise (fetch() result), wait for it to finish.
+			if (resource instanceof Promise) {
+				resource = await resource;
+			}
+
+			// Load the resource (Uint8Array/fetch Response) into heap.
+			const { pointer: heapPtr, size: heapSize } =
+				await this._loadDataIntoHeap(resource, module);
+			// console.debug(`FFL.initWithResource: Resource loaded into heap. Pointer: ${heapPtr}, Size: ${heapSize}`);
+
+			// Initialize and pack FFLResourceDesc.
+			desc = { pData: [0, 0], size: [0, 0] };
+			desc.pData[FFL.singleResourceType] = heapPtr;
+			desc.size[FFL.singleResourceType] = heapSize;
+
+			const resourceDescData = this._packFFLResourceDesc(desc);
+			resourceDescPtr = module._malloc(this.FFLResourceDesc_size);
+			module.HEAPU8.set(resourceDescData, resourceDescPtr);
+
+			// Call FFL initialization using: FFL_FONT_REGION_JP_US_EU = 0
+			const result = module._FFLInitRes(0, resourceDescPtr);
+
+			// Handle failed result.
+			if (result === FFLResult.FILE_INVALID) { // FFL_RESULT_BROKEN
+				throw new BrokenInitRes();
+			}
+			FFLResultException.handleResult(result, 'FFLInitRes');
+
+			// Set required globals in FFL.
+			module._FFLInitResGPUStep(); // CanInitCharModel will fail if not called.
+			module._FFLSetNormalIsSnorm8_8_8_8(true); // Set normal format to FFLiSnorm8_8_8_8.
+			module._FFLSetTextureFlipY(true); // Set textures to be flipped for OpenGL.
+
+			// Requires refactoring:
+			// module._FFLSetScale(0.1); // Sets model scale back to 1.0.
+			// module._FFLSetLinearGammaMode(1); // Use linear gamma.
+			// I don't think ^^ will work because the shaders need sRGB
+		} catch (error) {
+			// Cleanup on error.
+			this._freeResource(desc, module);
+			resourceDescPtr && module._free(resourceDescPtr);
+			console.error('FFL.initWithResource failed:', error);
+			throw error;
+		} finally {
+			// Always free the FFLResourceDesc struct itself.
+			resourceDescPtr && module._free(resourceDescPtr);
+		}
+
+		// Return final Emscripten module and FFLResourceDesc object.
+		return new FFL(module, desc);
 	}
-}
-
-/**
- * Resource type to load single resource into = FFL_RESOURCE_TYPE_HIGH
- * @package
- */
-const singleResourceType = 1;
-
-/**
- * Initializes FFL by copying the resource into heap and calling FFLInitRes.
- * It will first wait for the Emscripten module to be ready.
- * @param {Uint8Array|Response} resource - The FFL resource data. Use a Uint8Array
- * if you have the raw bytes, or a fetch response containing the FFL resource file.
- * @param {Module|Promise<Module>|function(): Promise<Module>} moduleOrPromise - The Emscripten module
- * by itself (window.Module when MODULARIZE=0), as a promise (window.Module() when MODULARIZE=1),
- * or as a function returning a promise (window.Module when MODULARIZE=1).
- * @returns {Promise<{module: Module, resourceDesc: FFLResourceDesc}>} Resolves when FFL is fully initialized,
- * returning the final Emscripten {@link Module} instance and the FFLResourceDesc buffer
- * that can later be passed into {@link exitFFL}.
- */
-async function initializeFFL(resource, moduleOrPromise) {
-	// console.debug('initializeFFL: Entrypoint, waiting for module to be ready.');
 
 	/**
-	 * Pointer to the FFLResourceDesc structure to free when FFLInitRes call is done.
-	 * @type {number}
+	 * Frees all pData pointers within FFLResourceDesc.
+	 * @param {FFLResourceDesc|null} desc - Resource description containing pointers.
+	 * @param {Module} module - Emscripten module to call _free on.
+	 * @private
 	 */
-	let resourceDescPtr;
-	/** Frees the FFLResourceDesc - not the resources it POINTS to unlike _freeResourceDesc. */
-	function freeResourceDesc() {
-		if (resourceDescPtr) {
-			// Free FFLResourceDesc, unused after init.
-			module._free(resourceDescPtr);
+	static _freeResource(desc, module) {
+		if (!desc) {
+			return;
+		}
+
+		// Access pData, the first pointer array.
+		for (let i = 0; i < 2/* FFLResourceType.MAX */; i++) {
+			const p = desc.pData[i];
+			if (p) {
+				module._free(p); // Free pData and set to 0.
+				desc.pData[i] = 0;
+			}
 		}
 	}
 
 	/**
-	 * The Emscripten Module instance to set and return at the end.
-	 * @type {Module}
+	 * Frees the FFL resource from WASM memory.
+	 * @public
 	 */
-	let module;
-	// Resolve moduleOrPromise to the Module instance.
-	if (typeof moduleOrPromise === 'function') {
-		// Assume this function gets the promise of the module.
-		moduleOrPromise = moduleOrPromise();
-	}
-	if (moduleOrPromise instanceof Promise) {
-		// Await if this is now a promise.
-		module = await moduleOrPromise;
-	} else {
-		// Otherwise, assume it is already the module.
-		module = moduleOrPromise;
-	}
+	dispose() {
+		// console.debug('FFL.dispose called, resourceDesc:', resourceDesc);
 
-	// Wait for the Emscripten runtime to be ready if it isn't already.
-	if (!module.calledRun && !module.onRuntimeInitialized) {
-		// calledRun is not defined. Set onRuntimeInitialized and wait for it in a new promise.
-		await new Promise((resolve) => {
-			/** If onRuntimeInitialized is not defined on module, add it. */
-			module.onRuntimeInitialized = () => {
-				// console.debug('initializeFFL: Emscripten runtime initialized, resolving.');
-				resolve(null);
-			};
-			// console.debug(`initializeFFL: module.calledRun: ${module.calledRun}, ` +
-			// 	`module.onRuntimeInitialized:\n${module.onRuntimeInitialized}\n // ^^ assigned and waiting.`);
-			// If you are stuck here, the object passed in may not actually be an Emscripten module?
-		});
-	} else {
-		// console.debug('initializeFFL: Assuming module is ready.');
-	}
+		// All CharModels must be deleted before this point.
+		const result = this.module._FFLExit();
+		FFLResultException.handleResult(result, 'FFLExit');
 
-	// Module should be ready after this point, begin loading the resource.
-	/** @type {FFLResourceDesc|null} */
-	let desc = null;
-	try {
-		// If resource is itself a promise (fetch() result), wait for it to finish.
-		if (resource instanceof Promise) {
-			resource = await resource;
-		}
+		// Free resources in heap after FFLExit().
+		FFL._freeResource(this.resourceDesc, this.module);
 
-		// Load the resource (Uint8Array/fetch Response) into heap.
-		const { pointer: heapPtr, size: heapSize } = await _loadDataIntoHeap(resource, module);
-		// console.debug(`initializeFFL: Resource loaded into heap. Pointer: ${heapPtr}, Size: ${heapSize}`);
-
-		// Initialize and pack FFLResourceDesc.
-		desc = { pData: [0, 0], size: [0, 0] };
-		desc.pData[singleResourceType] = heapPtr;
-		desc.size[singleResourceType] = heapSize;
-
-		const resourceDescData = _packFFLResourceDesc(desc);
-		resourceDescPtr = module._malloc(FFLResourceDesc_size); // Freed by freeResDesc.
-		module.HEAPU8.set(resourceDescData, resourceDescPtr);
-
-		// Call FFL initialization using: FFL_FONT_REGION_JP_US_EU = 0
-		const result = module._FFLInitRes(0, resourceDescPtr);
-
-		// Handle failed result.
-		if (result === FFLResult.FILE_INVALID) { // FFL_RESULT_BROKEN
-			throw new BrokenInitRes();
-		}
-		FFLResultException.handleResult(result, 'FFLInitRes');
-
-		// Set required globals in FFL.
-		module._FFLInitResGPUStep(); // CanInitCharModel will fail if not called.
-		module._FFLSetNormalIsSnorm8_8_8_8(true); // Set normal format to FFLiSnorm8_8_8_8.
-		module._FFLSetTextureFlipY(true); // Set textures to be flipped for OpenGL.
-
-		// Requires refactoring:
-		// module._FFLSetScale(0.1); // Sets model scale back to 1.0.
-		// module._FFLSetLinearGammaMode(1); // Use linear gamma.
-		// I don't think ^^ will work because the shaders need sRGB
-	} catch (error) {
-		// Cleanup on error.
-		_freeResource(desc, module);
-		freeResourceDesc();
-		console.error('initializeFFL failed:', error);
-		throw error;
-	} finally {
-		// Always free the FFLResourceDesc struct itself.
-		freeResourceDesc();
-	}
-
-	// Return final Emscripten module and FFLResourceDesc object.
-	return {
-		module: module,
-		resourceDesc: desc
-	};
-}
-
-/**
- * Frees all pData pointers within FFLResourceDesc.
- * @param {FFLResourceDesc|null} desc - Resource description containing pointers.
- * @param {Module} module - Emscripten module to call _free on.
- * @package
- */
-function _freeResource(desc, module) {
-	if (!desc) {
-		return;
-	}
-
-	// Access pData, the first pointer array.
-	for (let i = 0; i < 2/* FFLResourceType.MAX */; i++) {
-		const p = desc.pData[i];
-		if (p) {
-			module._free(p); // Free pData and set to 0.
-			desc.pData[i] = 0;
+		// Exit the module...? Is this even necessary?
+		if (this.module._exit) {
+			this.module._exit();
+		} else {
+			// console.debug('FFL.dispose: not calling module._exit = ', module._exit);
 		}
 	}
-}
 
-/**
- * @param {Module} module - Emscripten module.
- * @param {FFLResourceDesc} resourceDesc - The FFLResourceDesc received from {@link initializeFFL}.
- * @public
- */
-function exitFFL(module, resourceDesc) {
-	// console.debug('exitFFL called, resourceDesc:', resourceDesc);
-
-	// All CharModels must be deleted before this point.
-	const result = module._FFLExit();
-	FFLResultException.handleResult(result, 'FFLExit');
-
-	// Free resources in heap after FFLExit().
-	_freeResource(resourceDesc, module);
-
-	// Exit the module...? Is this even necessary?
-	if (module._exit) {
-		module._exit();
-	} else {
-		// console.debug('exitFFL: not calling module._exit = ', module._exit);
+	/**
+	 * Sets the state for whether WebGL 1.0 or WebGPU is being used.
+	 * Otherwise, textures will appear wrong when not using WebGL 2.0.
+	 * @param {Renderer} renderer - The WebGLRenderer or WebGPURenderer.
+	 * @public
+	 */
+	setRenderer(renderer) {
+		console.assert(renderer && this.module, `setRendererState: The renderer and module must both be valid.`);
+		if ('capabilities' in renderer &&
+			!(/** @type {THREE.WebGLCapabilities} */ (renderer.capabilities).isWebGL2)) {
+			TextureManager.isWebGL1 = true;
+		} else if (_isWebGPU(renderer)) {
+			this.module._FFLSetTextureFlipY(false);
+		}
 	}
+
+	/*
+	setLinearGammaMode(mode) {
+		this._gammaModeIsLinear = mode;
+		this._module._FFLSetLinearGammaMode(mode ? 1 : 0);
+	}
+	*/
+
+	// TODO: Should there be methods for "createCharModel", "createModelIcon"...
+	// Like, what if this were the only export?
 }
 
 // // ---------------------------------------------------------------------
@@ -1307,7 +1321,18 @@ function exitFFL(module, resourceDesc) {
 
 /** @typedef {function(new: THREE.Material, ...*): THREE.Material} MaterialConstructor */
 
-// --------------------------- Class: CharModel -------------------------------
+/** @package */
+const FFLColor_size = 16;
+/**
+ * Converts an FFLColor pointer to a THREE.Color.
+ * @param {Float32Array} f32 - HEAPF32 buffer view within {@link Module}.
+ * @param {number} colorPtr - The pointer to the color.
+ * @returns {THREE.Color} The RGB color.
+ * @package
+ */
+const _getFFLColor = (f32, colorPtr) =>
+	new THREE.Color().fromArray(f32, colorPtr / 4);
+
 /**
  * Class for creating and maintaining a Mii head model,
  * also known as the "CharModel". Once constructed, a Three.js
@@ -1318,6 +1343,7 @@ class CharModel {
 	/**
 	 * Creates a CharModel from data and FFLCharModelDesc.
 	 * Don't forget to call `dispose()` on the CharModel when you are done with it.
+	 * @param {{module: Module}} ffl - FFL module/resource state.
 	 * @param {Uint8Array} data - Character data. Accepted types:
 	 * FFLStoreData, RFLCharData, StudioCharInfo, FFLiCharInfo as Uint8Array
 	 * @param {CharModelDescOrExpressionFlag} descOrExpFlag - Either a new {@link FFLCharModelDesc},
@@ -1325,24 +1351,23 @@ class CharModel {
 	 * expression flag (Uint32Array). Default: {@link FFLCharModelDescDefault}
 	 * @param {MaterialConstructor} materialClass - Class for the material (constructor). It must be compatible
 	 * with FFL, so if your material isn't, try: {@link TextureShaderMaterial}, FFL/LUTShaderMaterial
-	 * @param {Module} module - The Emscripten module.
 	 * @param {Renderer} [renderer] - The Three.js renderer used for the render textures.
 	 * If this is not provided, you must call {@link CharModel.initTextures}.
 	 * @param {boolean} [verify] - Whether the CharInfo provided should be verified.
 	 * @throws {FFLResultException|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc`,
 	 * or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
 	 */
-	constructor(data, descOrExpFlag, materialClass, module, renderer, verify = true) {
+	constructor(ffl, data, descOrExpFlag, materialClass, renderer, verify = true) {
 		// Verify arguments.
-		if (!module || !module._malloc) {
-			throw new Error('CharModel: module is null or not initialized properly (cannot find ._malloc).');
+		if (!ffl || !ffl.module || !ffl.module._malloc) {
+			throw new Error('CharModel: Invalid `ffl` parameter passed in.');
 		}
 		if (!data) {
 			throw new Error('CharModel: data is null or undefined.');
 		}
 
 		/** @private */
-		this._module = module;
+		this._module = ffl.module;
 		/**
 		 * The data used to construct the CharModel.
 		 * @type {*}
@@ -1396,7 +1421,7 @@ class CharModel {
 		try {
 			// Verify CharInfo before creating.
 			if (verify) {
-				verifyCharInfo(charInfoPtr, this._module, false); // Don't verify name.
+				verifyCharInfo(charInfoPtr, { module: this._module }, false); // Don't verify name.
 			}
 
 			/**
@@ -1437,7 +1462,7 @@ class CharModel {
 		 * Representation of the underlying FFLCharModel instance.
 		 * @private
 		 */
-		this._model = new CharModelAccessor(module, this._ptr, this._modelDesc);
+		this._model = new CharModelAccessor(this._module, this._ptr, this._modelDesc);
 
 		/** @private */
 		this._isTexOnly = this._model.isTexOnly();
@@ -1489,12 +1514,7 @@ class CharModel {
 		// Object.defineProperty(this.meshes.geometry, 'boundingBox',
 		// { get: () => this.boundingBox }); // NOTE: box is too large using this
 
-		this._addCharModelMeshes(module); // Populate this.meshes.
-
-		// Optionally initialize textures if the renderer was provided.
-		if (renderer) {
-			this.initTextures(renderer, this._materialTextureClass);
-		}
+		this._addCharModelMeshes(this._module); // Populate this.meshes.
 
 		/**
 		 * Contains the CharInfo of the model.
@@ -1515,6 +1535,12 @@ class CharModel {
 		this.partsTransform = this._model.getPartsTransform();
 		/** @public */
 		this.boundingBox = this._getBoundingBox();
+
+		// Optionally initialize textures if the renderer was provided.
+		if (renderer) {
+			// Do this after accessing this._model, as it gets deleted after this.
+			this.initTextures(renderer, this._materialTextureClass);
+		}
 	}
 
 	/** @private */
@@ -1533,7 +1559,7 @@ class CharModel {
 		view.setUint32(8, flag[1], true);
 		view.setUint32(12, flag[2], true);
 		view.setUint32(16, obj.modelFlag, true);
-		view.setUint32(20, singleResourceType, /* obj.resourceType */ true);
+		view.setUint32(20, FFL.singleResourceType, /* obj.resourceType */ true);
 		return u8;
 	}
 
@@ -1711,8 +1737,8 @@ class CharModel {
 		}
 
 		// Create a new CharModel with the new data and ModelDesc.
-		const newCharModel = new CharModel(newData, newModelDesc,
-			charModel._materialClass, charModel._module, undefined, verify);
+		const newCharModel = new CharModel({ module: charModel._module },
+			newData, newModelDesc, charModel._materialClass, undefined, verify);
 
 		// Initialize its textures unconditionally.
 		newCharModel.initTextures(renderer,
@@ -2087,6 +2113,8 @@ class CharModel {
 	}
 }
 
+// EXPORTS: _getFFLColor, CharModel
+
 // TODO PATH: src/Body.js (move above function, enum into there?)
 
 /** @enum {number} */
@@ -2104,6 +2132,14 @@ const pantsColors = {
 	[PantsColor.RedRegular]: new THREE.Color(0x702015),
 	[PantsColor.GoldSpecial]: new THREE.Color(0xC0A030)
 };
+
+// // ---------------------------------------------------------------------
+// //  CharModelAccessor for Model Internals
+// // ---------------------------------------------------------------------
+// TODO PATH: CharModelAccessor.js
+
+/** @package */
+const FFLDrawParam_size = 104;
 
 /** @package */
 class CharModelAccessor {
@@ -2247,12 +2283,49 @@ class CharModelAccessor {
 	}
 }
 
-// TODO PATH: src/CharInfo.js
+// EXPORTS: CharModelAccessor, FFLDrawParam_size
+
+// // ---------------------------------------------------------------------
+// //  CharModel Creation Parameters
+// // ---------------------------------------------------------------------
+// TODO PATH: src/CharModelCreateParam.js
+
+/**
+ * Static default for FFLCharModelDesc.
+ * @type {FFLCharModelDesc}
+ * @readonly
+ * @public
+ */
+const FFLCharModelDescDefault = {
+	/** Typical default. */
+	resolution: 512,
+	/** Normal expression. */
+	allExpressionFlag: new Uint32Array([1, 0, 0]),
+	modelFlag: FFLModelFlag.NORMAL
+};
+
+/** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
+
+const FFLCharModelSource_size = 10;
+/**
+ * @typedef {Object} FFLCharModelSource
+ * @property {number} dataSource - Originally FFLDataSource enum.
+ * @property {number} pBuffer
+ * @property {number} index - Only for default, official, MiddleDB; unneeded for raw data
+ */
+
+/**
+ * NOTE: FFLResourceType has been removed from here.
+ * @typedef {Object} FFLCharModelDesc
+ * @property {number} resolution - Texture resolution for faceline/mask. It's recommended to only use powers of two.
+ * @property {Uint32Array} allExpressionFlag - Expression flag, created by {@link makeExpressionFlag}
+ * @property {FFLModelFlag} modelFlag
+ */
 
 /**
  * Converts the input data and allocates it into FFLCharModelSource.
  * Note that this allocates pBuffer so you must free it when you are done.
- * @param {ConstructorParameters<typeof CharModel>[0]} data - Data input.
+ * @param {ConstructorParameters<typeof CharModel>[1]} data - Data input.
  * @param {Module} module - Module to allocate and access the buffer through.
  * @returns {FFLCharModelSource} The CharModelSource with the data specified.
  * @throws {Error} data must be Uint8Array. Data must be a known type.
@@ -2367,58 +2440,6 @@ function _allocateModelSource(data, module) {
 }
 
 /**
- * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
- * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
- * @param {Module} module - Module to access the data and call FFL through.
- * @param {boolean} verifyName - Whether the name and creator name should be verified.
- * @returns {void} Returns nothing if verification passes.
- * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
- * @public
- */
-function verifyCharInfo(data, module, verifyName = false) {
-	// Resolve charInfoPtr as pointer to CharInfo.
-	let charInfoPtr = 0;
-	let charInfoAllocated = false;
-	// Assume that number means pointer.
-	if (typeof data === 'number') {
-		charInfoPtr = data;
-		charInfoAllocated = false;
-	} else {
-		// Assume everything else means Uint8Array. TODO: untested
-		charInfoAllocated = true;
-		// Allocate and copy CharInfo.
-		charInfoPtr = module._malloc(FFLiCharInfo_size);
-		module.HEAPU8.set(data, charInfoPtr);
-	}
-	const result = module._FFLiVerifyCharInfoWithReason(charInfoPtr, verifyName);
-	// Free CharInfo as soon as the function returns.
-	if (charInfoAllocated) {
-		module._free(charInfoPtr);
-	}
-
-	if (result !== 0) {
-		// Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/detail/FFLiCharInfo.h#L90
-		throw new FFLiVerifyReasonException(result);
-	}
-}
-
-/**
- * Generates a random FFLiCharInfo instance calling FFLiGetRandomCharInfo.
- * @param {Module} module - The Emscripten module.
- * @param {FFLGender} gender - Gender of the character.
- * @param {FFLAge} age - Age of the character.
- * @param {FFLRace} race - Race of the character.
- * @returns {Uint8Array} The random FFLiCharInfo.
- */
-function getRandomCharInfo(module, gender = FFLGender.ALL, age = FFLAge.ALL, race = FFLRace.ALL) {
-	const ptr = module._malloc(FFLiCharInfo_size);
-	module._FFLiGetRandomCharInfo(ptr, gender, age, race);
-	const result = module.HEAPU8.slice(ptr, ptr + FFLiCharInfo_size);
-	module._free(ptr);
-	return result;
-}
-
-/**
  * Checks if the expression index disables any shapes in the
  * CharModel, meant to be used when setting multiple indices.
  * @param {FFLExpression} i - Expression index to check.
@@ -2493,6 +2514,8 @@ function makeExpressionFlag(expressions) {
 	}
 	return flags;
 }
+
+// EXPORT: FFLCharModelDescDefault, _allocateModelSource, checkExpressionChangesShapes, makeExpressionFlag
 
 // // ---------------------------------------------------------------------
 // //  DrawParam Reading
@@ -3039,6 +3062,10 @@ class CharModelTextures {
 		MAX: 3
 	};
 
+	// TODO: Would these unpack methods
+	// - be more appropriate in CharModelAccessor?
+	// - rather return pointers than construct new DrawParam?
+
 	/**
 	 * @param {Uint8Array} u8 - module.HEAPU8
 	 * @param {number} ptr - Pointer to the type.
@@ -3156,7 +3183,7 @@ class CharModelTextures {
 
 		// Delete temp faceline object to free resources.
 		module._FFLiDeleteTempObjectFacelineTexture(facelineTempObjectPtr,
-			charModel.ptr, singleResourceType); // charModel.modelDesc.resourceType);
+			charModel.ptr, FFL.singleResourceType); // charModel.modelDesc.resourceType);
 		_disposeMany(offscreenScene); // Dispose meshes in scene.
 		return target;
 	}
@@ -3206,7 +3233,7 @@ class CharModelTextures {
 		scenes.forEach(scene => _disposeMany(scene));
 
 		module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr,
-			expressionFlagPtr, singleResourceType); // charModel.modelDesc.resourceType);
+			expressionFlagPtr, FFL.singleResourceType); // charModel.modelDesc.resourceType);
 		module._FFLiDeleteTextureTempObject(charModel.ptr);
 	}
 
@@ -3807,7 +3834,6 @@ function _getIdentCamera(flipY = false) {
 	return camera;
 }
 
-// - createAndRenderToTarget(scene, camera, renderer, width, height, targetOptions) -
 /**
  * Creates a Three.js RenderTarget, renders the scene with
  * the given camera, and returns the render target.
@@ -3900,180 +3926,183 @@ function _disposeMany(group, scene) {
 }
 
 // // ---------------------------------------------------------------------
-// //  Export Scene/Texture To Image
-// // ---------------------------------------------------------------------
-// TODO PATH: src/ExportTexture.js
-
-/**
- * Saves the current renderer state and returns an object to restore it later.
- * @param {Renderer} renderer - The renderer to save state from.
- * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
- * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
- * The saved state object.
- */
-function _saveRendererState(renderer) {
-	const size = new THREE.Vector2();
-	renderer.getSize(size);
-
-	return {
-		target: renderer.getRenderTarget(),
-		colorSpace: /** @type {THREE.ColorSpace} */ (renderer.outputColorSpace),
-		size
-	};
-}
-
-/**
- * Restores a renderer's state from a saved state object.
- * @param {Renderer} renderer - The renderer to restore state to.
- * @param {{target: THREE.RenderTarget|null,
- * colorSpace: THREE.ColorSpace, size: THREE.Vector2}} state -
- * The saved state object.
- */
-function _restoreRendererState(renderer, state) {
-	/** @type {import('three/webgpu').Renderer} */ (renderer)
-		.setRenderTarget(state.target);
-	renderer.outputColorSpace = state.colorSpace;
-	renderer.setSize(state.size.x, state.size.y, false);
-}
-
-/**
- * Copies the renderer's swapchain to a canvas.
- * @param {Renderer} renderer - The renderer.
- * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
- * @returns {HTMLCanvasElement} The canvas containing the rendered output.
- * @throws {Error} Throws if the canvas is defined but invalid.
- */
-function _copyRendererToCanvas(renderer, canvas) {
-	const sourceCanvas = renderer.domElement;
-	// If the target canvas is not simply undefined, it's null, then error out.
-	if (canvas !== undefined && !(canvas instanceof HTMLCanvasElement)) {
-		throw new Error('copyRendererToCanvas: canvas is neither a valid canvas nor undefined.');
-	}
-	const targetCanvas = canvas || document.createElement('canvas');
-	targetCanvas.width = sourceCanvas.width;
-	targetCanvas.height = sourceCanvas.height;
-	// NOTE: Line below guarantees the canvas to be valid.
-	/** @type {CanvasRenderingContext2D} */ (targetCanvas.getContext('2d'))
-		.drawImage(sourceCanvas, 0, 0);
-
-	return targetCanvas;
-}
-
-/**
- * Renders a texture to a canvas. If no canvas is provided, a new one is created.
- * @param {THREE.Texture} texture - The texture to render.
- * @param {Renderer} renderer - The renderer.
- * @param {Object} [options] - Options for canvas output.
- * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
- * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into.
- * Creates a new canvas if this does not exist.
- * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
- * @public
- */
-function textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
-	// Create a new scene using a full-screen quad.
-	const scene = new THREE.Scene();
-	scene.background = null; // Transparent background.
-	// Assign a transparent, textured, and double-sided material.
-	const material = new THREE.MeshBasicMaterial({
-		side: THREE.DoubleSide, map: texture, transparent: true
-	});
-	/** Full-screen quad. */
-	const plane = new THREE.PlaneGeometry(2, 2);
-	const mesh = new THREE.Mesh(plane, material);
-	scene.add(mesh);
-	/** Ortho camera filling whole screen. */
-	const camera = _getIdentCamera(flipY);
-
-	// Get previous render target, color space, and size.
-	const state = _saveRendererState(renderer);
-
-	// Render to the main canvas to extract pixels.
-	renderer.setRenderTarget(null); // Render to primary target.
-	// Get width and set it on renderer.
-	const { width, height } = texture.image;
-	renderer.setSize(width, height, false);
-	// Use working color space.
-	renderer.outputColorSpace = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
-	renderer.render(scene, camera);
-
-	canvas = _copyRendererToCanvas(renderer, canvas); // Populate canvas.
-
-	// Cleanup and restore renderer state.
-	material.dispose();
-	plane.dispose();
-	scene.remove(mesh);
-	_restoreRendererState(renderer, state);
-
-	return canvas; // Either a new canvas or the same one.
-}
-
-// // ---------------------------------------------------------------------
 // //  CharModel Icon Creation
 // // ---------------------------------------------------------------------
 // TODO PATH: src/ModelIcon.js
 
-/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
-function getIconCamera() {
-	/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
-	const fovy = 9.8762;
-	const camera = new THREE.PerspectiveCamera(fovy, 1 /* aspect = square */, 500, 1000);
-	camera.position.set(0, 34.5, 600);
-	return camera;
-}
+class ModelIcon {
+	/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
+	static getCamera() {
+		/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
+		const fovy = 9.8762;
+		const camera = new THREE.PerspectiveCamera(fovy, 1 /* aspect = square */, 500, 1000);
+		camera.position.set(0, 34.5, 600);
+		return camera;
+	}
 
-/**
- * Creates an icon of the CharModel with the specified view type.
- * @param {CharModel} charModel - The CharModel instance.
- * @param {Renderer} renderer - The renderer.
- * @param {Object} [options] - Optional settings for rendering the icon.
- * @param {number} [options.width] - Desired icon width in pixels.
- * @param {number} [options.height] - Desired icon height in pixels.
- * @param {THREE.Scene} [options.scene] - Optional scene
- * if you want to provide your own (e.g., with background, or models).
- * @param {THREE.Camera} [options.camera] - Optional camera
- * to use instead of the default.
- * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
- * to draw into. Creates a new canvas if this does not exist.
- * @returns {HTMLCanvasElement} The canvas containing the icon.
- * @public
- */
-function makeIconFromCharModel(charModel, renderer, options = {}) {
-	// Set locals from options object.
-	let {
-		width = 256,
-		height = 256,
-		scene,
-		camera,
-		canvas
-	} = options;
+	/**
+	 * Creates an icon of the CharModel with the specified view type.
+	 * @param {CharModel} charModel - The CharModel instance.
+	 * @param {Renderer} renderer - The renderer.
+	 * @param {Object} [options] - Optional settings for rendering the icon.
+	 * @param {number} [options.width] - Desired icon width in pixels.
+	 * @param {number} [options.height] - Desired icon height in pixels.
+	 * @param {THREE.Scene} [options.scene] - Optional scene
+	 * if you want to provide your own (e.g., with background, or models).
+	 * @param {THREE.Camera} [options.camera] - Optional camera
+	 * to use instead of the default.
+	 * @param {HTMLCanvasElement} [options.canvas] - Optional canvas
+	 * to draw into. Creates a new canvas if this does not exist.
+	 * @returns {HTMLCanvasElement} The canvas containing the icon.
+	 * @public
+	 */
+	static create(charModel, renderer, options = {}) {
+		// Set locals from options object.
+		let {
+			width = 256,
+			height = 256,
+			scene,
+			camera,
+			canvas
+		} = options;
 
-	// Create an offscreen scene for the icon if one is not provided.
-	if (!scene) {
-		scene = new THREE.Scene();
+		// Create an offscreen scene for the icon if one is not provided.
+		if (!scene) {
+			scene = new THREE.Scene();
+			scene.background = null; // Transparent background.
+		}
+		// Add meshes from the CharModel.
+		scene.add(charModel.meshes.clone());
+		// If the meshes aren't cloned then they disappear from the
+		// primary scene, however geometry/material etc are same
+
+		// Get camera based on viewType parameter.
+		if (!camera) {
+			camera = this.getCamera();
+		}
+
+		const state = this._saveRendererState(renderer);
+
+		renderer.setRenderTarget(null); // Switch to primary target.
+		renderer.setSize(width, height, false);
+		renderer.render(scene, camera); // Render scene.
+
+		canvas = this._copyRendererToCanvas(renderer, canvas); // Populate canvas.
+
+		this._restoreRendererState(renderer, state);
+		return canvas;
+		// Caller needs to dispose CharModel.
+	}
+
+	// Utilities for exporting to a texture.
+
+	/**
+	 * Saves the current renderer state and returns an object to restore it later.
+	 * @param {Renderer} renderer - The renderer to save state from.
+	 * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
+	 * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
+	 * The saved state object.
+	 * @private
+	 */
+	static _saveRendererState(renderer) {
+		const size = new THREE.Vector2();
+		renderer.getSize(size);
+
+		return {
+			target: renderer.getRenderTarget(),
+			colorSpace: /** @type {THREE.ColorSpace} */ (renderer.outputColorSpace),
+			size
+		};
+	}
+
+	/**
+	 * Restores a renderer's state from a saved state object.
+	 * @param {Renderer} renderer - The renderer to restore state to.
+	 * @param {ReturnType<typeof this._saveRendererState>} state -
+	 * The saved state object.
+	 * @private
+	 */
+	static _restoreRendererState(renderer, state) {
+		/** @type {import('three/webgpu').Renderer} */ (renderer)
+			.setRenderTarget(state.target);
+		renderer.outputColorSpace = state.colorSpace;
+		renderer.setSize(state.size.x, state.size.y, false);
+	}
+
+	/**
+	 * Copies the renderer's swapchain to a canvas.
+	 * @param {Renderer} renderer - The renderer.
+	 * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
+	 * @returns {HTMLCanvasElement} The canvas containing the rendered output.
+	 * @throws {Error} Throws if the canvas is invalid, yet not undefined.
+	 * @private
+	 */
+	static _copyRendererToCanvas(renderer, canvas) {
+		const sourceCanvas = renderer.domElement;
+		// If the target canvas is not simply undefined, it's null, then error out.
+		if (canvas !== undefined && !(canvas instanceof HTMLCanvasElement)) {
+			throw new Error('copyRendererToCanvas: canvas is neither a valid canvas nor undefined.');
+		}
+		const targetCanvas = canvas || document.createElement('canvas');
+		targetCanvas.width = sourceCanvas.width;
+		targetCanvas.height = sourceCanvas.height;
+		// NOTE: Line below guarantees the canvas to be valid.
+		/** @type {CanvasRenderingContext2D} */ (targetCanvas.getContext('2d'))
+			.drawImage(sourceCanvas, 0, 0);
+
+		return targetCanvas;
+	}
+
+	/**
+	 * Generic utility for rendering a texture to a canvas.
+	 * The canvas can then further be converted to bytes via dataURL or Blob.
+	 * If no canvas is provided, a new one is created.
+	 * @param {THREE.Texture} texture - The texture to render.
+	 * @param {Renderer} renderer - The renderer.
+	 * @param {Object} [options] - Options for canvas output.
+	 * @param {boolean} [options.flipY] - Flip the Y axis. Default is oriented for OpenGL.
+	 * @param {HTMLCanvasElement} [options.canvas] - Optional canvas to draw into.
+	 * Creates a new canvas if this does not exist.
+	 * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
+	 * @public
+	 */
+	static textureToCanvas(texture, renderer, { flipY = true, canvas } = {}) {
+		// Create a new scene using a full-screen quad.
+		const scene = new THREE.Scene();
 		scene.background = null; // Transparent background.
+		// Assign a transparent, textured, and double-sided material.
+		const material = new THREE.MeshBasicMaterial({
+			side: THREE.DoubleSide, map: texture, transparent: true
+		});
+			/** Full-screen quad. */
+		const plane = new THREE.PlaneGeometry(2, 2);
+		const mesh = new THREE.Mesh(plane, material);
+		scene.add(mesh);
+		/** Ortho camera filling whole screen. */
+		const camera = _getIdentCamera(flipY);
+
+		// Get previous render target, color space, and size.
+		const state = this._saveRendererState(renderer);
+
+		// Render to the main canvas to extract pixels.
+		renderer.setRenderTarget(null); // Render to primary target.
+		// Get width and set it on renderer.
+		const { width, height } = texture.image;
+		renderer.setSize(width, height, false);
+		// Use working color space.
+		renderer.outputColorSpace = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
+		renderer.render(scene, camera);
+
+		canvas = this._copyRendererToCanvas(renderer, canvas); // Populate canvas.
+
+		// Cleanup and restore renderer state.
+		material.dispose();
+		plane.dispose();
+		scene.remove(mesh);
+		this._restoreRendererState(renderer, state);
+
+		return canvas; // Either a new canvas or the same one.
 	}
-	// Add meshes from the CharModel.
-	scene.add(charModel.meshes.clone());
-	// If the meshes aren't cloned then they disappear from the
-	// primary scene, however geometry/material etc are same
-
-	// Get camera based on viewType parameter.
-	if (!camera) {
-		camera = getIconCamera();
-	}
-
-	const state = _saveRendererState(renderer);
-
-	renderer.setRenderTarget(null); // Switch to primary target.
-	renderer.setSize(width, height, false);
-	renderer.render(scene, camera); // Render scene.
-
-	canvas = _copyRendererToCanvas(renderer, canvas); // Populate canvas.
-
-	_restoreRendererState(renderer, state);
-	return canvas;
-	// Caller needs to dispose CharModel.
 }
 
 // // ---------------------------------------------------------------------
@@ -4160,14 +4189,12 @@ function _studioURLObfuscationDecode(data) {
 	return decodedData.slice(0, 46); // Clamp to StudioCharInfo.size
 }
 
-// ------------------ ESM exports, uncomment if you use ESM ------------------
 export {
 	// Generic enums
 	FFLModulateMode,
 	FFLModulateType,
 	FFLExpression,
 	FFLModelFlag,
-	FFLResourceType,
 
 	// Exception types
 	FFLResultException,
@@ -4177,36 +4204,32 @@ export {
 	// Types for CharModel initialization
 	FFLCharModelDescDefault,
 
-	// Enums for getRandomCharInfo
-	FFLGender,
-	FFLAge,
-	FFLRace,
-
 	// Begin public methods
-	initializeFFL,
-	setRendererState,
-	exitFFL,
+	FFL,
 	verifyCharInfo,
 	getRandomCharInfo,
 	makeExpressionFlag,
 	checkExpressionChangesShapes,
 
-	// Pants colors
-	PantsColor,
-	pantsColors,
-
 	// CharModel creation
 	CharModel,
 	createAndRenderToTarget,
 	matSupportsFFL,
-	textureToCanvas,
+
+	// Icon rendering
+	ModelIcon,
+
+	// Pants colors
+	PantsColor,
+	pantsColors,
+
+	// Enums for getRandomCharInfo
+	FFLGender,
+	FFLAge,
+	FFLRace,
 
 	// CharModel helpers for exporting models
 	TextureShaderMaterial,
 	ModelTexturesConverter,
-	GeometryConversion,
-
-	// Icon rendering
-	getIconCamera,
-	makeIconFromCharModel
+	GeometryConversion
 };

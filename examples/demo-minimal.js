@@ -1,10 +1,7 @@
 // @ts-check
 
 import * as THREE from 'three';
-import {
-	initializeFFL, exitFFL, setRendererState,
-	CharModel, FFLCharModelDescDefault
-} from '../ffl.js';
+import { FFL, CharModel, FFLCharModelDescDefault } from '../ffl.js';
 import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 
@@ -35,15 +32,10 @@ function parseHexOrBase64ToBytes(text) {
 // --------------- Main Entrypoint (Scene & Animation) -----------------
 
 /**
- * Emscripten module instance returned after initialization.
- * @type {import('../ffl.js').Module}
+ * FFL.js instance and state.
+ * @type {FFL}
  */
-let moduleFFL;
-/**
- * FFLResourceDesc returned by {@link initializeFFL}, needed for calling {@link exitFFL}.
- * @type {import('../ffl.js').FFLResourceDesc}
- */
-let resourceDesc;
+let ffl;
 
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
@@ -79,7 +71,7 @@ function initializeScene() {
 	renderer.setSize(window.innerWidth, window.innerHeight - 256);
 	document.body.appendChild(renderer.domElement);
 
-	setRendererState(renderer, moduleFFL);
+	ffl.setRenderer(renderer);
 
 	// Create camera.
 	camera = new THREE.PerspectiveCamera(
@@ -152,8 +144,8 @@ function updateCharModelInScene(data, modelDesc) {
 	}
 
 	// Create a new CharModel.
-	currentCharModel = new CharModel(data, modelDesc,
-		FFLShaderMaterial, moduleFFL, renderer);
+	currentCharModel = new CharModel(ffl, data,
+		modelDesc, FFLShaderMaterial, renderer);
 
 	// Add CharModel meshes to scene.
 	scene.add(currentCharModel.meshes);
@@ -183,7 +175,7 @@ function setupCharModelForm() {
 	charFormElement.addEventListener('submit', (event) => {
 		event.preventDefault();
 		try {
-			if (!moduleFFL) {
+			if (!ffl) {
 				throw new Error('FFL is not initialized yet. Please make sure the resource is loaded first.');
 			}
 			const userData = charDataInputElement.value;
@@ -215,17 +207,9 @@ function setupCharModelForm() {
  */
 async function callInitializeFFL(resource) {
 	// If FFL is already initialized, exit it first.
-	if (moduleFFL) {
-		exitFFL(moduleFFL, resourceDesc); // Frees the existing resource.
-	}
+	(ffl) && ffl.dispose(); // Frees the existing resource.
 	// Initialize FFL with the resource.
-	const initResult = await initializeFFL(resource, moduleFFL ?? ModuleFFL);
-	if (!initResult || !initResult.module) {
-		throw new Error(`initializeFFL returned unexpected result: ${initResult}`);
-	}
-	// Set globals from initialization result.
-	moduleFFL = initResult.module;
-	resourceDesc = initResult.resourceDesc;
+	ffl = await FFL.initWithResource(resource, ffl?.module ?? ModuleFFL);
 }
 
 /**
