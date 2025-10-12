@@ -20,6 +20,7 @@ import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
 /** @typedef {import('../ffl-emscripten.cjs')} ModuleFFL */
+/* globals ModuleFFL -- should be imported in <script> statement */
 
 // Snippets to help with decoding to bytes.
 
@@ -503,6 +504,7 @@ const shaderMaterialSelectElement = /** @type {HTMLInputElement|null} */ (docume
 /**
  * Populates the shader selector (a <select> element)
  * with available shader material names from {@link materials}.
+ * @throws {Error} Throws if the material class is undefined.
  */
 function populateShaderSelector() {
 	if (!shaderMaterialSelectElement || !materials) {

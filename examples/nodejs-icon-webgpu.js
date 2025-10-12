@@ -7,7 +7,7 @@
  */
 // @ts-check
 
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 import { encode } from 'fast-png';
 import * as THREE from 'three/webgpu';
 import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.js';
@@ -62,7 +62,7 @@ if (argv.length < 3 || argv.length > 4) {
 }
 const [resourcePath, data, outFile, widthArg] = argv;
 /** Width, default = 256. */
-const width = widthArg ? parseInt(widthArg, 10) : 256;
+const width = widthArg ? Number.parseInt(widthArg, 10) : 256;
 if (Number.isNaN(width) || width <= 0) {
 	console.error('Width must be a positive integer.');
 	process.exit(1);
@@ -140,4 +140,5 @@ async function main() {
 	}
 }
 
+// eslint-disable-next-line unicorn/prefer-top-level-await -- needs lib = es2017
 main();

@@ -134,7 +134,9 @@ export default [
 			// 'unicorn/no-static-only-class': 'off',
 			'unicorn/prefer-string-replace-all': 'off', // ES2021 only
 			'unicorn/no-array-sort': 'off', // ES2023 only
-			'unicorn/prefer-code-point': 'off' // Nullability does not match
+			'unicorn/prefer-code-point': 'off', // Nullability does not match
+			// This is, in fact, only called in CLIs.
+			'unicorn/no-process-exit': 'off'
 		}
 	},
 
@@ -175,7 +177,7 @@ export default [
 
 	{
 		ignores: [
-			'**/*-emscripten.*', // Do not lint Emscripten-emitted code.
+			'**/ffl-emscripten*', // Do not lint Emscripten-emitted code.
 			'docs/**/*', // TypeDoc output
 			'three-r*.js',
 

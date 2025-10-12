@@ -7,6 +7,7 @@ import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
 /** @typedef {import('../ffl-emscripten.cjs')} ModuleFFL */
+/* globals ModuleFFL -- should be imported in <script> statement */
 
 // Snippets to help with decoding to bytes.
 
@@ -14,7 +15,7 @@ const base64ToBytes = (/** @type {string} */ base64) =>
 	Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 const hexToBytes = (/** @type {string} */ hex) =>
 	Uint8Array.from({ length: hex.length >>> 1 }, (_, i) =>
-		parseInt(hex.slice(i << 1, (i << 1) + 2), 16));
+		Number.parseInt(hex.slice(i << 1, (i << 1) + 2), 16));
 /**
  * Parses either hex or Base64 -> U8.
  * Additionally strips spaces from the input.

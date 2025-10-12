@@ -11,8 +11,8 @@
 // @ts-check
 
 // Specific to this example.
-import * as fs from 'fs/promises';
-import { parseArgs } from 'util';
+import * as fs from 'node:fs/promises';
+import { parseArgs } from 'node:util';
 import * as png from 'fast-png'; // encode
 import * as THREE from 'three/webgpu'; // THREE.*, WebGPURenderer
 // Dependencies for body scaling.
@@ -184,7 +184,9 @@ async function renderRequestToPNG(renderer, ffl, matClass, request) {
 		// may disappear due to frustum culling. This is probably
 		// from mask/glass not being properly marked transparent?
 		// For now, disable frustumCulled on every head mesh.
-		charModel.meshes.traverse(m => m.frustumCulled = false);
+		charModel.meshes.traverse((m) => {
+			m.frustumCulled = false;
+		});
 
 		body = loadBodyModel(charModel.charInfo.gender);
 		const bodyMdl = body.model;
@@ -201,12 +203,12 @@ async function renderRequestToPNG(renderer, ffl, matClass, request) {
 
 		// Use the camera for an icon pose.
 		/** @type {THREE.PerspectiveCamera} */ let camera;
-		if (!request.isAllBody) { // Face only render.
-			camera = getFaceCamera();
-			adjustCameraForBodyHead(camera, body);
-		} else { // whole_body/all_body camera.
+		if (request.isAllBody) { // whole_body/all_body camera.
 			// TODO: Should eventually use 270x360 (3:4) aspect ratio like real account renders.
 			camera = getWholeBodyCamera(1, charModel.charInfo.height);
+		} else { // Face only render.
+			camera = getFaceCamera();
+			adjustCameraForBodyHead(camera, body);
 		}
 
 		// Render the scene, and read the pixels into a buffer.
@@ -271,11 +273,11 @@ Example:
 	}
 
 	const resourcePath = values.resource;
-	const width = parseInt(values.width, 10);
+	const width = Number.parseInt(values.width, 10);
 	// const height = width;
 	const isAllBody = values.type === 'all_body';
 	// Only all_body and face are supported now. Default is face.
-	const expression = parseInt(values.expression, 10);
+	const expression = Number.parseInt(values.expression, 10);
 	const outPrefix = values.outPrefix;
 	const charDataArray = positionals;
 
@@ -350,4 +352,5 @@ Example:
 	}
 }
 
+// eslint-disable-next-line unicorn/prefer-top-level-await -- needs lib = es2017
 main();

@@ -242,8 +242,8 @@ class ResourceLoadHelper {
 	async _loadFromFile(file) {
 		try {
 			// Get file as ArrayBuffer.
-			// const buffer = await file.arrayBuffer();
-			const buffer = await ResourceLoadHelper._bufferFromFile(file);
+			const buffer = await file.arrayBuffer();
+			// const buffer = await ResourceLoadHelper._bufferFromFile(file);
 			// Potentially unzip it and convert to Uint8Array.
 			const loadedResource = ResourceLoadHelper._maybeUnzipResource(buffer);
 			this._clearError(); // Clear previous errors.
@@ -278,29 +278,6 @@ class ResourceLoadHelper {
 		}
 		// Otherwise, pass along the Response as-is so initializeFFL can stream it.
 		return response;
-	}
-
-	/**
-	 * Read a File object as an ArrayBuffer.
-	 * @param {File} file - The file to read.
-	 * @returns {Promise<ArrayBuffer>} The file read as ArrayBuffer.
-	 * @private
-	 */
-	static _bufferFromFile(file) {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.addEventListener('load', () => {
-				if (reader.result instanceof ArrayBuffer) {
-					resolve(reader.result);
-				} else {
-					reject(new Error('_bufferFromFile: FileReader result is not an ArrayBuffer.'));
-				}
-			});
-			reader.addEventListener('error', (event) => {
-				reject(new Error(`_bufferFromFile: Failed to read file: ${event.target?.error?.message}`));
-			});
-			reader.readAsArrayBuffer(file);
-		});
 	}
 
 	/**
