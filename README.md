@@ -40,7 +40,7 @@ For more help, you can either examine the `ffl.js` source, or, generate document
 
 ### Importing as module
 
-For projects using npm, since this isn't on NPM as of writing you'll need to install it like so: `npm install https://github.com/ariankordi/FFL.js`
+For projects using npm, since this isn't on NPM as of writing you'll need to install it like so: `npm install https://github.com/ariankordi/FFL.js#v2.0.0` (You may replace v2.0.0 with whatever is latest)
 
 For the browser, you have to use `<script type="module">`, as well as adding import maps.
 
@@ -48,20 +48,23 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 
 ```html
 	<!-- Import maps. This correlates "import" statements
-		 with the actual links for where to get them.
-         This example is using esm.sh, which acts most like
-         importing modules from npm.
-    -->
+			with the actual links for where to get them.
+			This example is using esm.sh, which acts most like
+			importing modules from npm.
+		-->
 	<script type="importmap">
 		{
 			"imports": {
 				"three": "https://esm.sh/three@0.180.0",
 				"three/": "https://esm.sh/three@0.180.0/",
-				"FFL.js": "https://esm.sh/gh/ariankordi/FFL.js",
-				"FFL.js/": "https://esm.sh/gh/ariankordi/FFL.js/"
+				"https://esm.sh/three?target=es2022": "https://esm.sh/three@0.180.0",
+				"FFL.js": "https://esm.sh/gh/ariankordi/FFL.js@v2.0.0",
+				"FFL.js/": "https://esm.sh/gh/ariankordi/FFL.js@v2.0.0/"
 			}
 		}
 	</script>
+	<!-- The "esm.sh/three?target=es2022" import is to make
+			sure FFL.js uses the same version of Three.js. -->
 
 	<!-- This is your JS code. It can be in a file too. -->
 	<script type="module">
@@ -83,7 +86,7 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 			// You need to get AFLResHigh_2_3.dat from somewhere.
 			const ffl = await FFL.initWithResource(fetch('../AFLResHigh_2_3.dat'),
 				// If not using a CDN like esm.sh, then pass just "ModuleFFL" to CharModel directly.
-				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js/ffl-emscripten.wasm'}));
+				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js@v2.0.0/ffl-emscripten.wasm'}));
 			/** Mii data from NNID: JasmineChlora */
 			const data = Uint8Array.fromHex('000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1');
 			const model = new CharModel(ffl, data, FFLCharModelDescDefault,
