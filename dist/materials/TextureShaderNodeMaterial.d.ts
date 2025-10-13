@@ -66,7 +66,8 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
     diffuse: Color | undefined;
     color1: Color | undefined;
     color2: Color | undefined;
-    _modulateMode: number | undefined;
+    /** @private */
+    private _modulateMode;
 }
 export type ShaderNodeObject = import("three/tsl").ShaderNodeObject<any>;
 import { NodeMaterial } from 'three/webgpu';

@@ -345,7 +345,7 @@ const NnMiiMaterialTables = {
 	/**
 	 * Material uniform table mapping to FFLModulateType.
 	 * @type {Array<DrawParamMaterial>}
-	 * @package
+	 * @private
 	 */
 	drawParamMaterials: [
 		// ShapeFaceline
@@ -962,13 +962,16 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		});
 
 		// Initialize default values.
-		/** @type {FFLModulateType} */
+		/**
+		 * @type {FFLModulateType}
+		 * @private
+		 */
 		this._modulateType = 0;
 
 		// Set material color tables for this instance.
-		/** @package */
+		/** @private */
 		this._sssColorTable = NnMiiMaterialTables.getTypeToSssColorTable();
-		/** @package */
+		/** @private */
 		this._specularColorTable = NnMiiMaterialTables.getTypeToSpecularColorTable();
 
 		// Use the setters to set the rest of the uniforms.
@@ -1066,6 +1069,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (!this.uniforms || !this.uniforms.constColor1) {
 			// Store here for later when color is set.
+			/** @private */
 			this._opacity = 1;
 			return;
 		}
@@ -1136,6 +1140,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 			// are usually for mask/faceline textures, so don't throw error
 			return;
 		}
+		/** @private */
 		this._modulateType = value;
 
 		// Set drawType uniform.

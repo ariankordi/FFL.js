@@ -618,7 +618,10 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		});
 
 		// Initialize default values.
-		/** @type {FFLModulateType} */
+		/**
+		 * @type {FFLModulateType}
+		 * @private
+		 */
 		this._modulateType = 0;
 		this.useSpecularModeBlinn = false;
 
@@ -712,6 +715,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (!this.uniforms || !this.uniforms.u_const1) {
 			// Store here for later when color is set.
+			/** @private */
 			this._opacity = 1;
 			return;
 		}
@@ -755,7 +759,8 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {boolean} value - The useSpecularModeBlinn value.
 	 */
 	set useSpecularModeBlinn(value) {
-		this._useSpecularModeBlinn = value; // Private property.
+		/** @private */
+		this._useSpecularModeBlinn = value;
 		if (this._modulateType !== undefined) {
 			// Set material again if it was already set.
 			this.modulateType = this._modulateType;

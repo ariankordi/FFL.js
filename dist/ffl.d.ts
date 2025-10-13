@@ -23,6 +23,9 @@ export type FFLCharModelDesc = {
     allExpressionFlag: Uint32Array;
     modelFlag: FFLModelFlag;
 };
+/**
+ * Generic type for both types of Three.js renderers.
+ */
 export type Renderer = import("three/webgpu").Renderer | THREE.WebGLRenderer;
 /**
  * Emscripten "Module" type.
@@ -335,34 +338,10 @@ export const FFLCharModelDescDefault: FFLCharModelDesc;
  */
 export class FFL {
     /**
-     * Loads data from TypedArray or fetch response directly into Emscripten heap.
-     * If passed a fetch response, it streams it directly into memory and avoids copying.
-     * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data.
-     * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
-     * @param {Module} module - The Emscripten module instance.
-     * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
-     * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
-     * @private
-     */
-    private static _loadDataIntoHeap;
-    /**
      * Resource type to load single resource into = FFL_RESOURCE_TYPE_HIGH
      * @package
      */
     static singleResourceType: number;
-    /**
-     * @typedef {Object} FFLResourceDesc
-     * @property {Array<number>} pData
-     * @property {Array<number>} size
-     * @private
-     */
-    private static FFLResourceDesc_size;
-    /**
-     * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
-     * @returns {Uint8Array} Byte form of FFLResourceDesc.
-     * @private
-     */
-    private static _packFFLResourceDesc;
     /**
      * Initializes FFL by copying the resource into heap and calling FFLInitRes.
      * It will first wait for the Emscripten module to be ready.
@@ -377,6 +356,30 @@ export class FFL {
      * @public
      */
     public static initWithResource(resource: Uint8Array | Response, moduleOrPromise: Module | Promise<Module> | (() => Promise<Module>)): Promise<FFL>;
+    /**
+     * @typedef {Object} FFLResourceDesc
+     * @property {Array<number>} pData
+     * @property {Array<number>} size
+     * @private
+     */
+    private static FFLResourceDesc_size;
+    /**
+     * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
+     * @returns {Uint8Array} Byte form of FFLResourceDesc.
+     * @private
+     */
+    private static _packFFLResourceDesc;
+    /**
+     * Loads data from TypedArray or fetch response directly into Emscripten heap.
+     * If passed a fetch response, it streams it directly into memory and avoids copying.
+     * @param {ArrayBuffer|Uint8Array|Response} resource - The resource data.
+     * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
+     * @param {Module} module - The Emscripten module instance.
+     * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
+     * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
+     * @private
+     */
+    private static _loadDataIntoHeap;
     /**
      * Frees all pData pointers within FFLResourceDesc.
      * @param {FFLResourceDesc|null} desc - Resource description containing pointers.
@@ -456,28 +459,6 @@ export function checkExpressionChangesShapes(i: FFLExpression, warn?: boolean): 
  * @public
  */
 export class CharModel {
-    /** @private */
-    private static FFLCharModelDesc_size;
-    /**
-     * @param {FFLCharModelDesc} obj - Object form of FFLCharModelDesc.
-     * @returns {Uint8Array} Byte form of FFLCharModelDesc.
-     * @private
-     */
-    private static _packFFLCharModelDesc;
-    /**
-     * @param {FFLCharModelSource} obj - Object form of FFLCharModelSource.
-     * @returns {Uint8Array} Byte form of FFLCharModelSource.
-     * @private
-     */
-    private static _packFFLCharModelSource;
-    /** @private */
-    private static FFLiCharModel_size;
-    /**
-     * Used to index DrawParam array in FFLiCharModel.
-     * @enum {number}
-     * @private
-     */
-    private static FFLiShapeType;
     /**
      * Updates the given CharModel with new data and a new ModelDesc or expression flag.
      * If `descOrExpFlag` is an array, it is treated as the new expression flag while inheriting the rest
@@ -500,6 +481,28 @@ export class CharModel {
         verify?: boolean | undefined;
         materialTextureClass?: MaterialConstructor | null | undefined;
     }): CharModel;
+    /** @private */
+    private static FFLiCharModel_size;
+    /** @private */
+    private static FFLCharModelDesc_size;
+    /**
+     * Used to index DrawParam array in FFLiCharModel.
+     * @enum {number}
+     * @private
+     */
+    private static FFLiShapeType;
+    /**
+     * @param {FFLCharModelDesc} obj - Object form of FFLCharModelDesc.
+     * @returns {Uint8Array} Byte form of FFLCharModelDesc.
+     * @private
+     */
+    private static _packFFLCharModelDesc;
+    /**
+     * @param {FFLCharModelSource} obj - Object form of FFLCharModelSource.
+     * @returns {Uint8Array} Byte form of FFLCharModelSource.
+     * @private
+     */
+    private static _packFFLCharModelSource;
     /**
      * Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
      * Uses the `defaultDesc` as a fallback to return if input is null or applies expression to it.
@@ -596,18 +599,18 @@ export class CharModel {
      */
     public facelineColor: THREE.Color;
     /**
-     * Group of THREE.Mesh objects representing the CharModel.
-     * @type {THREE.Group}
-     * @public
-     */
-    public meshes: THREE.Group;
-    /**
      * Contains the CharInfo of the model.
      * Changes to this will not be reflected whatsoever.
      * @returns {FFLiCharInfo} The CharInfo of the model.
      * @public
      */
     public charInfo: FFLiCharInfo;
+    /**
+     * Group of THREE.Mesh objects representing the CharModel.
+     * @type {THREE.Group}
+     * @public
+     */
+    public meshes: THREE.Group;
     /**
      * Favorite color, also used for hats and body.
      * @public
@@ -632,59 +635,18 @@ export class CharModel {
      */
     initTextures(renderer: Renderer, materialClass?: MaterialConstructor): void;
     /**
-     * This is the method that populates meshes
-     * from the internal FFLiCharModel instance.
-     * @param {Module} module - Module to pass to DrawParam.toMesh to access mesh data.
-     * @private
-     */
-    private _addCharModelMeshes;
-    /** @private */
-    private _facelineMesh;
-    /** @private */
-    private _maskMesh;
-    /**
-     * Calculates the bounding box from the meshes.
-     * @returns {THREE.Box3} The bounding box.
-     * @private
-     */
-    private _getBoundingBox;
-    /**
-     * @returns {THREE.Color} The favorite color as THREE.Color.
-     * @private
-     */
-    private _getFavoriteColor;
-    /**
-     * Frees and deletes the FFLCharModel, which can be done after rendering textures.
-     * This is not the same as `dispose()` which cleans up the scene.
-     * @private
-     */
-    private _finalizeCharModel;
-    /**
-     * Disposes RenderTargets for textures created by the CharModel.
-     * @public
-     */
-    public disposeTargets(): void;
-    /**
      * Disposes the CharModel and removes all associated resources.
      * @param {boolean} [disposeTargets] - Whether or not to dispose of mask and faceline render targets.
      * @public
      */
     public dispose(disposeTargets?: boolean): void;
+    _facelineMesh: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap> | null | undefined;
+    _maskMesh: THREE.Mesh<THREE.BufferGeometry<THREE.NormalBufferAttributes>, THREE.Material | THREE.Material[], THREE.Object3DEventMap> | null | undefined;
     /**
-     * Serializes the CharModel data to FFLStoreData.
-     * @returns {Uint8Array} The exported FFLStoreData.
-     * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
-     * returns false, usually when CharInfo verification fails.
+     * Disposes RenderTargets for textures created by the CharModel.
      * @public
-     * @todo TODO: Can they edit the CharInfo to justify this method so they can get it out?
      */
-    /**
-     * Sets the faceline texture from the RenderTarget.
-     * @param {THREE.RenderTarget} target - RenderTarget for the faceline texture.
-     * @throws {Error} CharModel must be initialized with OPA_FACELINE in meshes.
-     * @private
-     */
-    private _setFaceline;
+    public disposeTargets(): void;
     /**
      * Sets the expression for this CharModel and updates the corresponding mask texture.
      * @param {FFLExpression} expression - The new expression index.
@@ -718,6 +680,12 @@ export class CharModel {
      */
     getMask(expression?: FFLExpression): THREE.RenderTarget | null;
     /**
+     * Gets a vector in which to scale the body model for this CharModel.
+     * @returns {THREE.Vector3Like} Scale vector for the body model.
+     * @public
+     */
+    public getBodyScale(): THREE.Vector3Like;
+    /**
      * Gets the ColorInfo object needed for SampleShaderMaterial.
      * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.
      * @returns {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo}
@@ -725,6 +693,14 @@ export class CharModel {
      * @public
      */
     public getColorInfo(isSpecial?: boolean): import("./materials/SampleShaderMaterial.js").SampleShaderMaterialColorInfo;
+    /**
+     * Serializes the CharModel data to FFLStoreData.
+     * @returns {Uint8Array} The exported FFLStoreData.
+     * @throws {Error} Throws if call to _FFLpGetStoreDataFromCharInfo
+     * returns false, usually when CharInfo verification fails.
+     * @public
+     * @todo TODO: Can they edit the CharInfo to justify this method so they can get it out?
+     */
     /**
      * The current expression for this CharModel.
      * Read-only. Use setExpression to set the expression.
@@ -738,11 +714,36 @@ export class CharModel {
      */
     public get gender(): number;
     /**
-     * Gets a vector in which to scale the body model for this CharModel.
-     * @returns {THREE.Vector3Like} Scale vector for the body model.
-     * @public
+     * This is the method that populates meshes
+     * from the internal FFLiCharModel instance.
+     * @param {Module} module - Module to pass to DrawParam.toMesh to access mesh data.
+     * @private
      */
-    public getBodyScale(): THREE.Vector3Like;
+    private _addCharModelMeshes;
+    /**
+     * Calculates the bounding box from the meshes.
+     * @returns {THREE.Box3} The bounding box.
+     * @private
+     */
+    private _getBoundingBox;
+    /**
+     * @returns {THREE.Color} The favorite color as THREE.Color.
+     * @private
+     */
+    private _getFavoriteColor;
+    /**
+     * Frees and deletes the FFLCharModel, which can be done after rendering textures.
+     * This is not the same as `dispose()` which cleans up the scene.
+     * @private
+     */
+    private _finalizeCharModel;
+    /**
+     * Sets the faceline texture from the RenderTarget.
+     * @param {THREE.RenderTarget} target - RenderTarget for the faceline texture.
+     * @throws {Error} CharModel must be initialized with OPA_FACELINE in meshes.
+     * @private
+     */
+    private _setFaceline;
 }
 /**
  * Creates a Three.js RenderTarget, renders the scene with
@@ -762,9 +763,7 @@ export function createAndRenderToTarget(scene: THREE.Scene, camera: THREE.Camera
  * @public
  */
 export function matSupportsFFL(material: Function): boolean;
-export class ModelIcon {
-    /** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
-    static getCamera(): THREE.PerspectiveCamera;
+export namespace ModelIcon {
     /**
      * Creates an icon of the CharModel with the specified view type.
      * @param {CharModel} charModel - The CharModel instance.
@@ -781,39 +780,15 @@ export class ModelIcon {
      * @returns {HTMLCanvasElement} The canvas containing the icon.
      * @public
      */
-    public static create(charModel: CharModel, renderer: Renderer, options?: {
+    function create(charModel: CharModel, renderer: Renderer, options?: {
         width?: number | undefined;
         height?: number | undefined;
         scene?: THREE.Scene | undefined;
         camera?: THREE.Camera | undefined;
         canvas?: HTMLCanvasElement | undefined;
     }): HTMLCanvasElement;
-    /**
-     * Saves the current renderer state and returns an object to restore it later.
-     * @param {Renderer} renderer - The renderer to save state from.
-     * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
-     * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
-     * The saved state object.
-     * @private
-     */
-    private static _saveRendererState;
-    /**
-     * Restores a renderer's state from a saved state object.
-     * @param {Renderer} renderer - The renderer to restore state to.
-     * @param {ReturnType<typeof this._saveRendererState>} state -
-     * The saved state object.
-     * @private
-     */
-    private static _restoreRendererState;
-    /**
-     * Copies the renderer's swapchain to a canvas.
-     * @param {Renderer} renderer - The renderer.
-     * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
-     * @returns {HTMLCanvasElement} The canvas containing the rendered output.
-     * @throws {Error} Throws if the canvas is invalid, yet not undefined.
-     * @private
-     */
-    private static _copyRendererToCanvas;
+    /** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
+    function getCamera(): THREE.PerspectiveCamera;
     /**
      * Generic utility for rendering a texture to a canvas.
      * The canvas can then further be converted to bytes via dataURL or Blob.
@@ -827,10 +802,40 @@ export class ModelIcon {
      * @returns {HTMLCanvasElement} The canvas containing the rendered texture.
      * @public
      */
-    public static textureToCanvas(texture: THREE.Texture, renderer: Renderer, { flipY, canvas }?: {
+    function textureToCanvas(texture: THREE.Texture, renderer: Renderer, { flipY, canvas }?: {
         flipY?: boolean | undefined;
         canvas?: HTMLCanvasElement | undefined;
     }): HTMLCanvasElement;
+    /**
+     * Saves the current renderer state and returns an object to restore it later.
+     * @param {Renderer} renderer - The renderer to save state from.
+     * @returns {{target: THREE.RenderTarget|THREE.WebGLRenderTarget|null,
+     * colorSpace: THREE.ColorSpace, size: THREE.Vector2}}
+     * The saved state object.
+     * @private
+     */
+    function _saveRendererState(renderer: Renderer): {
+        target: THREE.RenderTarget | THREE.WebGLRenderTarget | null;
+        colorSpace: THREE.ColorSpace;
+        size: THREE.Vector2;
+    };
+    /**
+     * Restores a renderer's state from a saved state object.
+     * @param {Renderer} renderer - The renderer to restore state to.
+     * @param {ReturnType<typeof this._saveRendererState>} state -
+     * The saved state object.
+     * @private
+     */
+    function _restoreRendererState(renderer: Renderer, state: ReturnType<typeof this._saveRendererState>): void;
+    /**
+     * Copies the renderer's swapchain to a canvas.
+     * @param {Renderer} renderer - The renderer.
+     * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
+     * @returns {HTMLCanvasElement} The canvas containing the rendered output.
+     * @throws {Error} Throws if the canvas is invalid, yet not undefined.
+     * @private
+     */
+    function _copyRendererToCanvas(renderer: Renderer, canvas?: HTMLCanvasElement): HTMLCanvasElement;
 }
 export type PantsColor = number;
 export namespace PantsColor {
@@ -923,14 +928,17 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
     /** @returns {THREE.Texture|null}The texture map, or null if it is unset. */
     get map(): THREE.Texture | null;
 }
-/**
- * Utilities for converting textures within a CharModel.
- * {@link ModelTexturesConverter.convModelTexturesToRGBA} adds colors to textures so
- * they can be used with any material, or a model export.
- * {@link ModelTexturesConverter.convModelTargetsToDataTex} adds texture data by converting
- * render targets to {@link THREE.DataTexture}, allowing exports.
- */
-export class ModelTexturesConverter {
+export namespace ModelTexturesConverter {
+    /**
+     * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
+     * textures that are R/RG format, to RGBA and also applying colors, so that
+     * the CharModel can be rendered without a material that supports modulateMode.
+     * @param {CharModel} charModel - The CharModel whose textures to convert.
+     * @param {Renderer} renderer - The renderer.
+     * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
+     * @public
+     */
+    function convModelTexturesToRGBA(charModel: CharModel, renderer: Renderer, materialTextureClass: MaterialConstructor): void;
     /**
      * Takes the texture in `material` and draws it using `materialTextureClass`, using
      * the modulateMode property in `userData`, using the `renderer` and sets it back
@@ -944,17 +952,9 @@ export class ModelTexturesConverter {
      * @returns {THREE.RenderTarget} The RenderTarget of the final RGBA texture.
      * @private
      */
-    private static _texDrawRGBATarget;
-    /**
-     * Converts a CharModel's textures, including ones that may be using swizzled modulateMode
-     * textures that are R/RG format, to RGBA and also applying colors, so that
-     * the CharModel can be rendered without a material that supports modulateMode.
-     * @param {CharModel} charModel - The CharModel whose textures to convert.
-     * @param {Renderer} renderer - The renderer.
-     * @param {MaterialConstructor} materialTextureClass - The material class that draws the new texture.
-     * @public
-     */
-    public static convModelTexturesToRGBA(charModel: CharModel, renderer: Renderer, materialTextureClass: MaterialConstructor): void;
+    function _texDrawRGBATarget(renderer: Renderer, material: THREE.MeshBasicMaterial, userData: {
+        [x: string]: any;
+    }, materialTextureClass: MaterialConstructor): THREE.RenderTarget;
     /**
      * Converts all textures in the CharModel that are associated
      * with RenderTargets into THREE.DataTextures, so that the
@@ -963,9 +963,9 @@ export class ModelTexturesConverter {
      * @param {Renderer} renderer - The renderer.
      * @public
      */
-    public static convModelTargetsToDataTex(charModel: CharModel, renderer: Renderer): Promise<void>;
+    function convModelTargetsToDataTex(charModel: CharModel, renderer: Renderer): Promise<void>;
 }
-export class GeometryConversion {
+export namespace GeometryConversion {
     /**
      * Modifies a BufferGeometry in place to be compatible with glTF.
      * It currently: deinterleaves attributes, converts half-float to float,
@@ -975,14 +975,14 @@ export class GeometryConversion {
      * @throws {TypeError} Throws if an unsupported attribute format is encountered.
      * @public
      */
-    public static convertForGLTF(geometry: THREE.BufferGeometry): void;
+    function convertForGLTF(geometry: THREE.BufferGeometry): void;
     /**
      * Deinterleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
      * @param {THREE.InterleavedBufferAttribute} attr - The interleaved attribute.
      * @returns {THREE.BufferAttribute} A new BufferAttribute containing deinterleaved data.
      * @private
      */
-    private static _interleavedToBufferAttribute;
+    function _interleavedToBufferAttribute(attr: THREE.InterleavedBufferAttribute): THREE.BufferAttribute;
     /**
      * Creates a new Float32Array by copying only a subset of components per vertex.
      * @param {Float32Array} src - The source Float32Array.
@@ -992,21 +992,21 @@ export class GeometryConversion {
      * @returns {Float32Array} A new Float32Array with reduced component count.
      * @private
      */
-    private static _copyFloat32Reduced;
+    function _copyFloat32Reduced(src: Float32Array, count: number, srcItemSize: number, targetItemSize: number): Float32Array;
     /**
      * Converts a 16-bit half-float value to a 32-bit float.
      * @param {number} half - The half-float value.
      * @returns {number} The corresponding 32-bit float value.
      * @private
      */
-    private static _halfToFloat;
+    function _halfToFloat(half: number): number;
     /**
      * Converts a Uint16Array assumed to represent half-float values into a Float32Array.
      * @param {Uint16Array} halfArray - The Uint16Array of half-float values.
      * @returns {Float32Array} A Float32Array with converted float values.
      * @private
      */
-    private static _halfArrayToFloat;
+    function _halfArrayToFloat(halfArray: Uint16Array): Float32Array;
     /**
      * Converts an Int8Array of SNORM values to a Float32Array.
      * If the targetItemSize is less than the original (e.g. for normals), only the first targetItemSize
@@ -1018,7 +1018,7 @@ export class GeometryConversion {
      * @returns {Float32Array} A Float32Array with converted values.
      * @private
      */
-    private static _snormToFloat;
+    function _snormToFloat(src: Int8Array, count: number, srcItemSize: number, targetItemSize: number): Float32Array;
 }
 import * as THREE from 'three';
 /**

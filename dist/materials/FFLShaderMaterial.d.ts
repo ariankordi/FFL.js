@@ -97,8 +97,11 @@ declare class FFLShaderMaterial extends THREE.ShaderMaterial {
      * Parameters for the material.
      */
     constructor(options?: THREE.ShaderMaterialParameters & FFLShaderMaterialParameters);
-    /** @type {FFLModulateType} */
-    _modulateType: FFLModulateType;
+    /**
+     * @type {FFLModulateType}
+     * @private
+     */
+    private _modulateType;
     /**
      * Sets whether to override specular mode with 0.
      * @param {boolean} value - The useSpecularModeBlinn value.
@@ -125,7 +128,8 @@ declare class FFLShaderMaterial extends THREE.ShaderMaterial {
      * @private
      */
     private _color3;
-    _opacity: number | undefined;
+    /** @private */
+    private _opacity;
     /**
      * Sets the value of the modulateMode uniform.
      * @param {FFLModulateMode} value - The new modulateMode value.
@@ -146,7 +150,8 @@ declare class FFLShaderMaterial extends THREE.ShaderMaterial {
      * @returns {boolean|null} The lightEnable value, or null if it is unset.
      */
     get lightEnable(): boolean | null;
-    _useSpecularModeBlinn: boolean | undefined;
+    /** @private */
+    private _useSpecularModeBlinn;
     /**
      * Sets the material uniforms based on the modulate type value.
      * @param {FFLModulateType} value - The new modulateType value.

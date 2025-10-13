@@ -106,12 +106,15 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
      * Parameters for the material.
      */
     constructor(options?: THREE.ShaderMaterialParameters & SampleShaderMaterialParameters);
-    /** @type {FFLModulateType} */
-    _modulateType: FFLModulateType;
-    /** @package */
-    _sssColorTable: (number[] | null)[];
-    /** @package */
-    _specularColorTable: (number[] | null)[];
+    /**
+     * @type {FFLModulateType}
+     * @private
+     */
+    private _modulateType;
+    /** @private */
+    private _sssColorTable;
+    /** @private */
+    private _specularColorTable;
     /**
      * Sets the constant color uniforms from THREE.Color.
      * @param {THREE.Color|Array<THREE.Color>} value - The
@@ -128,7 +131,8 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
      * @private
      */
     private _color3;
-    _opacity: number | undefined;
+    /** @private */
+    private _opacity;
     /**
      * Sets the value of the modulateMode uniform.
      * @param {FFLModulateMode} value - The new modulateMode value.

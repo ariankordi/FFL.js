@@ -53,12 +53,9 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      * @typedef {Object<LUTSpecularTextureType, HermitianCurve>} SpecularLUT
      * @typedef {Object<LUTFresnelTextureType, HermitianCurve>} FresnelLUT
      * @type {{ specular: SpecularLUT, fresnel: FresnelLUT }}
-     * @package
+     * @private
      */
-    static lutDefinitions: {
-        specular: any;
-        fresnel: any;
-    };
+    private static _lutDefinitions;
     /** @type {Object<FFLModulateType, LUTSpecularTextureType>} */
     static modulateTypeToLUTSpecular: any;
     /** @type {Object<FFLModulateType, LUTFresnelTextureType>} */
@@ -73,26 +70,16 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      */
     /**
      * @type {LUTTextures|null}
-     * @package
+     * @private
      */
-    static _lutTextures: {
-        /**
-         * -
-         * Specular LUT textures indexed by LUT type.
-         */
-        specular: any;
-        /**
-         * -
-         * Fresnel LUT textures indexed by LUT type.
-         */
-        fresnel: any;
-    } | null;
+    private static _lutTextures;
     /**
      * Generates and return LUT textures.
      * @param {number} [lutSize] - Width of the LUT.
      * @returns {LUTTextures} Specular and fresnel LUT textures.
+     * @public
      */
-    static getLUTTextures(lutSize?: number): {
+    public static getLUTTextures(lutSize?: number): {
         /**
          * -
          * Specular LUT textures indexed by LUT type.
@@ -132,9 +119,9 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      * @param {FFLModulateType} modulateType - The modulate type, or type of shape.
      * @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
      * @returns {THREE.Color} The final color.
-     * @package
+     * @private
      */
-    static multiplyColorIfNeeded(color: THREE.Color, modulateType: FFLModulateType, modulateMode: FFLModulateMode): THREE.Color;
+    private static _multiplyColorIfNeeded;
     /** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
     /**
      * Constructs a LUTShaderMaterial instance.
@@ -143,8 +130,11 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      * Parameters for the material.
      */
     constructor(options?: THREE.ShaderMaterialParameters & LUTShaderMaterialParameters);
-    /** @type {FFLModulateType} */
-    _modulateType: FFLModulateType;
+    /**
+     * @type {FFLModulateType}
+     * @private
+     */
+    private _modulateType;
     /**
      * Sets the constant color uniforms from THREE.Color.
      * @param {THREE.Color|Array<THREE.Color>} value - The
@@ -161,7 +151,8 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      * @private
      */
     private _color3;
-    _opacity: number | undefined;
+    /** @private */
+    private _opacity;
     /**
      * Sets the value of the modulateMode uniform.
      * @param {FFLModulateMode} value - The new modulateMode value.
@@ -192,7 +183,10 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      * @returns {FFLModulateType|undefined} The modulateType value if it is set.
      */
     get modulateType(): FFLModulateType | undefined;
-    /** @type {number|undefined} */
+    /**
+     * @type {number|undefined}
+     * @package
+     */
     _side: number | undefined;
     /**
      * Sets the texture map.

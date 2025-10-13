@@ -711,7 +711,7 @@ else
 // // ---------------------------------------------------------------------
 /**
  * Represents a Hermitian curve interpolation for LUT generation.
- * @package
+ * @private
  */
 class HermitianCurve {
 	/**
@@ -813,9 +813,9 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @typedef {Object<LUTSpecularTextureType, HermitianCurve>} SpecularLUT
 	 * @typedef {Object<LUTFresnelTextureType, HermitianCurve>} FresnelLUT
 	 * @type {{ specular: SpecularLUT, fresnel: FresnelLUT }}
-	 * @package
+	 * @private
 	 */
-	static lutDefinitions = {
+	static _lutDefinitions = {
 		specular: {
 			[LUTShaderMaterial.LUTSpecularTextureType.NONE]: new HermitianCurve([
 				{ x: 0, y: 0, dx: 0, dy: 0 },
@@ -938,7 +938,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	/**
 	 * @type {LUTTextures|null}
-	 * @package
+	 * @private
 	 */
 	static _lutTextures = null;
 
@@ -946,6 +946,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * Generates and return LUT textures.
 	 * @param {number} [lutSize] - Width of the LUT.
 	 * @returns {LUTTextures} Specular and fresnel LUT textures.
+	 * @public
 	 */
 	static getLUTTextures(lutSize = 512) {
 		if (LUTShaderMaterial._lutTextures) {
@@ -985,8 +986,8 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 			}
 		}
 
-		generateLUTTextures(LUTShaderMaterial.lutDefinitions.specular, textures.specular);
-		generateLUTTextures(LUTShaderMaterial.lutDefinitions.fresnel, textures.fresnel);
+		generateLUTTextures(LUTShaderMaterial._lutDefinitions.specular, textures.specular);
+		generateLUTTextures(LUTShaderMaterial._lutDefinitions.fresnel, textures.fresnel);
 
 		LUTShaderMaterial._lutTextures = textures;
 		return textures;
@@ -1025,9 +1026,9 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {FFLModulateType} modulateType - The modulate type, or type of shape.
 	 * @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
 	 * @returns {THREE.Color} The final color.
-	 * @package
+	 * @private
 	 */
-	static multiplyColorIfNeeded(color, modulateType, modulateMode) {
+	static _multiplyColorIfNeeded(color, modulateType, modulateMode) {
 		if (
 			modulateType === 1 || // SHAPE_BEARD
 			modulateType === 4 || // SHAPE_HAIR
@@ -1089,7 +1090,10 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 			uniforms: uniforms
 		});
 
-		/** @type {FFLModulateType} */
+		/**
+		 * @type {FFLModulateType}
+		 * @private
+		 */
 		this._modulateType = 0; // Initialize default for modulateType field.
 
 		// Use the setters to set the rest of the uniforms.
@@ -1151,7 +1155,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 		// Use multiplyColorIfNeeded method for a single color.
 		if (this.modulateType !== undefined && typeof this.modulateMode === 'number') {
-			LUTShaderMaterial.multiplyColorIfNeeded(color3, this.modulateType, this.modulateMode);
+			LUTShaderMaterial._multiplyColorIfNeeded(color3, this.modulateType, this.modulateMode);
 		}
 
 		// Assign single color with white as a placeholder.
@@ -1188,6 +1192,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (!this.uniforms || !this.uniforms.uColor0) {
 			// Store here for later when color is set.
+			/** @private */
 			this._opacity = 1;
 			return;
 		}
@@ -1249,6 +1254,10 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		if (specType === undefined || fresType === undefined) {
 			return;
 		}
+		/**
+		 * @type {FFLModulateType}
+		 * @private
+		 */
 		this._modulateType = value;
 
 		const lutSpecTexture = lutTextures.specular[specType];
@@ -1264,7 +1273,10 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 			value: (value >= 6 && value <= 8)
 		};
 
-		/** @type {number|undefined} */
+		/**
+		 * @type {number|undefined}
+		 * @package
+		 */
 		this._side = this.side; // Store original side.
 		// Force culling to none for mask.
 		this.side = (value === 6 ? THREE.DoubleSide : this.side);

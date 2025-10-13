@@ -22,6 +22,27 @@ export type ErrorAndResponseStatus = Error & {
  */
 declare class ResourceLoadHelper {
     /**
+     * Fetch the resource from a URL.
+     * If the URL ends with ".zip", it will be fetched, converted to an ArrayBuffer,
+     * unzipped via fflate, and then return a Uint8Array.
+     * Otherwise, the original Response is returned for streaming.
+     * @param {string} url - The URL to fetch.
+     * @returns {Promise<(Response|Uint8Array)>}
+     * The returned fetch Response, or Uint8Array if the resource is from a zip.
+     * @private
+     */
+    private static _loadFromURL;
+    /**
+     * Process an ArrayBuffer to check if it represents a zip.
+     * If it is a zip (detected by "PK" magic), use fflate to unzip and return the .dat resource.
+     * Otherwise, wrap and return a Uint8Array.
+     * @param {ArrayBuffer} buffer - The raw data.
+     * @returns {Uint8Array} The data as Uint8Array.
+     * @throws {Error} Throws if file was not found in zip.
+     * @private
+     */
+    private static _maybeUnzipResource;
+    /**
      * @param {Object} options - Initialization options.
      * @param {HTMLElement} options.container - The container element to inject the widget's HTML into.
      * @param {string|Promise<Response>|Response|Uint8Array|null} options.initialResource
@@ -80,6 +101,7 @@ declare class ResourceLoadHelper {
      * If the resource URL ends with ".zip" (or if its contents indicate a zip),
      * then process and pass a Uint8Array to onLoad. Otherwise, pass the fetch Response.
      * @param {string|Response|Promise<Response>|Uint8Array} resource - The resource URL or promise.
+     * @throws {TypeError}
      * @private
      */
     private _loadResource;
@@ -95,32 +117,4 @@ declare class ResourceLoadHelper {
      * @private
      */
     private _loadFromFile;
-    /**
-     * Fetch the resource from a URL.
-     * If the URL ends with ".zip", it will be fetched, converted to an ArrayBuffer,
-     * unzipped via fflate, and then return a Uint8Array.
-     * Otherwise, the original Response is returned for streaming.
-     * @param {string} url - The URL to fetch.
-     * @returns {Promise<(Response|Uint8Array)>}
-     * The returned fetch Response, or Uint8Array if the resource is from a zip.
-     * @private
-     */
-    private _loadFromURL;
-    /**
-     * Read a File object as an ArrayBuffer.
-     * @param {File} file - The file to read.
-     * @returns {Promise<ArrayBuffer>} The file read as ArrayBuffer.
-     * @private
-     */
-    private _bufferFromFile;
-    /**
-     * Process an ArrayBuffer to check if it represents a zip.
-     * If it is a zip (detected by "PK" magic), use fflate to unzip and return the .dat resource.
-     * Otherwise, wrap and return a Uint8Array.
-     * @param {ArrayBuffer} buffer - The raw data.
-     * @returns {Uint8Array} The data as Uint8Array.
-     * @throws {Error} Throws if file was not found in zip.
-     * @private
-     */
-    private _maybeUnzipResource;
 }

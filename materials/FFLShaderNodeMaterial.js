@@ -201,6 +201,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 
 	/** @param {import('../ffl.js').FFLModulateMode} value - The new modulateMode value. */
 	set modulateMode(value) {
+		/** @private */
 		this._modulateMode = value;
 	}
 
@@ -225,6 +226,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 			// are usually for mask/faceline textures, so don't throw error
 			return;
 		}
+		/** @private */
 		this._modulateType = value;
 
 		this.uMaterialAmbient = uniform(matParam.ambient);

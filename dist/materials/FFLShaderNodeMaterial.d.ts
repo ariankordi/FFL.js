@@ -43,8 +43,10 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
     diffuse: Color | undefined;
     color1: Color | undefined;
     color2: Color | undefined;
-    _modulateMode: number | undefined;
-    _modulateType: number | undefined;
+    /** @private */
+    private _modulateMode;
+    /** @private */
+    private _modulateType;
     uMaterialAmbient: import("three/tsl").ShaderNodeObject<import("three/webgpu").UniformNode<Color>> | undefined;
     uMaterialDiffuse: import("three/tsl").ShaderNodeObject<import("three/webgpu").UniformNode<Color>> | undefined;
     uMaterialSpecular: import("three/tsl").ShaderNodeObject<import("three/webgpu").UniformNode<Color>> | undefined;

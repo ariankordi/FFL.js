@@ -146,6 +146,7 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 
 	/** @param {import('../ffl.js').FFLModulateMode} value - The new modulateMode value. */
 	set modulateMode(value) {
+		/** @private */
 		this._modulateMode = value;
 	}
 }
