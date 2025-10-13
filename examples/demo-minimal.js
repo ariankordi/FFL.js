@@ -6,8 +6,8 @@ import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
 import ResourceLoadHelper from './ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
-/** @typedef {import('../ffl-emscripten.cjs')} ModuleFFL */
-/* globals ModuleFFL -- should be imported in <script> statement */
+/** @type {import('../ffl-emscripten.cjs')} */
+const ModuleFFL = /** @type {*} */ (globalThis).ModuleFFL;
 
 // Snippets to help with decoding to bytes.
 
