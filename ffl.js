@@ -301,81 +301,16 @@ const FFLRace = {
 // // ---------------------------------------------------------------------
 // TODO PATH: src/CharInfo.js
 
-/**
- * @typedef {Object} FFLiCharInfo
- * @property {number} miiVersion
- * @property {number} faceType
- * @property {number} faceColor
- * @property {number} faceTex
- * @property {number} faceMake
- * @property {number} hairType
- * @property {number} hairColor
- * @property {number} hairFlip
- * @property {number} eyeType
- * @property {number} eyeColor
- * @property {number} eyeScale
- * @property {number} eyeAspect
- * @property {number} eyeRotate
- * @property {number} eyeX
- * @property {number} eyeY
- * @property {number} eyebrowType
- * @property {number} eyebrowColor
- * @property {number} eyebrowScale
- * @property {number} eyebrowAspect
- * @property {number} eyebrowRotate
- * @property {number} eyebrowX
- * @property {number} eyebrowY
- * @property {number} noseType
- * @property {number} noseScale
- * @property {number} noseY
- * @property {number} mouthType
- * @property {number} mouthColor
- * @property {number} mouthScale
- * @property {number} mouthAspect
- * @property {number} mouthY
- * @property {number} beardMustache
- * @property {number} beardType
- * @property {number} beardColor
- * @property {number} beardScale
- * @property {number} beardY
- * @property {number} glassType
- * @property {number} glassColor
- * @property {number} glassScale
- * @property {number} glassY
- * @property {number} moleType
- * @property {number} moleScale
- * @property {number} moleX
- * @property {number} moleY
- * @property {number} height
- * @property {number} build
- * @property {string} name
- * @property {string} creator
- * @property {number} gender
- * @property {number} birthMonth
- * @property {number} birthDay
- * @property {number} favoriteColor
- * @property {number} favorite
- * @property {number} copyable
- * @property {number} ngWord
- * @property {number} localonly
- * @property {number} regionMove
- * @property {number} fontRegion
- * @property {number} roomIndex
- * @property {number} positionInRoom
- * @property {number} birthPlatform
- * @property {Uint8Array} createID
- * @property {number} padding_0
- * @property {number} authorType
- * @property {Uint8Array} authorID
- */
 const FFLiCharInfo_size = 288;
+/* eslint-disable jsdoc/require-returns-type -- Allow TS to predict return type. */
 /**
  * @param {Uint8Array} u8 - module.HEAPU8
  * @param {number} ptr - Pointer to the type.
- * @returns {FFLiCharInfo} Object form of FFLiCharInfo.
+ * @returns Object form of FFLiCharInfo.
  * @package
  */
 function _unpackFFLiCharInfo(u8, ptr) {
+	/* eslint-enable jsdoc/require-returns-type -- defined above */
 	const view = new DataView(u8.buffer, ptr);
 	const name = new TextDecoder('utf-16le').decode(new Uint16Array(u8.buffer, ptr + 180, 11));
 	const creator = new TextDecoder('utf-16le').decode(new Uint16Array(u8.buffer, ptr + 202, 11));
@@ -448,6 +383,8 @@ function _unpackFFLiCharInfo(u8, ptr) {
 		authorID
 	};
 }
+
+/** @typedef {ReturnType<_unpackFFLiCharInfo>} FFLiCharInfo */
 
 /**
  * Size of FFLStoreData, the 3DS/Wii U Mii data format. (Not included)
@@ -581,25 +518,17 @@ class TextureManager {
 		}
 	}
 
-	/**
-	 * @typedef {Object} FFLTextureInfo
-	 * @property {number} width
-	 * @property {number} height
-	 * @property {number} mipCount
-	 * @property {number} format
-	 * @property {number} imageSize
-	 * @property {number} imagePtr
-	 * @property {number} mipSize
-	 * @property {number} mipPtr
-	 * @property {Uint32Array} mipLevelOffset
-	 */
+	/** @typedef {ReturnType<TextureManager._unpackFFLTextureInfo>} FFLTextureInfo */
+
+	/* eslint-disable jsdoc/require-returns-type -- Allow TS to predict return type. */
 	/**
 	 * @param {Uint8Array} u8 - module.HEAPU8
 	 * @param {number} ptr - Pointer to the type.
-	 * @returns {FFLTextureInfo} Object form of FFLTextureInfo.
+	 * @returns Object form of FFLTextureInfo.
 	 * @private
 	 */
 	static _unpackFFLTextureInfo(u8, ptr) {
+		/* eslint-enable jsdoc/require-returns-type -- defined above */
 		const view = new DataView(u8.buffer, ptr);
 		return {
 			width: view.getUint16(0, true),
@@ -2535,7 +2464,7 @@ function checkExpressionChangesShapes(i, warn = false) {
 const matSupportsFFL = material => 'modulateMode' in material.prototype;
 
 /**
- * Interprets and converts {@link FFLDrawParam}, which
+ * Interprets and converts FFLDrawParam, which
  * represents a mesh/draw call, for use with Three.js.
  * @package
  */
@@ -2923,7 +2852,7 @@ class DrawParam {
 
 	/**
 	 * Returns an object of parameters for a Three.js material constructor, based on {@link FFLModulateParam}.
-	 * @param {FFLModulateParam} modulateParam - Property `modulateParam` of {@link FFLDrawParam}.
+	 * @param {FFLModulateParam} modulateParam - Property `modulateParam` of FFLDrawParam.
 	 * @param {Module} module - The Emscripten module for accessing color pointers in heap.
 	 * @param {boolean} [forFFLMaterial] - Whether or not to include
 	 * modulateMode/Type parameters for material parameters.
@@ -2992,7 +2921,7 @@ class DrawParam {
 	}
 
 	/**
-	 * Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
+	 * Applies transformations in pAdjustMatrix within a FFLDrawParam to a mesh.
 	 * @param {number} pMtx - Pointer to rio::Matrix34f.
 	 * @param {THREE.Object3D} mesh - The mesh to apply transformations to.
 	 * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
