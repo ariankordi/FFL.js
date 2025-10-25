@@ -76,9 +76,8 @@ async function createThreeRenderer(width = 1, height = 1) {
 	const renderer = new WebGPURenderer({
 		canvas, alpha: true
 	});
-	// if ('init' in renderer) {
-	await /** @type {*} */ (renderer).init();
-	// }
+
+	/* ('init' in renderer) && */ await renderer.init();
 
 	return renderer;
 }

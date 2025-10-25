@@ -40,34 +40,38 @@ export type Module = {
      * // USE_TYPED_ARRAYS == 2
      */
     calledRun: boolean | null;
-    HEAP8: Int8Array;
     HEAPU8: Uint8Array;
-    HEAPU16: Uint16Array;
     HEAPU32: Uint32Array;
+    HEAPF32: Float32Array;
     /**
+     * - Used for some vertex attributes.
+     */
+    HEAP8: Int8Array;
+    /**
+     * - Used for index buffer.
      * Runtime methods:
      */
-    HEAPF32: Float32Array;
+    HEAPU16: Uint16Array;
     _malloc: (arg0: number) => number;
     _free: (arg0: number) => void;
     addFunction: (arg0: (...args: any[]) => any, arg1: string | undefined) => number;
-    /**
-     * ------------------------------- FFL Bindings -------------------------------
-     * Only used functions are defined here.
-     */
     removeFunction: (arg0: number) => void;
+    /**
+     * - Only included with a certain Emscripten linker flag.
+     *
+     * ------------------------------- FFL Bindings -------------------------------
+     * Utilized functions:
+     */
+    _exit: undefined | (() => void);
     _FFLInitCharModelCPUStepWithCallback: (arg0: number, arg1: number, arg2: number, arg3: number) => any;
     _FFLDeleteCharModel: (arg0: number) => any;
     _FFLiGetRandomCharInfo: (arg0: number, arg1: number, arg2: number, arg3: number) => any;
-    _FFLpGetStoreDataFromCharInfo: (arg0: number, arg1: number) => any;
     _FFLpGetCharInfoFromStoreData: (arg0: number, arg1: number) => any;
     _FFLpGetCharInfoFromMiiDataOfficialRFL: (arg0: number, arg1: number) => any;
-    _FFLGetAdditionalInfo: (arg0: number, arg1: number, arg2: number, arg3: number, arg4: boolean) => any;
     _FFLInitRes: (arg0: number, arg1: number) => any;
     _FFLInitResGPUStep: () => any;
     _FFLExit: () => any;
     _FFLGetFavoriteColor: (arg0: number, arg1: number) => any;
-    _FFLSetLinearGammaMode: (arg0: number) => any;
     _FFLSetTextureFlipY: (arg0: boolean) => any;
     _FFLSetNormalIsSnorm8_8_8_8: (arg0: boolean) => any;
     _FFLSetFrontCullForFlipX: (arg0: boolean) => any;
@@ -75,79 +79,24 @@ export type Module = {
     _FFLiDeleteTextureTempObject: (arg0: number) => any;
     _FFLiDeleteTempObjectMaskTextures: (arg0: number, arg1: number, arg2: number) => any;
     _FFLiDeleteTempObjectFacelineTexture: (arg0: number, arg1: number, arg2: number) => any;
-    _FFLiiGetEyeRotateOffset: (arg0: number) => any;
-    _FFLiiGetEyebrowRotateOffset: (arg0: number) => any;
     _FFLiInvalidateTempObjectFacelineTexture: (arg0: number) => any;
     _FFLiInvalidateRawMask: (arg0: number) => any;
+    /**
+     * These functions are NOT called directly:
+     */
     _FFLiVerifyCharInfoWithReason: (arg0: number, arg1: boolean) => any;
-    _exit: () => void;
+    _FFLiiGetEyeRotateOffset: (arg0: number) => any;
+    _FFLiiGetEyebrowRotateOffset: (arg0: number) => any;
+    _FFLSetLinearGammaMode: (arg0: number) => any;
+    _FFLpGetStoreDataFromCharInfo: (arg0: number, arg1: number) => any;
+    /**
+     * -
+     * This isn't used and can't be used without a decoding method (with bitfields),
+     * but to get "additional info" would be nice in general.
+     */
+    _FFLGetAdditionalInfo: (arg0: number, arg1: number, arg2: number, arg3: number, arg4: boolean) => any;
 };
-export type FFLiCharInfo = {
-    miiVersion: number;
-    faceType: number;
-    faceColor: number;
-    faceTex: number;
-    faceMake: number;
-    hairType: number;
-    hairColor: number;
-    hairFlip: number;
-    eyeType: number;
-    eyeColor: number;
-    eyeScale: number;
-    eyeAspect: number;
-    eyeRotate: number;
-    eyeX: number;
-    eyeY: number;
-    eyebrowType: number;
-    eyebrowColor: number;
-    eyebrowScale: number;
-    eyebrowAspect: number;
-    eyebrowRotate: number;
-    eyebrowX: number;
-    eyebrowY: number;
-    noseType: number;
-    noseScale: number;
-    noseY: number;
-    mouthType: number;
-    mouthColor: number;
-    mouthScale: number;
-    mouthAspect: number;
-    mouthY: number;
-    beardMustache: number;
-    beardType: number;
-    beardColor: number;
-    beardScale: number;
-    beardY: number;
-    glassType: number;
-    glassColor: number;
-    glassScale: number;
-    glassY: number;
-    moleType: number;
-    moleScale: number;
-    moleX: number;
-    moleY: number;
-    height: number;
-    build: number;
-    name: string;
-    creator: string;
-    gender: number;
-    birthMonth: number;
-    birthDay: number;
-    favoriteColor: number;
-    favorite: number;
-    copyable: number;
-    ngWord: number;
-    localonly: number;
-    regionMove: number;
-    fontRegion: number;
-    roomIndex: number;
-    positionInRoom: number;
-    birthPlatform: number;
-    createID: Uint8Array;
-    padding_0: number;
-    authorType: number;
-    authorID: Uint8Array;
-};
+export type FFLiCharInfo = ReturnType<typeof _unpackFFLiCharInfo>;
 export type MaterialConstructor = new (...args: any[]) => THREE.Material;
 export type CharModelDescOrExpressionFlag = FFLCharModelDesc | Array<FFLExpression> | FFLExpression | Uint32Array | null;
 /**
@@ -416,15 +365,13 @@ export class FFL {
 /**
  * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
  * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
- * @param {{module: Module}} ffl - FFL module/resource state.
+ * @param {FFL} ffl - FFL module/resource state.
  * @param {boolean} verifyName - Whether the name and creator name should be verified.
  * @returns {void} Returns nothing if verification passes.
  * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
  * @public
  */
-export function verifyCharInfo(data: Uint8Array | number, ffl: {
-    module: Module;
-}, verifyName?: boolean): void;
+export function verifyCharInfo(data: Uint8Array | number, ffl: FFL, verifyName?: boolean): void;
 /**
  * Generates a random FFLiCharInfo instance calling FFLiGetRandomCharInfo.
  * @param {FFL} ffl - FFL module/resource state.
@@ -517,7 +464,7 @@ export class CharModel {
     /**
      * Creates a CharModel from data and FFLCharModelDesc.
      * Don't forget to call `dispose()` on the CharModel when you are done with it.
-     * @param {{module: Module}} ffl - FFL module/resource state.
+     * @param {FFL} ffl - FFL module/resource state.
      * @param {Uint8Array} data - Character data. Accepted types:
      * FFLStoreData, RFLCharData, StudioCharInfo, FFLiCharInfo as Uint8Array
      * @param {CharModelDescOrExpressionFlag} descOrExpFlag - Either a new {@link FFLCharModelDesc},
@@ -531,14 +478,12 @@ export class CharModel {
      * @throws {FFLResultException|FFLiVerifyReasonException|Error} Throws if `module`, `modelDesc`,
      * or `data` is invalid, CharInfo verification fails, or CharModel creation fails otherwise.
      */
-    constructor(ffl: {
-        module: Module;
-    }, data: Uint8Array, descOrExpFlag: CharModelDescOrExpressionFlag, materialClass: MaterialConstructor, renderer?: Renderer, verify?: boolean);
+    constructor(ffl: FFL, data: Uint8Array, descOrExpFlag: CharModelDescOrExpressionFlag, materialClass: MaterialConstructor, renderer?: Renderer, verify?: boolean);
     /** @private */
     private _module;
     /**
      * The data used to construct the CharModel.
-     * @type {*}
+     * @type {ConstructorParameters<typeof CharModel>[1]}
      * @private
      */
     private _data;
@@ -547,12 +492,6 @@ export class CharModel {
      * @private
      */
     private _materialClass;
-    /**
-     * Material class used to initialize textures specifically.
-     * @type {MaterialConstructor}
-     * @private
-     */
-    private _materialTextureClass;
     /**
      * Pointer to the FFLiCharModel in memory, set to null when deleted.
      * @private
@@ -595,35 +534,110 @@ export class CharModel {
     /**
      * Skin/face color for this model.
      * @type {THREE.Color}
+     * @readonly
      * @public
      */
-    public facelineColor: THREE.Color;
+    public readonly facelineColor: THREE.Color;
     /**
      * Contains the CharInfo of the model.
      * Changes to this will not be reflected whatsoever.
+     * @readonly
      * @returns {FFLiCharInfo} The CharInfo of the model.
      * @public
      */
-    public charInfo: FFLiCharInfo;
+    public readonly charInfo: {
+        miiVersion: number;
+        faceType: number;
+        faceColor: number;
+        faceTex: number;
+        faceMake: number;
+        hairType: number;
+        hairColor: number;
+        hairFlip: number;
+        eyeType: number;
+        eyeColor: number;
+        eyeScale: number;
+        eyeAspect: number;
+        eyeRotate: number;
+        eyeX: number;
+        eyeY: number;
+        eyebrowType: number;
+        eyebrowColor: number;
+        eyebrowScale: number;
+        eyebrowAspect: number;
+        eyebrowRotate: number;
+        eyebrowX: number;
+        eyebrowY: number;
+        noseType: number;
+        noseScale: number;
+        noseY: number;
+        mouthType: number;
+        mouthColor: number;
+        mouthScale: number;
+        mouthAspect: number;
+        mouthY: number;
+        beardMustache: number;
+        beardType: number;
+        beardColor: number;
+        beardScale: number;
+        beardY: number;
+        glassType: number;
+        glassColor: number;
+        glassScale: number;
+        glassY: number;
+        moleType: number;
+        moleScale: number;
+        moleX: number;
+        moleY: number;
+        height: number;
+        build: number;
+        name: string;
+        creator: string;
+        gender: number;
+        birthMonth: number;
+        birthDay: number;
+        favoriteColor: number;
+        favorite: number;
+        copyable: number;
+        ngWord: number;
+        localonly: number;
+        regionMove: number;
+        fontRegion: number;
+        roomIndex: number;
+        positionInRoom: number;
+        birthPlatform: number;
+        createID: Uint8Array<ArrayBufferLike>;
+        padding_0: number;
+        authorType: number;
+        authorID: Uint8Array<ArrayBufferLike>;
+    };
     /**
      * Group of THREE.Mesh objects representing the CharModel.
      * @type {THREE.Group}
+     * @readonly
      * @public
      */
-    public meshes: THREE.Group;
+    public readonly meshes: THREE.Group;
     /**
      * Favorite color, also used for hats and body.
+     * @readonly
      * @public
      */
-    public favoriteColor: THREE.Color;
+    public readonly favoriteColor: THREE.Color;
     /**
      * The parameters in which to transform hats and other accessories.
+     * @readonly
      * @public
      */
-    public partsTransform: {
+    public readonly partsTransform: {
         [x: string]: THREE.Vector3;
     };
-    /** @public */
+    /**
+     * Bounding box of the model.
+     * Please use this instead of Three.js's built-in methods to get
+     * the bounding box, since this excludes invisible shapes.
+     * @public
+     */
     public boundingBox: THREE.Box3;
     /**
      * Initializes textures (faceline and mask) for a CharModel.
@@ -634,6 +648,12 @@ export class CharModel {
      * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
      */
     initTextures(renderer: Renderer, materialClass?: MaterialConstructor): void;
+    /**
+     * Material class used to initialize textures specifically.
+     * @type {MaterialConstructor}
+     * @private
+     */
+    private _materialTextureClass;
     /**
      * Disposes the CharModel and removes all associated resources.
      * @param {boolean} [disposeTargets] - Whether or not to dispose of mask and faceline render targets.
@@ -709,10 +729,10 @@ export class CharModel {
      */
     public get expression(): FFLExpression;
     /**
-     * @returns {number} Gender as 0 = male, 1 = female
+     * @returns {FFLGender} Gender as 0 = male, 1 = female
      * @public
      */
-    public get gender(): number;
+    public get gender(): FFLGender;
     /**
      * This is the method that populates meshes
      * from the internal FFLiCharModel instance.
@@ -1021,6 +1041,78 @@ export namespace GeometryConversion {
     function _snormToFloat(src: Int8Array, count: number, srcItemSize: number, targetItemSize: number): Float32Array;
 }
 import * as THREE from 'three';
+/**
+ * @param {Uint8Array} u8 - module.HEAPU8
+ * @param {number} ptr - Pointer to the type.
+ * @returns Object form of FFLiCharInfo.
+ * @package
+ */
+declare function _unpackFFLiCharInfo(u8: Uint8Array, ptr: number): {
+    miiVersion: number;
+    faceType: number;
+    faceColor: number;
+    faceTex: number;
+    faceMake: number;
+    hairType: number;
+    hairColor: number;
+    hairFlip: number;
+    eyeType: number;
+    eyeColor: number;
+    eyeScale: number;
+    eyeAspect: number;
+    eyeRotate: number;
+    eyeX: number;
+    eyeY: number;
+    eyebrowType: number;
+    eyebrowColor: number;
+    eyebrowScale: number;
+    eyebrowAspect: number;
+    eyebrowRotate: number;
+    eyebrowX: number;
+    eyebrowY: number;
+    noseType: number;
+    noseScale: number;
+    noseY: number;
+    mouthType: number;
+    mouthColor: number;
+    mouthScale: number;
+    mouthAspect: number;
+    mouthY: number;
+    beardMustache: number;
+    beardType: number;
+    beardColor: number;
+    beardScale: number;
+    beardY: number;
+    glassType: number;
+    glassColor: number;
+    glassScale: number;
+    glassY: number;
+    moleType: number;
+    moleScale: number;
+    moleX: number;
+    moleY: number;
+    height: number;
+    build: number;
+    name: string;
+    creator: string;
+    gender: number;
+    birthMonth: number;
+    birthDay: number;
+    favoriteColor: number;
+    favorite: number;
+    copyable: number;
+    ngWord: number;
+    localonly: number;
+    regionMove: number;
+    fontRegion: number;
+    roomIndex: number;
+    positionInRoom: number;
+    birthPlatform: number;
+    createID: Uint8Array<ArrayBufferLike>;
+    padding_0: number;
+    authorType: number;
+    authorID: Uint8Array<ArrayBufferLike>;
+};
 /**
  * *
  */

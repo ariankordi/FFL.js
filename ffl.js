@@ -28,31 +28,29 @@ import * as THREE from 'three';
  * @property {function(object): void} destroy
  * @property {boolean|null} calledRun
  * // USE_TYPED_ARRAYS == 2
- * @property {Int8Array} HEAP8
  * @property {Uint8Array} HEAPU8
- * @property {Uint16Array} HEAPU16
  * @property {Uint32Array} HEAPU32
  * @property {Float32Array} HEAPF32
+ * @property {Int8Array} HEAP8 - Used for some vertex attributes.
+ * @property {Uint16Array} HEAPU16 - Used for index buffer.
  * Runtime methods:
  * @property {function(number): number} _malloc
  * @property {function(number): void} _free
  * @property {function((...args: *[]) => *, string=): number} addFunction
  * @property {function(number): void} removeFunction
+ * @property {undefined|function(): void} _exit - Only included with a certain Emscripten linker flag.
  *
  * ------------------------------- FFL Bindings -------------------------------
- * Only used functions are defined here.
+ * Utilized functions:
  * @property {function(number, number, number, number): *} _FFLInitCharModelCPUStepWithCallback
  * @property {function(number): *} _FFLDeleteCharModel
  * @property {function(number, number, number, number): *} _FFLiGetRandomCharInfo
- * @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
  * @property {function(number, number): *} _FFLpGetCharInfoFromStoreData
  * @property {function(number, number): *} _FFLpGetCharInfoFromMiiDataOfficialRFL
- * @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo
  * @property {function(number, number): *} _FFLInitRes
  * @property {function(): *} _FFLInitResGPUStep
  * @property {function(): *} _FFLExit
  * @property {function(number, number): *} _FFLGetFavoriteColor
- * @property {function(number): *} _FFLSetLinearGammaMode
  * @property {function(boolean): *} _FFLSetTextureFlipY
  * @property {function(boolean): *} _FFLSetNormalIsSnorm8_8_8_8
  * @property {function(boolean): *} _FFLSetFrontCullForFlipX
@@ -60,12 +58,17 @@ import * as THREE from 'three';
  * @property {function(number): *} _FFLiDeleteTextureTempObject
  * @property {function(number, number, number): *} _FFLiDeleteTempObjectMaskTextures
  * @property {function(number, number, number): *} _FFLiDeleteTempObjectFacelineTexture
- * @property {function(number): *} _FFLiiGetEyeRotateOffset
- * @property {function(number): *} _FFLiiGetEyebrowRotateOffset
  * @property {function(number): *} _FFLiInvalidateTempObjectFacelineTexture
  * @property {function(number): *} _FFLiInvalidateRawMask
  * @property {function(number, boolean): *} _FFLiVerifyCharInfoWithReason
- * @property {function(): void} _exit
+ * These functions are NOT called directly:
+ * @property {function(number): *} _FFLiiGetEyeRotateOffset
+ * @property {function(number): *} _FFLiiGetEyebrowRotateOffset
+ * @property {function(number): *} _FFLSetLinearGammaMode
+ * @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
+ * @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo -
+ * This isn't used and can't be used without a decoding method (with bitfields),
+ * but to get "additional info" would be nice in general.
  * @package
  */
 
@@ -396,7 +399,7 @@ const FFLStoreData_size = 96;
 /**
  * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
  * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
- * @param {{module: Module}} ffl - FFL module/resource state.
+ * @param {FFL} ffl - FFL module/resource state.
  * @param {boolean} verifyName - Whether the name and creator name should be verified.
  * @returns {void} Returns nothing if verification passes.
  * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
@@ -1271,7 +1274,7 @@ class CharModel {
 	/**
 	 * Creates a CharModel from data and FFLCharModelDesc.
 	 * Don't forget to call `dispose()` on the CharModel when you are done with it.
-	 * @param {{module: Module}} ffl - FFL module/resource state.
+	 * @param {FFL} ffl - FFL module/resource state.
 	 * @param {Uint8Array} data - Character data. Accepted types:
 	 * FFLStoreData, RFLCharData, StudioCharInfo, FFLiCharInfo as Uint8Array
 	 * @param {CharModelDescOrExpressionFlag} descOrExpFlag - Either a new {@link FFLCharModelDesc},
@@ -1300,7 +1303,7 @@ class CharModel {
 		this._module = ffl.module;
 		/**
 		 * The data used to construct the CharModel.
-		 * @type {*}
+		 * @type {ConstructorParameters<typeof CharModel>[1]}
 		 * @private
 		 */
 		this._data = data;
@@ -1309,12 +1312,6 @@ class CharModel {
 		 * @private
 		 */
 		this._materialClass = materialClass;
-		/**
-		 * Material class used to initialize textures specifically.
-		 * @type {MaterialConstructor}
-		 * @private
-		 */
-		this._materialTextureClass = materialClass;
 
 		// Initialize FFLCharModel.
 
@@ -1418,12 +1415,14 @@ class CharModel {
 		/**
 		 * Skin/face color for this model.
 		 * @type {THREE.Color}
+		 * @readonly
 		 * @public
 		 */
 		this.facelineColor = new THREE.Color();
 		/**
 		 * Contains the CharInfo of the model.
 		 * Changes to this will not be reflected whatsoever.
+		 * @readonly
 		 * @returns {FFLiCharInfo} The CharInfo of the model.
 		 * @public
 		 */
@@ -1431,6 +1430,7 @@ class CharModel {
 		/**
 		 * Group of THREE.Mesh objects representing the CharModel.
 		 * @type {THREE.Group}
+		 * @readonly
 		 * @public
 		 */
 		this.meshes = new THREE.Group();
@@ -1443,11 +1443,13 @@ class CharModel {
 
 		/**
 		 * Favorite color, also used for hats and body.
+		 * @readonly
 		 * @public
 		 */
 		this.favoriteColor = this._getFavoriteColor();
 		/**
 		 * The parameters in which to transform hats and other accessories.
+		 * @readonly
 		 * @public
 		 */
 		this.partsTransform = this._model.getPartsTransform();
@@ -1455,7 +1457,12 @@ class CharModel {
 		// this.meshes.geometry = { }; // NOTE: is this a good idea?
 		// Object.defineProperty(this.meshes.geometry, 'boundingBox',
 		// { get: () => this.boundingBox }); // NOTE: box is too large using this
-		/** @public */
+		/**
+		 * Bounding box of the model.
+		 * Please use this instead of Three.js's built-in methods to get
+		 * the bounding box, since this excludes invisible shapes.
+		 * @public
+		 */
 		this.boundingBox = this._getBoundingBox();
 
 		// Optionally initialize textures if the renderer was provided.
@@ -1476,6 +1483,13 @@ class CharModel {
 	 * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
 	 */
 	initTextures(renderer, materialClass = this._materialClass) {
+		console.assert(this._materialTextureClass === undefined,
+			'CharModel.initTextures: This has already run. Avoid calling it twice. This will also get called automatically if renderer is passed to the constructor.');
+		/**
+		 * Material class used to initialize textures specifically.
+		 * @type {MaterialConstructor}
+		 * @private
+		 */
 		this._materialTextureClass = materialClass; // Material for render textures.
 
 		const faceTarget = CharModelTextures.initialize(
@@ -1542,7 +1556,7 @@ class CharModel {
 		}
 
 		// Create a new CharModel with the new data and ModelDesc.
-		const newCharModel = new CharModel({ module: charModel._module },
+		const newCharModel = new CharModel(/** @type {FFL} */ ({ module: charModel._module }),
 			newData, newModelDesc, charModel._materialClass, undefined, verify);
 
 		// Initialize its textures unconditionally.
@@ -1784,7 +1798,7 @@ class CharModel {
 	}
 
 	/**
-	 * @returns {number} Gender as 0 = male, 1 = female
+	 * @returns {FFLGender} Gender as 0 = male, 1 = female
 	 * @public
 	 */
 	get gender() {
@@ -2163,7 +2177,7 @@ class CharModelAccessor {
 	 * @returns {number} Pointer to the FFLDrawParam.
 	 */
 	getDrawParamPtr(shapeType) {
-		return this.ptr + 0x0140 /* drawParam */ + (shapeType * FFLDrawParam_size);
+		return this.ptr + 0x0140 /* drawParam */ + (FFLDrawParam_size * shapeType);
 	}
 
 	// maskTextures

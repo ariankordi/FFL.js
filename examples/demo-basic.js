@@ -54,7 +54,7 @@ let ffl;
 // Global variables for the main scene, renderer, camera, controls, etc.
 /** @type {THREE.Scene} */
 let scene;
-/** @type {THREE.WebGLRenderer} */
+/** @type {THREE.WebGLRenderer|import('three/webgpu').Renderer} */
 let renderer;
 /** @type {THREE.Camera} */
 let camera;
@@ -177,9 +177,7 @@ async function initializeThreeRenderer() {
 	renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // Makes shaders work in sRGB
 
 	// Call renderer.init in case it is WebGPURenderer.
-	if ('init' in renderer) {
-		await /** @type {*} */ (renderer).init();
-	}
+	('init' in renderer) && await renderer.init();
 
 	// @ts-expect-error -- ignore, spector will be called if it is imported
 	globalThis.spector?.displayUI();
@@ -314,7 +312,7 @@ function startAnimationLoop() {
 /**
  * Displays CharModel render textures, appending their images to `element` for debugging.
  * @param {CharModel} model - The CharModel whose textures to display.
- * @param {import('three/webgpu').Renderer} renderer - The renderer.
+ * @param {THREE.WebGLRenderer|import('three/webgpu').Renderer} renderer - The renderer.
  * @param {HTMLElement} element - The HTML list to append the images inside of.
  */
 function displayCharModelTexturesDebug(model, renderer, element) {
@@ -741,7 +739,7 @@ function updateCharModelInfo() {
 		charModelNameElement.style.fontWeight = 'bold';
 		name = '(No Name)';
 	} else {
-		charModelNameElement.style = '';
+		charModelNameElement.style.fontWeight = '';
 	}
 	charModelNameElement.textContent = name;
 
@@ -764,7 +762,7 @@ function addUIControls() {
 	toggleRotationElement.addEventListener('change', toggleRotation);
 	// Light direction sliders.
 	for (const element of [lightDirXElement, lightDirYElement, lightDirZElement]) {
-		element.addEventListener('input', updateLightDirection);
+		element.addEventListener('input', () => updateLightDirection());
 	}
 	// Reset light direction button.
 	resetLightButtonElement.addEventListener('click', resetLightDirection);
@@ -934,7 +932,7 @@ function loadCharacterButtons() {
 		}
 
 		btn.dataset.data = dataData;
-		if (name) {
+		if (name && dataset.name) {
 			name.textContent = dataset.name;
 		}
 
