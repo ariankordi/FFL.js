@@ -40,31 +40,29 @@ three = __toESM(three);
 	* @property {function(object): void} destroy
 	* @property {boolean|null} calledRun
 	* // USE_TYPED_ARRAYS == 2
-	* @property {Int8Array} HEAP8
 	* @property {Uint8Array} HEAPU8
-	* @property {Uint16Array} HEAPU16
 	* @property {Uint32Array} HEAPU32
 	* @property {Float32Array} HEAPF32
+	* @property {Int8Array} HEAP8 - Used for some vertex attributes.
+	* @property {Uint16Array} HEAPU16 - Used for index buffer.
 	* Runtime methods:
 	* @property {function(number): number} _malloc
 	* @property {function(number): void} _free
 	* @property {function((...args: *[]) => *, string=): number} addFunction
 	* @property {function(number): void} removeFunction
+	* @property {undefined|function(): void} _exit - Only included with a certain Emscripten linker flag.
 	*
 	* ------------------------------- FFL Bindings -------------------------------
-	* Only used functions are defined here.
+	* Utilized functions:
 	* @property {function(number, number, number, number): *} _FFLInitCharModelCPUStepWithCallback
 	* @property {function(number): *} _FFLDeleteCharModel
 	* @property {function(number, number, number, number): *} _FFLiGetRandomCharInfo
-	* @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
 	* @property {function(number, number): *} _FFLpGetCharInfoFromStoreData
 	* @property {function(number, number): *} _FFLpGetCharInfoFromMiiDataOfficialRFL
-	* @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo
 	* @property {function(number, number): *} _FFLInitRes
 	* @property {function(): *} _FFLInitResGPUStep
 	* @property {function(): *} _FFLExit
 	* @property {function(number, number): *} _FFLGetFavoriteColor
-	* @property {function(number): *} _FFLSetLinearGammaMode
 	* @property {function(boolean): *} _FFLSetTextureFlipY
 	* @property {function(boolean): *} _FFLSetNormalIsSnorm8_8_8_8
 	* @property {function(boolean): *} _FFLSetFrontCullForFlipX
@@ -72,12 +70,17 @@ three = __toESM(three);
 	* @property {function(number): *} _FFLiDeleteTextureTempObject
 	* @property {function(number, number, number): *} _FFLiDeleteTempObjectMaskTextures
 	* @property {function(number, number, number): *} _FFLiDeleteTempObjectFacelineTexture
-	* @property {function(number): *} _FFLiiGetEyeRotateOffset
-	* @property {function(number): *} _FFLiiGetEyebrowRotateOffset
 	* @property {function(number): *} _FFLiInvalidateTempObjectFacelineTexture
 	* @property {function(number): *} _FFLiInvalidateRawMask
 	* @property {function(number, boolean): *} _FFLiVerifyCharInfoWithReason
-	* @property {function(): void} _exit
+	* These functions are NOT called directly:
+	* @property {function(number): *} _FFLiiGetEyeRotateOffset
+	* @property {function(number): *} _FFLiiGetEyebrowRotateOffset
+	* @property {function(number): *} _FFLSetLinearGammaMode
+	* @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
+	* @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo -
+	* This isn't used and can't be used without a decoding method (with bitfields),
+	* but to get "additional info" would be nice in general.
 	* @package
 	*/
 	/**
@@ -260,78 +263,11 @@ three = __toESM(three);
 		ASIAN: 2,
 		ALL: 3
 	};
-	/**
-	* @typedef {Object} FFLiCharInfo
-	* @property {number} miiVersion
-	* @property {number} faceType
-	* @property {number} faceColor
-	* @property {number} faceTex
-	* @property {number} faceMake
-	* @property {number} hairType
-	* @property {number} hairColor
-	* @property {number} hairFlip
-	* @property {number} eyeType
-	* @property {number} eyeColor
-	* @property {number} eyeScale
-	* @property {number} eyeAspect
-	* @property {number} eyeRotate
-	* @property {number} eyeX
-	* @property {number} eyeY
-	* @property {number} eyebrowType
-	* @property {number} eyebrowColor
-	* @property {number} eyebrowScale
-	* @property {number} eyebrowAspect
-	* @property {number} eyebrowRotate
-	* @property {number} eyebrowX
-	* @property {number} eyebrowY
-	* @property {number} noseType
-	* @property {number} noseScale
-	* @property {number} noseY
-	* @property {number} mouthType
-	* @property {number} mouthColor
-	* @property {number} mouthScale
-	* @property {number} mouthAspect
-	* @property {number} mouthY
-	* @property {number} beardMustache
-	* @property {number} beardType
-	* @property {number} beardColor
-	* @property {number} beardScale
-	* @property {number} beardY
-	* @property {number} glassType
-	* @property {number} glassColor
-	* @property {number} glassScale
-	* @property {number} glassY
-	* @property {number} moleType
-	* @property {number} moleScale
-	* @property {number} moleX
-	* @property {number} moleY
-	* @property {number} height
-	* @property {number} build
-	* @property {string} name
-	* @property {string} creator
-	* @property {number} gender
-	* @property {number} birthMonth
-	* @property {number} birthDay
-	* @property {number} favoriteColor
-	* @property {number} favorite
-	* @property {number} copyable
-	* @property {number} ngWord
-	* @property {number} localonly
-	* @property {number} regionMove
-	* @property {number} fontRegion
-	* @property {number} roomIndex
-	* @property {number} positionInRoom
-	* @property {number} birthPlatform
-	* @property {Uint8Array} createID
-	* @property {number} padding_0
-	* @property {number} authorType
-	* @property {Uint8Array} authorID
-	*/
 	const FFLiCharInfo_size = 288;
 	/**
 	* @param {Uint8Array} u8 - module.HEAPU8
 	* @param {number} ptr - Pointer to the type.
-	* @returns {FFLiCharInfo} Object form of FFLiCharInfo.
+	* @returns Object form of FFLiCharInfo.
 	* @package
 	*/
 	function _unpackFFLiCharInfo(u8, ptr) {
@@ -407,6 +343,7 @@ three = __toESM(three);
 			authorID
 		};
 	}
+	/** @typedef {ReturnType<_unpackFFLiCharInfo>} FFLiCharInfo */
 	/**
 	* Size of FFLStoreData, the 3DS/Wii U Mii data format. (Not included)
 	* @public
@@ -416,7 +353,7 @@ three = __toESM(three);
 	/**
 	* Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
 	* @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
-	* @param {{module: Module}} ffl - FFL module/resource state.
+	* @param {FFL} ffl - FFL module/resource state.
 	* @param {boolean} verifyName - Whether the name and creator name should be verified.
 	* @returns {void} Returns nothing if verification passes.
 	* @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
@@ -503,22 +440,11 @@ three = __toESM(three);
 			this._setTextureCallback();
 			if (setToFFLGlobal) module._FFLSetTextureCallback(this.callbackPtr);
 		}
-		/**
-		* @typedef {Object} FFLTextureInfo
-		* @property {number} width
-		* @property {number} height
-		* @property {number} mipCount
-		* @property {number} format
-		* @property {number} imageSize
-		* @property {number} imagePtr
-		* @property {number} mipSize
-		* @property {number} mipPtr
-		* @property {Uint32Array} mipLevelOffset
-		*/
+		/** @typedef {ReturnType<TextureManager._unpackFFLTextureInfo>} FFLTextureInfo */
 		/**
 		* @param {Uint8Array} u8 - module.HEAPU8
 		* @param {number} ptr - Pointer to the type.
-		* @returns {FFLTextureInfo} Object form of FFLTextureInfo.
+		* @returns Object form of FFLTextureInfo.
 		* @private
 		*/
 		static _unpackFFLTextureInfo(u8, ptr) {
@@ -1026,7 +952,7 @@ three = __toESM(three);
 		/**
 		* Creates a CharModel from data and FFLCharModelDesc.
 		* Don't forget to call `dispose()` on the CharModel when you are done with it.
-		* @param {{module: Module}} ffl - FFL module/resource state.
+		* @param {FFL} ffl - FFL module/resource state.
 		* @param {Uint8Array} data - Character data. Accepted types:
 		* FFLStoreData, RFLCharData, StudioCharInfo, FFLiCharInfo as Uint8Array
 		* @param {CharModelDescOrExpressionFlag} descOrExpFlag - Either a new {@link FFLCharModelDesc},
@@ -1047,7 +973,7 @@ three = __toESM(three);
 			this._module = ffl.module;
 			/**
 			* The data used to construct the CharModel.
-			* @type {*}
+			* @type {ConstructorParameters<typeof CharModel>[1]}
 			* @private
 			*/
 			this._data = data;
@@ -1056,12 +982,6 @@ three = __toESM(three);
 			* @private
 			*/
 			this._materialClass = materialClass;
-			/**
-			* Material class used to initialize textures specifically.
-			* @type {MaterialConstructor}
-			* @private
-			*/
-			this._materialTextureClass = materialClass;
 			const modelSourcePtr = this._module._malloc(FFLCharModelSource_size);
 			const modelDescPtr = this._module._malloc(CharModel.FFLCharModelDesc_size);
 			/**
@@ -1128,12 +1048,14 @@ three = __toESM(three);
 			/**
 			* Skin/face color for this model.
 			* @type {THREE.Color}
+			* @readonly
 			* @public
 			*/
-			this.facelineColor = new three.Color();
+			this.facelineColor = /* @__PURE__ */ new three.Color();
 			/**
 			* Contains the CharInfo of the model.
 			* Changes to this will not be reflected whatsoever.
+			* @readonly
 			* @returns {FFLiCharInfo} The CharInfo of the model.
 			* @public
 			*/
@@ -1141,21 +1063,29 @@ three = __toESM(three);
 			/**
 			* Group of THREE.Mesh objects representing the CharModel.
 			* @type {THREE.Group}
+			* @readonly
 			* @public
 			*/
 			this.meshes = new three.Group();
 			this._addCharModelMeshes(this._module);
 			/**
 			* Favorite color, also used for hats and body.
+			* @readonly
 			* @public
 			*/
 			this.favoriteColor = this._getFavoriteColor();
 			/**
 			* The parameters in which to transform hats and other accessories.
+			* @readonly
 			* @public
 			*/
 			this.partsTransform = this._model.getPartsTransform();
-			/** @public */
+			/**
+			* Bounding box of the model.
+			* Please use this instead of Three.js's built-in methods to get
+			* the bounding box, since this excludes invisible shapes.
+			* @public
+			*/
 			this.boundingBox = this._getBoundingBox();
 			if (renderer) this.initTextures(renderer, this._materialTextureClass);
 		}
@@ -1168,6 +1098,12 @@ three = __toESM(three);
 		* @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
 		*/
 		initTextures(renderer, materialClass = this._materialClass) {
+			console.assert(this._materialTextureClass === void 0, "CharModel.initTextures: This has already run. Avoid calling it twice. This will also get called automatically if renderer is passed to the constructor.");
+			/**
+			* Material class used to initialize textures specifically.
+			* @type {MaterialConstructor}
+			* @private
+			*/
 			this._materialTextureClass = materialClass;
 			const faceTarget = CharModelTextures.initialize(this._model, renderer, this._module, this._textureManager, this._materialTextureClass, this._maskTargets, this.facelineColor);
 			faceTarget && this._setFaceline(faceTarget);
@@ -1353,7 +1289,7 @@ three = __toESM(three);
 			return this._expression;
 		}
 		/**
-		* @returns {number} Gender as 0 = male, 1 = female
+		* @returns {FFLGender} Gender as 0 = male, 1 = female
 		* @public
 		*/
 		get gender() {
@@ -1470,8 +1406,8 @@ three = __toESM(three);
 		* @private
 		*/
 		_getBoundingBox() {
-			const excludeFromBox = new Set([FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
-			const box = new three.Box3();
+			const excludeFromBox = /* @__PURE__ */ new Set([FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
+			const box = /* @__PURE__ */ new three.Box3();
 			this.meshes.traverse((child) => {
 				if (!(child instanceof three.Mesh) || excludeFromBox.has(child.geometry.userData.modulateType)) return;
 				box.expandByObject(child);
@@ -1619,7 +1555,7 @@ three = __toESM(three);
 		* @returns {number} Pointer to the FFLDrawParam.
 		*/
 		getDrawParamPtr(shapeType) {
-			return this.ptr + 320 + shapeType * FFLDrawParam_size;
+			return this.ptr + 320 + FFLDrawParam_size * shapeType;
 		}
 		/**
 		* @returns {Uint32Array} Pointers to FFLiRenderTexture for each mask's expression.
@@ -1780,7 +1716,7 @@ three = __toESM(three);
 			if (i >= FFLExpression.MAX) throw new Error(`makeExpressionFlag: input out of range: got ${i}, max: ${FFLExpression.MAX}`);
 		}
 		/** FFLAllExpressionFlag */
-		const flags = new Uint32Array([
+		const flags = /* @__PURE__ */ new Uint32Array([
 			0,
 			0,
 			0
@@ -1810,7 +1746,7 @@ three = __toESM(three);
 	*/
 	function checkExpressionChangesShapes(i, warn = false) {
 		/** Expressions disabling nose: dog/cat, blank */
-		const expressionsDisablingNose = new Set([
+		const expressionsDisablingNose = /* @__PURE__ */ new Set([
 			49,
 			50,
 			51,
@@ -1819,7 +1755,7 @@ three = __toESM(three);
 			62
 		]);
 		/** Expressions disabling mask: blank */
-		const expressionsDisablingMask = new Set([61, 62]);
+		const expressionsDisablingMask = /* @__PURE__ */ new Set([61, 62]);
 		const prefix = `checkExpressionChangesShapes: An expression was enabled (${i}) that is meant to disable nose or mask shape for the entire CharModel, so it is only recommended to set this as a single expression rather than as one of multiple.`;
 		if (expressionsDisablingMask.has(i)) {
 			warn && console.warn(`${prefix} (in this case, MASK SHAPE so there is supposed to be NO FACE)`);
@@ -1838,7 +1774,7 @@ three = __toESM(three);
 	*/
 	const matSupportsFFL = (material) => "modulateMode" in material.prototype;
 	/**
-	* Interprets and converts {@link FFLDrawParam}, which
+	* Interprets and converts FFLDrawParam, which
 	* represents a mesh/draw call, for use with Three.js.
 	* @package
 	*/
@@ -2061,11 +1997,11 @@ three = __toESM(three);
 			const texturePtr = modulateParam.pTexture2D;
 			const texture = textureManager.get(texturePtr);
 			console.assert(texture, `_getTextureFromModulateParam: Texture not found for ${texturePtr}.`);
-			if (new Set([
+			if ((/* @__PURE__ */ new Set([
 				FFLModulateType.SHAPE_FACELINE,
 				FFLModulateType.SHAPE_CAP,
 				FFLModulateType.SHAPE_GLASS
-			]).has(modulateParam.type)) {
+			])).has(modulateParam.type)) {
 				texture.wrapS = three.MirroredRepeatWrapping;
 				texture.wrapT = three.MirroredRepeatWrapping;
 				texture.needsUpdate = true;
@@ -2101,7 +2037,7 @@ three = __toESM(three);
 		}
 		/**
 		* Returns an object of parameters for a Three.js material constructor, based on {@link FFLModulateParam}.
-		* @param {FFLModulateParam} modulateParam - Property `modulateParam` of {@link FFLDrawParam}.
+		* @param {FFLModulateParam} modulateParam - Property `modulateParam` of FFLDrawParam.
 		* @param {Module} module - The Emscripten module for accessing color pointers in heap.
 		* @param {boolean} [forFFLMaterial] - Whether or not to include
 		* modulateMode/Type parameters for material parameters.
@@ -2138,7 +2074,7 @@ three = __toESM(three);
 			return param;
 		}
 		/**
-		* Applies transformations in pAdjustMatrix within a {@link FFLDrawParam} to a mesh.
+		* Applies transformations in pAdjustMatrix within a FFLDrawParam to a mesh.
 		* @param {number} pMtx - Pointer to rio::Matrix34f.
 		* @param {THREE.Object3D} mesh - The mesh to apply transformations to.
 		* @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
@@ -2162,43 +2098,17 @@ three = __toESM(three);
 			clearAlpha !== 0 && renderer.setClearAlpha(clearAlpha);
 			return faceTarget;
 		},
-		FacelinePartType: {
-			LINE: 0,
-			MAKE: 1,
-			BEARD: 2,
-			MAX: 3
-		},
-		_unpackFFLiFacelineTextureTempObject(u8, ptr) {
-			const params = Array.from({ length: this.FacelinePartType.MAX });
-			for (let type = 0; type < this.FacelinePartType.MAX; type++) params[type] = new DrawParam(u8, ptr + 4 + (4 + FFLDrawParam_size) * type);
-			return params;
-		},
-		MaskPartType: {
-			EYE_R: 0,
-			EYE_L: 1,
-			EYEBROW_R: 2,
-			EYEBROW_L: 3,
-			MOUTH: 4,
-			MUSTACHE_R: 5,
-			MUSTACHE_L: 6,
-			MOLE: 7,
-			FILL: 8,
-			MAX: 8
-		},
-		_unpackFFLiRawMaskDrawParam(u8, ptr) {
-			const params = Array.from({ length: this.MaskPartType.MAX });
-			for (let type = 0; type < this.MaskPartType.MAX; type++) params[type] = new DrawParam(u8, ptr + FFLDrawParam_size * type);
+		FacelinePartCount: 3,
+		MaskPartCount: 8,
+		_unpackDrawParamArray(u8, ptr, count) {
+			const params = Array.from({ length: count });
+			for (let type = 0; type < count; type++) params[type] = new DrawParam(u8, ptr + FFLDrawParam_size * type);
 			return params;
 		},
 		_drawFacelineTexture(charModel, renderer, module, texMgr, color, materialClass) {
 			const facelineTempObjectPtr = charModel.getFacelineTempObjectPtr();
 			module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
-			const params = this._unpackFFLiFacelineTextureTempObject(module.HEAPU8, facelineTempObjectPtr);
-			const drawParams = [
-				params[this.FacelinePartType.MAKE],
-				params[this.FacelinePartType.LINE],
-				params[this.FacelinePartType.BEARD]
-			].filter((dp) => dp && dp.modulateParam.pTexture2D !== 0);
+			const drawParams = this._unpackDrawParamArray(module.HEAPU8, facelineTempObjectPtr, this.FacelinePartCount).filter((dp) => dp && dp.modulateParam.pTexture2D !== 0);
 			if (drawParams.length === 0) return null;
 			const offscreenScene = new three.Scene();
 			offscreenScene.background = color;
@@ -2229,7 +2139,7 @@ three = __toESM(three);
 			for (let i = 0; i < maskParamPtrs.length; i++) {
 				if (maskParamPtrs[i] === 0) continue;
 				const maskParamPtr = maskParamPtrs[i];
-				const rawMaskDrawParam = this._unpackFFLiRawMaskDrawParam(module.HEAPU8, maskParamPtr);
+				const rawMaskDrawParam = this._unpackDrawParamArray(module.HEAPU8, maskParamPtr, this.MaskPartCount);
 				module._FFLiInvalidateRawMask(maskParamPtr);
 				const res = charModel.getResolution();
 				const { target, scene } = this._drawMaskTexture(res, rawMaskDrawParam, renderer, module, texMgr, materialClass);
@@ -2241,16 +2151,7 @@ three = __toESM(three);
 			module._FFLiDeleteTextureTempObject(charModel.ptr);
 		},
 		_drawMaskTexture(resolution, rawMaskParam, renderer, module, texMgr, materialClass) {
-			const drawParams = [
-				rawMaskParam[this.MaskPartType.MUSTACHE_R],
-				rawMaskParam[this.MaskPartType.MUSTACHE_L],
-				rawMaskParam[this.MaskPartType.MOUTH],
-				rawMaskParam[this.MaskPartType.EYEBROW_R],
-				rawMaskParam[this.MaskPartType.EYEBROW_L],
-				rawMaskParam[this.MaskPartType.EYE_R],
-				rawMaskParam[this.MaskPartType.EYE_L],
-				rawMaskParam[this.MaskPartType.MOLE]
-			].filter((dp) => dp && dp.primitiveParam.indexCount !== 0);
+			const drawParams = rawMaskParam.filter((dp) => dp && dp.primitiveParam.indexCount !== 0);
 			console.assert(drawParams.length, "_drawMaskTexture: All DrawParams are empty.");
 			const options = {
 				depthBuffer: false,
@@ -2289,13 +2190,13 @@ three = __toESM(three);
 	*/
 	const ModelTexturesConverter = {
 		convModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
-			const convertTextureForTypes = [
+			const convertTextureForTypes = /* @__PURE__ */ new Set([
 				FFLModulateType.SHAPE_CAP,
 				FFLModulateType.SHAPE_NOSELINE,
 				FFLModulateType.SHAPE_GLASS
-			];
+			]);
 			charModel.meshes.traverse((mesh) => {
-				if (mesh instanceof three.Mesh && mesh.geometry.userData.modulateType !== void 0 && mesh.material.map && convertTextureForTypes.indexOf(mesh.geometry.userData.modulateType) >= 1) {
+				if (mesh instanceof three.Mesh && mesh.geometry.userData.modulateType !== void 0 && mesh.material.map && convertTextureForTypes.has(mesh.geometry.userData.modulateType)) {
 					const target = this._texDrawRGBATarget(renderer, mesh.material, mesh.geometry.userData, materialTextureClass);
 					charModel._maskTargets.push(target);
 				}
@@ -2330,7 +2231,7 @@ three = __toESM(three);
 			target.texture._target = target;
 			/** @type {THREE.Texture} */ material.map.dispose();
 			material.map = target.texture;
-			material.color = new three.Color(1, 1, 1);
+			material.color = /* @__PURE__ */ new three.Color(1, 1, 1);
 			userData.modulateMode = 1;
 			return target;
 		},
@@ -2677,7 +2578,7 @@ three = __toESM(three);
 			return canvas;
 		},
 		_saveRendererState(renderer) {
-			const size = new three.Vector2();
+			const size = /* @__PURE__ */ new three.Vector2();
 			renderer.getSize(size);
 			return {
 				target: renderer.getRenderTarget(),

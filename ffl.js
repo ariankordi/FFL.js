@@ -3006,64 +3006,34 @@ const CharModelTextures = {
 	// Unpacking structs.
 
 	/**
-	 * @enum {number}
+	 * Count of parts in the FFLiFacelineTextureTempObject.
+	 * As of Nov. 2025, this is now in the order it should be drawn.
+	 * Previously it was not, requiring an enum and reordering.
 	 * @private
 	 */
-	FacelinePartType: {
-		/** Wrinkle */
-		LINE: 0,
-		MAKE: 1,
-		BEARD: 2,
-		MAX: 3
-	},
-
-	// TODO: Would these unpack methods
-	// - be more appropriate in CharModelAccessor?
-	// - rather return pointers than construct new DrawParam?
+	FacelinePartCount: 3,
+	/**
+	 * Count of parts in the FFLiRawMaskDrawParam, also now draw order like above.
+	 * This is really 9, but "fill" (alpha clear) is being excluded.
+	 * @private
+	 */
+	MaskPartCount: 8,
 
 	/**
 	 * @param {Uint8Array} u8 - module.HEAPU8
 	 * @param {number} ptr - Pointer to the type.
-	 * @returns {Array<DrawParam>} Array of DrawParams. Note that this is not the draw order.
+	 * @param {number} count - Length of the DrawParam array.
+	 * @returns {Array<DrawParam>} Array of DrawParams.
 	 * @private
+	 * @todo TODO: Would this unpack method
+	 * - be more appropriate in CharModelAccessor?
+	 * - rather return pointers than construct new DrawParam?
 	 */
-	_unpackFFLiFacelineTextureTempObject(u8, ptr) {
-		const params = Array.from({ length: this.FacelinePartType.MAX });
-		for (let type = 0; type < this.FacelinePartType.MAX; type++) {
-			// Each DrawParam is prefixed by a pointer, so let's take an offset of 4
-			const p = ptr + 4 + ((4 + FFLDrawParam_size) * type);
-			params[type] = new DrawParam(u8, p);
-		}
-		return params;
-	},
-
-	/**
-	 * @enum {number}
-	 * @private
-	 */
-	MaskPartType: {
-		EYE_R: 0,
-		EYE_L: 1,
-		EYEBROW_R: 2,
-		EYEBROW_L: 3,
-		MOUTH: 4,
-		MUSTACHE_R: 5,
-		MUSTACHE_L: 6,
-		MOLE: 7,
-		/** Alpha clear. Can be skipped. */
-		FILL: 8,
-		MAX: 8
-	},
-
-	/**
-	 * @param {Uint8Array} u8 - module.HEAPU8
-	 * @param {number} ptr - Pointer to the type.
-	 * @returns {Array<DrawParam>} Array of DrawParams. Note that this is not the draw order.
-	 * @private
-	 */
-	_unpackFFLiRawMaskDrawParam(u8, ptr) {
-		const params = Array.from({ length: this.MaskPartType.MAX });
-		for (let type = 0; type < this.MaskPartType.MAX; type++) {
+	_unpackDrawParamArray(u8, ptr, count) {
+		const params = Array.from({ length: count });
+		for (let type = 0; type < count; type++) {
+			// const p = ptr + 4 + ((4 + FFLDrawParam_size) * type);
+			// Previously the members were not linear in a row, but now it is.
 			const p = ptr + (FFLDrawParam_size * type);
 			params[type] = new DrawParam(u8, p);
 		}
@@ -3088,14 +3058,10 @@ const CharModelTextures = {
 		const facelineTempObjectPtr = charModel.getFacelineTempObjectPtr();
 		module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
 
-		const params = this._unpackFFLiFacelineTextureTempObject(
-			module.HEAPU8, facelineTempObjectPtr);
+		const params = this._unpackDrawParamArray(
+			module.HEAPU8, facelineTempObjectPtr, this.FacelinePartCount);
 		// Gather the drawParams that make up the faceline texture.
-		const drawParams = [
-			params[this.FacelinePartType.MAKE],
-			params[this.FacelinePartType.LINE],
-			params[this.FacelinePartType.BEARD]
-		].filter(dp => dp && dp.modulateParam.pTexture2D !== 0);
+		const drawParams = params.filter(dp => dp && dp.modulateParam.pTexture2D !== 0);
 		// Note that for faceline DrawParams to not be empty,
 		// it must have a texture. For other DrawParams to not
 		// be empty they simply need to have a non-zero index count.
@@ -3172,7 +3138,8 @@ const CharModelTextures = {
 				continue;
 			}
 			const maskParamPtr = maskParamPtrs[i];
-			const rawMaskDrawParam = this._unpackFFLiRawMaskDrawParam(module.HEAPU8, maskParamPtr);
+			const rawMaskDrawParam = this._unpackDrawParamArray(
+				module.HEAPU8, maskParamPtr, this.MaskPartCount);
 			module._FFLiInvalidateRawMask(maskParamPtr);
 
 			const res = charModel.getResolution();
@@ -3210,17 +3177,7 @@ const CharModelTextures = {
 	 * @private
 	 */
 	_drawMaskTexture(resolution, rawMaskParam, renderer, module, texMgr, materialClass) {
-		// const drawParams = MaskPartOrder.map(i => ({ ...rawMaskParam[i] }));
-		const drawParams = [
-			rawMaskParam[this.MaskPartType.MUSTACHE_R],
-			rawMaskParam[this.MaskPartType.MUSTACHE_L],
-			rawMaskParam[this.MaskPartType.MOUTH],
-			rawMaskParam[this.MaskPartType.EYEBROW_R],
-			rawMaskParam[this.MaskPartType.EYEBROW_L],
-			rawMaskParam[this.MaskPartType.EYE_R],
-			rawMaskParam[this.MaskPartType.EYE_L],
-			rawMaskParam[this.MaskPartType.MOLE]
-		].filter(dp => dp && dp.primitiveParam.indexCount !== 0);
+		const drawParams = rawMaskParam.filter(dp => dp && dp.primitiveParam.indexCount !== 0);
 		console.assert(drawParams.length, '_drawMaskTexture: All DrawParams are empty.');
 		// Configure the RenderTarget for no depth/stencil.
 		const options = {

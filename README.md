@@ -175,8 +175,8 @@ Additionally use `npm run-script check-types` to validate types, and `npm run-sc
   - There can be tests for each branch/expected feature, and material class.
   - Tests for matching renders - icon images or model exports would be fantastic.
 * See if the FFL WASM binary can be reduced in size (<70K?).
-  - -fno-rtti, -Oz, remove printf in FFLiPath.cpp and FFLiCoordinate/FFLBoundingBox when unused, light binary w/o ninTexUtils & FFLiDatabaseRandom... find other low hanging fruit like that.
-  - Replace use of zlib with a more lightweight deflate library, or DecompressionStream API?
+  - Biggest dependency is zlib, so consider replacing with a lighter deflate library, or DecompressionStream API?
+  - A "minimal" binary with w/o ninTexUtils, FFLiDatabaseRandom would be good to have as well.
 * Potentially split code into files. This has already been planned, search: `// TODO PATH:`
   - But since the library is just 4000 lines and relatively thin (40 KB as of writing), there's a risk of overcomplication.
 * Make this easier to use as time goes on. This includes: solving ambiguities, maybe adding JSDoc @example tags... (Like all projects.)
