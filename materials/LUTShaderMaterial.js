@@ -997,20 +997,20 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 	// Default light colors for the LUT shader.
 	/** @type {THREE.Color} */
-	static defaultHSLightGroundColor = new THREE.Color(0.87843, 0.72157, 0.5898);
+	static defaultHSLightGroundColor = /* @__PURE__ */ new THREE.Color(0.87843, 0.72157, 0.5898);
 	/** @type {THREE.Color} */
-	static defaultHSLightSkyColor = new THREE.Color(0.87843, 0.83451, 0.80314);
+	static defaultHSLightSkyColor = /* @__PURE__ */ new THREE.Color(0.87843, 0.83451, 0.80314);
 	/** @type {THREE.Color} */
-	static defaultDirLightColor0 = new THREE.Color(0.35137, 0.32392, 0.32392);
+	static defaultDirLightColor0 = /* @__PURE__ */ new THREE.Color(0.35137, 0.32392, 0.32392);
 	/** @type {THREE.Color} */
-	static defaultDirLightColor1 = new THREE.Color(0.10039, 0.09255, 0.09255);
+	static defaultDirLightColor1 = /* @__PURE__ */ new THREE.Color(0.10039, 0.09255, 0.09255);
 	static defaultDirLightCount = 2;
 	/** @type {THREE.Vector4} */
-	static defaultDirLightDirAndType0 = new THREE.Vector4(-0.2, 0.5, 0.8, -1);
+	static defaultDirLightDirAndType0 = /* @__PURE__ */ new THREE.Vector4(-0.2, 0.5, 0.8, -1);
 	/** @type {THREE.Vector4} */
-	static defaultDirLightDirAndType1 = new THREE.Vector4(0, -0.19612, 0.98058, -1);
+	static defaultDirLightDirAndType1 = /* @__PURE__ */ new THREE.Vector4(0, -0.19612, 0.98058, -1);
 	/** @type {THREE.Color} */
-	static defaultLightColor = new THREE.Color(0.35137, 0.32392, 0.32392);
+	static defaultLightColor = /* @__PURE__ */ new THREE.Color(0.35137, 0.32392, 0.32392);
 
 	/**
 	 * Alias for default light direction.

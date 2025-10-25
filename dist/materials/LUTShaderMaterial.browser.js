@@ -992,20 +992,20 @@ else
 			return textures;
 		}
 		/** @type {THREE.Color} */
-		static defaultHSLightGroundColor = new three.Color(.87843, .72157, .5898);
+		static defaultHSLightGroundColor = /* @__PURE__ */ new three.Color(.87843, .72157, .5898);
 		/** @type {THREE.Color} */
-		static defaultHSLightSkyColor = new three.Color(.87843, .83451, .80314);
+		static defaultHSLightSkyColor = /* @__PURE__ */ new three.Color(.87843, .83451, .80314);
 		/** @type {THREE.Color} */
-		static defaultDirLightColor0 = new three.Color(.35137, .32392, .32392);
+		static defaultDirLightColor0 = /* @__PURE__ */ new three.Color(.35137, .32392, .32392);
 		/** @type {THREE.Color} */
-		static defaultDirLightColor1 = new three.Color(.10039, .09255, .09255);
+		static defaultDirLightColor1 = /* @__PURE__ */ new three.Color(.10039, .09255, .09255);
 		static defaultDirLightCount = 2;
 		/** @type {THREE.Vector4} */
-		static defaultDirLightDirAndType0 = new three.Vector4(-.2, .5, .8, -1);
+		static defaultDirLightDirAndType0 = /* @__PURE__ */ new three.Vector4(-.2, .5, .8, -1);
 		/** @type {THREE.Vector4} */
-		static defaultDirLightDirAndType1 = new three.Vector4(0, -.19612, .98058, -1);
+		static defaultDirLightDirAndType1 = /* @__PURE__ */ new three.Vector4(0, -.19612, .98058, -1);
 		/** @type {THREE.Color} */
-		static defaultLightColor = new three.Color(.35137, .32392, .32392);
+		static defaultLightColor = /* @__PURE__ */ new three.Color(.35137, .32392, .32392);
 		/**
 		* Alias for default light direction.
 		* @type {THREE.Vector4}

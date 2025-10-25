@@ -450,32 +450,32 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * Default ambient light color.
 	 * @type {THREE.Color}
 	 */
-	static defaultLightAmbient = new THREE.Color(0.73, 0.73, 0.73)/* .convertSRGBToLinear() */;
+	static defaultLightAmbient = /* @__PURE__ */ new THREE.Color(0.73, 0.73, 0.73);
 	/**
 	 * Default diffuse light color.
 	 * @type {THREE.Color}
 	 */
-	static defaultLightDiffuse = new THREE.Color(0.6, 0.6, 0.6)/* .convertSRGBToLinear() */;
+	static defaultLightDiffuse = /* @__PURE__ */ new THREE.Color(0.6, 0.6, 0.6);
 	/**
 	 * Default specular light color.
 	 * @type {THREE.Color}
 	 */
-	static defaultLightSpecular = new THREE.Color(0.7, 0.7, 0.7)/* .convertSRGBToLinear() */;
+	static defaultLightSpecular = /* @__PURE__ */ new THREE.Color(0.7, 0.7, 0.7);
 	/**
 	 * Default light direction.
 	 * @type {THREE.Vector3}
 	 */
-	static defaultLightDir = new THREE.Vector3(-0.4531539381, 0.4226179123, 0.7848858833);
+	static defaultLightDir = /* @__PURE__ */ new THREE.Vector3(-0.45315, 0.42262, 0.78489);
 	/**
 	 * Default rim color.
 	 * @type {THREE.Color}
 	 */
-	static defaultRimColor = new THREE.Color(0.3, 0.3, 0.3)/* .convertSRGBToLinear() */;
+	static defaultRimColor = /* @__PURE__ */ new THREE.Color(0.3, 0.3, 0.3);
 	/**
 	 * Default rim color for the body.
 	 * @type {THREE.Color}
 	 */
-	static defaultRimColorBody = new THREE.Color(0.4, 0.4, 0.4);
+	static defaultRimColorBody = /* @__PURE__ */ new THREE.Color(0.4, 0.4, 0.4);
 	/**
 	 * Default rim power (intensity).
 	 * @type {number}

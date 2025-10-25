@@ -213,32 +213,32 @@ void main()
 		* Default ambient light color.
 		* @type {THREE.Color}
 		*/
-		static defaultLightAmbient = new three.Color(.73, .73, .73);
+		static defaultLightAmbient = /* @__PURE__ */ new three.Color(.73, .73, .73);
 		/**
 		* Default diffuse light color.
 		* @type {THREE.Color}
 		*/
-		static defaultLightDiffuse = new three.Color(.6, .6, .6);
+		static defaultLightDiffuse = /* @__PURE__ */ new three.Color(.6, .6, .6);
 		/**
 		* Default specular light color.
 		* @type {THREE.Color}
 		*/
-		static defaultLightSpecular = new three.Color(.7, .7, .7);
+		static defaultLightSpecular = /* @__PURE__ */ new three.Color(.7, .7, .7);
 		/**
 		* Default light direction.
 		* @type {THREE.Vector3}
 		*/
-		static defaultLightDir = new three.Vector3(-.4531539381, .4226179123, .7848858833);
+		static defaultLightDir = /* @__PURE__ */ new three.Vector3(-.45315, .42262, .78489);
 		/**
 		* Default rim color.
 		* @type {THREE.Color}
 		*/
-		static defaultRimColor = new three.Color(.3, .3, .3);
+		static defaultRimColor = /* @__PURE__ */ new three.Color(.3, .3, .3);
 		/**
 		* Default rim color for the body.
 		* @type {THREE.Color}
 		*/
-		static defaultRimColorBody = new three.Color(.4, .4, .4);
+		static defaultRimColorBody = /* @__PURE__ */ new three.Color(.4, .4, .4);
 		/**
 		* Default rim power (intensity).
 		* @type {number}

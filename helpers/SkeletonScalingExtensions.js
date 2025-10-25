@@ -68,16 +68,16 @@ function addSkeletonScalingExtensions(Skeleton) {
 		// Static, shared variables to be used temporarily for every run.
 
 		/** @readonly */ // - (Below two are defined in three.js Skeleton.js)
-		const _identityMatrix = new THREE.Matrix4().identity();
+		const _identityMatrix = /* @__PURE__ */ new THREE.Matrix4().identity();
 		// Used in main bone scale loop:
-		const _offsetMatrix = new THREE.Matrix4();
+		const _offsetMatrix = /* @__PURE__ */ new THREE.Matrix4();
 
-		const scaleMatrix = new THREE.Matrix4();
-		const posVec = new THREE.Vector3();
+		const scaleMatrix = /* @__PURE__ */ new THREE.Matrix4();
+		const posVec = /* @__PURE__ */ new THREE.Vector3();
 
 		// Used for decomposing/composing when updating attachments:
-		const tmpQuat = new THREE.Quaternion();
-		const tmpTrans = new THREE.Vector3();
+		const tmpQuat = /* @__PURE__ */ new THREE.Quaternion();
+		const tmpTrans = /* @__PURE__ */ new THREE.Vector3();
 
 		/**
 		 * Adjusts translation, if the parent is the root (skl_root).

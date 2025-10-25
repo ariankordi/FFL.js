@@ -73,7 +73,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 		this.uRimPower = uniform(FFLShaderMaterial.defaultRimPower);
 
 		// TODO: Like TextureShaderNodeMaterial, this needs alpha testing.
-		this.fragmentNode = Fn(() => {
+		this.fragmentNode = /* @__PURE__ */ Fn(() => {
 			// TODO: This should be included more elegantly.
 			// Like, we need it to be a colorNode.
 			const color = TextureShaderNodeMaterial.fragmentNode({

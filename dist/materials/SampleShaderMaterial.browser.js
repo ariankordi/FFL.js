@@ -804,12 +804,12 @@ void main()
 		* Default ambient light color.
 		* @type {THREE.Color}
 		*/
-		static defaultLightColor = new three.Color(1, 1, 1);
+		static defaultLightColor = /* @__PURE__ */ new three.Color(1, 1, 1);
 		/**
 		* Default light direction.
 		* @type {THREE.Vector3}
 		*/
-		static defaultLightDir = new three.Vector3(-.1227878, .70710677, .6963642);
+		static defaultLightDir = /* @__PURE__ */ new three.Vector3(-.1227878, .70710677, .6963642);
 		/**
 		* Alias for default light direction.
 		* @type {THREE.Vector3}
@@ -1018,8 +1018,8 @@ void main()
 			const ver3ToVer4HairColor = (c) => c === 0 ? 8 : c & 2147483647;
 			const getSssTable = () => this._sssColorTable[this._modulateType];
 			const getSpecularTable = () => this._specularColorTable[this._modulateType];
-			let sssColor = new three.Color(0);
-			let specularColor = new three.Color(0);
+			let sssColor = /* @__PURE__ */ new three.Color(0);
+			let specularColor = /* @__PURE__ */ new three.Color(0);
 			/** The working color space, needed to set colors from hex without conversion. */
 			const workingSpace = three.ColorManagement ? three.ColorManagement.workingColorSpace : "";
 			/**
@@ -1092,7 +1092,7 @@ void main()
 		* The geometry in which to re-assign the normal attribute.
 		*/
 		static assignNormalsForGlass(geometry) {
-			const glassNormalBuffer = new Float32Array([
+			const glassNormalBuffer = /* @__PURE__ */ new Float32Array([
 				-.10568,
 				-.70254,
 				.70254,

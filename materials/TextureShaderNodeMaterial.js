@@ -60,7 +60,7 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 	 * @property {ShaderNodeObject|null} texel - texture
 	 */
 	/** @type {import('three/src/nodes/tsl/TSLBase.js').ShaderNodeFn<[FragmentInputs]>} */
-	static fragmentNode = Fn((/** @type {FragmentInputs} */ args) => {
+	static fragmentNode = /* @__PURE__ */ Fn((/** @type {FragmentInputs} */ args) => {
 		const { diffuse, color1, color2, opacity, modulateMode, texel } = args;
 		// Start with diffuse/opacity.
 		const diffuseColor = vec4(diffuse, opacity);

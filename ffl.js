@@ -1418,7 +1418,7 @@ class CharModel {
 		 * @readonly
 		 * @public
 		 */
-		this.facelineColor = new THREE.Color();
+		this.facelineColor = /* @__PURE__ */ new THREE.Color();
 		/**
 		 * Contains the CharInfo of the model.
 		 * Changes to this will not be reflected whatsoever.
@@ -1976,9 +1976,10 @@ class CharModel {
 	_getBoundingBox() {
 		// Note: FFL includes three different bounding boxes for each
 		// FFLModelType. This only creates one box per CharModel.
-		const excludeFromBox = new Set([FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
+		const excludeFromBox = /* @__PURE__ */ new Set([
+			FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
 		// Create bounding box selectively excluding mask and glass.
-		const box = new THREE.Box3();
+		const box = /* @__PURE__ */ new THREE.Box3();
 
 		this.meshes.traverse((child) => {
 			if (!(child instanceof THREE.Mesh) ||
@@ -2408,7 +2409,7 @@ function makeExpressionFlag(expressions) {
 	}
 
 	/** FFLAllExpressionFlag */
-	const flags = new Uint32Array([0, 0, 0]);
+	const flags = /* @__PURE__ */ new Uint32Array([0, 0, 0]);
 	let checkForChangeShapes = true;
 
 	// Set single expression.
@@ -2446,9 +2447,9 @@ function makeExpressionFlag(expressions) {
  */
 function checkExpressionChangesShapes(i, warn = false) {
 	/** Expressions disabling nose: dog/cat, blank */
-	const expressionsDisablingNose = new Set([49, 50, 51, 52, 61, 62]);
+	const expressionsDisablingNose = /* @__PURE__ */ new Set([49, 50, 51, 52, 61, 62]);
 	/** Expressions disabling mask: blank */
-	const expressionsDisablingMask = new Set([61, 62]);
+	const expressionsDisablingMask = /* @__PURE__ */ new Set([61, 62]);
 
 	const prefix = `checkExpressionChangesShapes: An expression was enabled (${i}) that is meant to disable nose or mask shape for the entire CharModel, so it is only recommended to set this as a single expression rather than as one of multiple.`;
 	if (expressionsDisablingMask.has(i)) {
@@ -2789,7 +2790,7 @@ class DrawParam {
 		const texture = /** @type {THREE.Texture} */ (textureManager.get(texturePtr));
 		console.assert(texture, `_getTextureFromModulateParam: Texture not found for ${texturePtr}.`);
 		// Selective apply mirrored repeat (not supported on NPOT/mipmap textures for WebGL 1.0)
-		const applyMirrorTypes = new Set([FFLModulateType.SHAPE_FACELINE,
+		const applyMirrorTypes = /* @__PURE__ */ new Set([FFLModulateType.SHAPE_FACELINE,
 			FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_GLASS]);
 		// ^^ Faceline, cap, and glass. NOTE that faceline texture won't go through here
 		if (applyMirrorTypes.has(modulateParam.type)) {
@@ -3282,14 +3283,14 @@ const ModelTexturesConverter = {
 	 * @public
 	 */
 	convModelTexturesToRGBA(charModel, renderer, materialTextureClass) {
-		const convertTextureForTypes = [
-			FFLModulateType.SHAPE_CAP, FFLModulateType.SHAPE_NOSELINE, FFLModulateType.SHAPE_GLASS];
+		const convertTextureForTypes = /* @__PURE__ */ new Set([FFLModulateType.SHAPE_CAP,
+			FFLModulateType.SHAPE_NOSELINE, FFLModulateType.SHAPE_GLASS]);
 
 		charModel.meshes.traverse((mesh) => {
 			if (mesh instanceof THREE.Mesh &&
 				mesh.geometry.userData.modulateType !== undefined &&
 				mesh.material.map &&
-				convertTextureForTypes.indexOf(mesh.geometry.userData.modulateType) >= 1
+				convertTextureForTypes.has(mesh.geometry.userData.modulateType)
 			) {
 				const target = this._texDrawRGBATarget(renderer, mesh.material,
 					mesh.geometry.userData, materialTextureClass);
@@ -3355,7 +3356,7 @@ const ModelTexturesConverter = {
 		/** @type {THREE.Texture} */ (material.map).dispose();
 		material.map = target.texture;
 		// Set color to default and modulateMode to TEXTURE_DIRECT.
-		material.color = new THREE.Color(1, 1, 1);
+		material.color = /* @__PURE__ */ new THREE.Color(1, 1, 1);
 		userData.modulateMode = 1;
 
 		return target; // Caller is responsible for disposing the RenderTarget.
@@ -4016,7 +4017,7 @@ const ModelIcon = {
 	 * @private
 	 */
 	_saveRendererState(renderer) {
-		const size = new THREE.Vector2();
+		const size = /* @__PURE__ */ new THREE.Vector2();
 		renderer.getSize(size);
 
 		return {

@@ -919,12 +919,12 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 * Default ambient light color.
 	 * @type {THREE.Color}
 	 */
-	static defaultLightColor = new THREE.Color(1, 1, 1);
+	static defaultLightColor = /* @__PURE__ */ new THREE.Color(1, 1, 1);
 	/**
 	 * Default light direction.
 	 * @type {THREE.Vector3}
 	 */
-	static defaultLightDir = new THREE.Vector3(-0.1227878, 0.70710677, 0.6963642);
+	static defaultLightDir = /* @__PURE__ */ new THREE.Vector3(-0.1227878, 0.70710677, 0.6963642);
 
 	/**
 	 * Alias for default light direction.
@@ -1230,8 +1230,8 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		const getSpecularTable = () =>
 			/** @type {Array<number>} */ (this._specularColorTable[this._modulateType]);
 
-		let sssColor = new THREE.Color(0);
-		let specularColor = new THREE.Color(0);
+		let sssColor = /* @__PURE__ */ new THREE.Color(0);
+		let specularColor = /* @__PURE__ */ new THREE.Color(0);
 
 		/** The working color space, needed to set colors from hex without conversion. */
 		const workingSpace = THREE.ColorManagement ? THREE.ColorManagement.workingColorSpace : '';
@@ -1334,7 +1334,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 * The geometry in which to re-assign the normal attribute.
 	 */
 	static assignNormalsForGlass(geometry) {
-		const glassNormalBuffer = new Float32Array([-0.10568, -0.70254,
+		const glassNormalBuffer = /* @__PURE__ */ new Float32Array([-0.10568, -0.70254,
 			0.70254, 0.10568, -0.70254, 0.70254, -0.10568,
 			0.70254, 0.70254, 0.10568, 0.70254, 0.70254]);
 		const attribute = new THREE.BufferAttribute(glassNormalBuffer, 3);
