@@ -19,6 +19,9 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 * Compatibility
   - Implemented in JSDoc annotated and fully typed JavaScript calling into FFL in WASM.
     * Just ESM import `ffl.js` and materials. In dist/ there are `.d.ts` definitions and browser non-module versions.
+    * Base library is 140 KB minified.
+    <!-- 140 = ffl.browser.min.js = 38.5 + ffl-emscripten.js = 12.5 + ffl-emscripten.wasm = 86.4 -->
+    <!-- (ffl-emscripten built with em_inflate without checksum) -->
   - Tested from Three.js r144 up to r180 (latest as of writing), WebGL 1/2 and WebGPU.
     * For WebGPU, use `FFLShaderNodeMaterial`. For r152 and later, opt out of sRGB by following the link above.
 
@@ -174,9 +177,7 @@ Additionally use `npm run-script check-types` to validate types, and `npm run-sc
   - Can be split into non-rendering, WebGL 1.0, and WebGPU.
   - There can be tests for each branch/expected feature, and material class.
   - Tests for matching renders - icon images or model exports would be fantastic.
-* See if the FFL WASM binary can be reduced in size (<70K?).
-  - Biggest dependency is zlib, so consider replacing with a lighter deflate library, or DecompressionStream API?
-  - A "minimal" binary with w/o ninTexUtils, FFLiDatabaseRandom would be good to have as well.
+* Consider a "minimal" WASM binary (<70K?) w/o ninTexUtils, FFLiDatabaseRandom, maybe using DecompressionStream from JS
 * Potentially split code into files. This has already been planned, search: `// TODO PATH:`
   - But since the library is just 4000 lines and relatively thin (40 KB as of writing), there's a risk of overcomplication.
 * Make this easier to use as time goes on. This includes: solving ambiguities, maybe adding JSDoc @example tags... (Like all projects.)
