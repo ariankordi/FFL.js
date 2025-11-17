@@ -1340,7 +1340,7 @@ class CharModel {
 		const modelDescBuffer = CharModel._packFFLCharModelDesc(this._modelDesc);
 		this._module.HEAPU8.set(modelDescBuffer, modelDescPtr);
 
-		// At this point, CharModelSource/CharModelDesc are allocated. Create CharInfo.
+		// At this point, CharModelSource/CharModelDesc are allocated. Create FFLCharModel.
 		try {
 			// Verify CharInfo before creating.
 			if (verify) {
@@ -1374,7 +1374,7 @@ class CharModel {
 		// console.debug(`createCharModel: Initialized for ` +
 		// `"${charModel.this.charInfo.name}", ptr =`, charModelPtr);
 
-		// End initialization of FFLiCharModel. Further construct the CharModel.
+		// End initialization of FFLCharModel. Further construct the CharModel class.
 
 		// this._model = CharModel._unpackFFLiCharModel(module.HEAPU8, this._ptr);
 		/**
@@ -3346,7 +3346,8 @@ const ModelTexturesConverter = {
 				(renderer).readRenderTargetPixelsAsync(target, 0, 0,
 					tex.image.width, tex.image.height)
 				: await /** @type {THREE.WebGLRenderer} */
-				(renderer).readRenderTargetPixelsAsync(target, 0, 0,
+				(renderer).readRenderTargetPixelsAsync(
+					/** @type {THREE.WebGLRenderTarget} */ (target), 0, 0,
 					tex.image.width, tex.image.height,
 					// Create a new RGBA buffer here, since
 					// the function should return it anyway.
@@ -3520,7 +3521,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.modulateMode = { value: value };
 	}
 
-	/** @returns {THREE.Texture|null}The texture map, or null if it is unset. */
+	/** @returns {THREE.Texture|null} The texture map, or null if it is unset. */
 	get map() {
 		return this.uniforms.map ? this.uniforms.map.value : null;
 	}
@@ -4035,6 +4036,14 @@ const ModelIcon = {
  * @package
  */
 function _studioToFFLiCharInfo(src) {
+	// This function was created by originally writing it in C
+	// reading/writing raw structs, then decompiling and porting to JS.
+
+	// Also, most of the destination fields are 32-bit but this
+	// is choosing to set the (little-endian) LSB.
+	// This should be fine, since the source fields are 8 bits each.
+	// Those result in an otherwise smaller function, at the cost
+	// of being severely unreadable.
 	const dst = new Uint8Array(FFLiCharInfo_size);
 	const view = new DataView(dst.buffer);
 	view.setUint32(0x80, commonColorMask(src[0]), true); // beardColor

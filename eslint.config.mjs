@@ -41,7 +41,9 @@ export default [
 
 			'class-methods-use-this': 'error',
 			'no-return-assign': 'error',
-			'template-curly-spacing': 'error'
+			'template-curly-spacing': 'error',
+			// See: https://github.com/sindresorhus/eslint-plugin-unicorn/blob/main/docs/rules/no-useless-undefined.md#conflict-with-eslint-array-callback-return-and-getter-return-rules
+			'getter-return': ['error', { allowImplicit: true }]
 			// The following will trigger a bunch of errors:
 			// 'no-param-reassign': 'error', // This is used but ig alternative is larger code
 			// 'no-use-before-define': 'error', // We don't have imports right now

@@ -568,7 +568,7 @@ function onShaderMaterialChange() {
 			return;
 		}
 		// Recreate material with same parameters but using the new shader class.
-		const oldMat = mesh.material;
+		const oldMat = /** @type {LUTShaderMaterial} */ (mesh.material);
 		/** Get modulateMode/Type */
 		const userData = mesh.geometry.userData;
 
