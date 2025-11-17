@@ -1472,6 +1472,8 @@ class CharModel {
 		}
 	}
 
+	/** @typedef {THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>} MeshWithTexture */
+
 	// Public methods:
 
 	/**
@@ -1985,15 +1987,15 @@ class CharModel {
 		// Create bounding box selectively excluding mask and glass.
 		const box = /* @__PURE__ */ new THREE.Box3();
 
-		this.meshes.traverse((child) => {
-			if (!(child instanceof THREE.Mesh) ||
-				// Exclude meshes whose modulateType are in excludeFromBox.
-				excludeFromBox.has(child.geometry.userData.modulateType)) {
-				return;
+		for (const child of /** @type {Array<THREE.Mesh>} */ (this.meshes.children)) {
+			// Exclude meshes whose modulateType are in excludeFromBox.
+			if (excludeFromBox.has(child.geometry.userData.modulateType)) {
+				continue;
 			}
 			// Expand the box.
 			box.expandByObject(child);
-		});
+		}
+
 		return box;
 	}
 
@@ -3244,9 +3246,8 @@ const ModelTexturesConverter = {
 		const convertTextureForTypes = /* @__PURE__ */ new Set([FFLModulateType.SHAPE_CAP,
 			FFLModulateType.SHAPE_NOSELINE, FFLModulateType.SHAPE_GLASS]);
 
-		charModel.meshes.traverse((mesh) => {
-			if (mesh instanceof THREE.Mesh &&
-				mesh.geometry.userData.modulateType !== undefined &&
+		for (const mesh of /** @type {Array<MeshWithTexture>} */ (charModel.meshes.children)) {
+			if (mesh.geometry.userData.modulateType !== undefined &&
 				mesh.material.map &&
 				convertTextureForTypes.has(mesh.geometry.userData.modulateType)
 			) {
@@ -3258,7 +3259,7 @@ const ModelTexturesConverter = {
 				// additional entries will be ignored. So, that is where these go.
 				charModel._maskTargets.push(target);
 			}
-		});
+		}
 	},
 
 	/**
@@ -3329,14 +3330,15 @@ const ModelTexturesConverter = {
 	 * @public
 	 */
 	async convModelTargetsToDataTex(charModel, renderer) {
-		charModel.meshes.traverse(async (mesh) => {
-			if (!(mesh instanceof THREE.Mesh) || !mesh.material.map) {
-				return;
-			}
+		for (const mesh of /** @type {Array<MeshWithTexture>} */ (charModel.meshes.children)) {
 			const tex = mesh.material.map;
+			if (!tex) {
+				continue;
+			}
 			console.assert(tex.format === THREE.RGBAFormat,
 				'convModelTargetsToDataTex: found a texture that is not of format THREE.RGBAFormat, but, this function is only meant to be used if all textures in CharModel meshes are RGBA (so render targets)...');
-			const target = /** @type {THREE.RenderTarget} */ tex._target;
+			const target = /** @type {THREE.Texture & {_target: THREE.RenderTarget}} */
+				(tex)._target;
 			console.assert(target, 'convModelTargetsToDataTex: mesh.material.map (texture)._target is null or undefined.');
 
 			// This diverges between WebGPURenderer and WebGLRenderer.
@@ -3366,7 +3368,7 @@ const ModelTexturesConverter = {
 
 			dataTex.needsUpdate = true;
 			mesh.material.map = dataTex;
-		});
+		}
 		// The original render targets are no longer needed now, dispose them.
 		charModel.disposeTargets();
 		// Note that expressions cannot be set on the CharModel anymore.

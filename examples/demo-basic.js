@@ -465,15 +465,14 @@ function updateLightDirection(normalize = true) {
 	if (!currentCharModel) {
 		return;
 	}
-	// currentCharModel.meshes.forEach((mesh) => {
-	currentCharModel.meshes.traverse((mesh) => {
+	for (const mesh of /** @type {Array<THREE.Mesh>} */ (currentCharModel.meshes.children)) {
 		// Make sure this mesh is non-null and has a compatible ShaderMaterial.
-		if (mesh instanceof THREE.Mesh && 'lightDirection' in mesh.material) {
+		if ('lightDirection' in mesh.material) {
 			// mesh.material.opacity = 0.1; // Test materials updating
 			// Set the lightDirection on the material.
 			mesh.material.lightDirection = newDir.clone();
 		}
-	});
+	}
 }
 
 const resetLightButtonElement = requireElementById('resetLightButton');
@@ -569,12 +568,13 @@ function onShaderMaterialChange() {
 		// The work done in this function will already be done.
 		return;
 	}
-	currentCharModel.meshes.traverse((mesh) => {
-		if (!(mesh instanceof THREE.Mesh)) {
-			return;
-		}
+
+	for (const mesh of /** @type {Array<THREE.Mesh>} */ (currentCharModel.meshes.children)) {
 		// Recreate material with same parameters but using the new shader class.
-		const oldMat = mesh.material;
+		// TODO: Have to resolve some mismatched types in materials.
+		// For now, the material will simply be any.
+		// const oldMat = /** @type {LUTShaderMaterial} */ (mesh.material);
+		const oldMat = /** @type {any} */ (mesh.material);
 		/** Get modulateMode/Type */
 		const userData = mesh.geometry.userData;
 
@@ -605,7 +605,7 @@ function onShaderMaterialChange() {
 		}
 
 		mesh.material = new (materials[activeMaterialClassName])(params);
-	});
+	}
 
 	resetLightDirection(); // There is now a new light direction.
 	// Update the icon to reflect the shader.

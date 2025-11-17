@@ -8,7 +8,7 @@
 // @ts-check
 
 import * as THREE from 'three';
-import { applyScaleDesc } from './ModelScaleDesc.js';
+import { applyScaleDescToSkinnedMesh } from './ModelScaleDesc.js';
 
 // Imports for standalone JSDoc types.
 /**
@@ -127,7 +127,6 @@ function prepareBodyForCharModel(body, mat, favoriteColor, bodyScale, pantsColor
 			!('modulateType' in mesh.geometry.userData)) {
 			return;
 		}
-		// HACK HACK HACK HACKAHCKACHA HACKA HACK HACK
 		if (mesh.geometry.userData.modulateType === 9) { // Body
 			mesh.material.color = favoriteColor;
 		} else if (mesh.geometry.userData.modulateType === 10) { // Pants
@@ -135,9 +134,10 @@ function prepareBodyForCharModel(body, mat, favoriteColor, bodyScale, pantsColor
 		}
 	});
 
-	applyScaleDesc(body.model,
-		/* scaleVector */ bodyScale,
-		/* desc */ body.scaleDesc);
+	const skinned = body.model.getObjectByProperty('type', 'SkinnedMesh');
+	if (skinned && skinned instanceof THREE.SkinnedMesh) {
+		applyScaleDescToSkinnedMesh(skinned, bodyScale, body.scaleDesc);
+	}
 }
 
 /** The absolute world-scale of the head divided by the body's scale. */

@@ -121,36 +121,31 @@ function detectModelDesc(object) {
 
 /**
  * Apply scaling to a model's bones based on a given scale description.
- * @param {THREE.Object3D} model - The skinned model to apply scaling to.
+ * If there are multiple SkinnedMeshes, make sure the bones are shared
+ * between them by checking the IDs. Otherwise, this needs to run for every SkinnedMesh.
+ * @param {Array<THREE.Bone>} bones - The array of bones to apply scaling to.
+ * This comes from {@link THREE.SkinnedMesh.prototype.skeleton.bones}.
  * @param {THREE.Vector3Like} scaleVector - The base scale vector.
  * @param {ModelScaleDesc} desc - Scaling behavior descriptor for the model.
  * @throws {Error} Throws if addSkeletonScalingExtensions has not been called yet.
  */
-function applyScaleDesc(model, scaleVector, desc) {
+function applyScaleDesc(bones, scaleVector, desc) {
 	if (!('attach' in THREE.Skeleton.prototype)) { // Notify the caller if this won't work.
-		throw new Error('applyScaleDescription: This function to apply "scalling" has no effect, until "addSkeletonScalingExtensions" is run to patch THREE.Skeleton.prototype to allow per-bone scaling. Try running that first.');
+		throw new Error('applyScaleDesc: This function to apply "scalling" has no effect, until "addSkeletonScalingExtensions" is run to patch THREE.Skeleton.prototype to allow per-bone scaling. Try running that first.');
 	}
 
-	/** The final head bone to be set and returned later. */
-	// let headBone = null;
-
-	model.traverse((node) => {
-		if (!(node instanceof THREE.Bone)) {
-			return;
-		}
-		const bone = /** @type {BoneWithScaling} */ (node);
-
+	for (const bone of /** @type {Array<BoneWithScaling>} */ (bones)) {
 		const name = bone.name;
 
 		// Mark root to be used for translation adjustment.
 		if (name === desc.root) {
 			bone.scaleForRootAdjust = scaleVector; // Set scale vector to be used.
-			return;
+			continue;
 		}
 
 		// Skip if explicitly listed in `none`.
 		if (desc.none?.includes(bone.name)) {
-			return;
+			continue;
 		}
 
 		/** Final scale vector to be determined for the bone. */
@@ -181,26 +176,28 @@ function applyScaleDesc(model, scaleVector, desc) {
 		}
 
 		bone.scalling = scale;
+	}
+}
 
-		// Set `headBone` local.
-		/* if (name === desc.head) {
-			headBone = bone;
-		} */
-	});
+/**
+ *
+ * @param {THREE.SkinnedMesh} skinnedMesh
+ * @param {THREE.Vector3Like} scaleVector
+ * @param {ModelScaleDesc} desc
+ */
+function applyScaleDescToSkinnedMesh(skinnedMesh, scaleVector, desc) {
+	const skl = skinnedMesh.skeleton;
+	applyScaleDesc(skl.bones, scaleVector, desc);
 
 	// Eager skeleton update (to avoid deferred frame-lagged updates).
-	const skinned = model.getObjectByProperty('type', 'SkinnedMesh');
-	if (skinned && skinned instanceof THREE.SkinnedMesh) {
-		skinned.skeleton.update();
-	}
 	// It will still update without this, but the update will be delayed.
-
-	// return headBone; // @returns {THREE.Bone|null} The head bone, if specified in the descriptor.
+	skl.update();
 }
 
 export {
 	editorBodyScaleDesc,
 	archBodyScaleDesc,
 	detectModelDesc,
-	applyScaleDesc
+	applyScaleDesc,
+	applyScaleDescToSkinnedMesh
 };
