@@ -14,7 +14,11 @@
     "url": "git://github.com/ariankordi/FFL.js.git"
   },
   "exports": {
-    ".": "./ffl.js"
+    ".": "./ffl.js",
+    "./helpers/*": "./helpers/*",
+    "./materials/*": "./materials/*",
+    "./examples/*": "./examples/*",
+    "./ffl-emscripten.cjs": "./ffl-emscripten.cjs"
   },
   "author": "Arian Kordi",
   "license": "AGPL-3.0-only",
@@ -22,6 +26,9 @@
     "url": "https://github.com/ariankordi/FFL.js/issues"
   },
   "homepage": "https://github.com/ariankordi/FFL.js",
+  "peerDependencies": {
+    "three": "^0.180.0"
+  },
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "^4.4.1",
     "@eslint/js": "^9.37.0",
