@@ -1,14 +1,9 @@
 node_modules/
 
-# Personal
-backup/
-three revisions/
-three-*.js
-# TODO: temporary
-docs/
-
-# FFL resources
+# FFL resource files
 *Res*.dat
 
-.*kate-swp
-# TODO include some standard gitignore
+# Unwanted .d.ts definitions: examples, rolldown, emscripten
+dist/examples/*
+dist/*.config*
+dist/*emscripten*.d.*

@@ -6,7 +6,7 @@ const fflate = { unzipSync };
 /** @typedef {Error & {responseStatus: number}} ErrorAndResponseStatus */
 
 /**
- * A helper component to load the FFL resource.
+ * A helper component to load the FFL resource, particularly for demos.
  * It displays an inline widget (inside a <details> element) that
  * catches errors and provides a UI for uploading or fetching the resource.
  * @example

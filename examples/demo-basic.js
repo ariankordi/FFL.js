@@ -16,7 +16,7 @@ import LUTShaderMaterial from '../materials/LUTShaderMaterial.js';
 import SampleShaderMaterial from '../materials/SampleShaderMaterial.js';
 // import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js'; // For WebGPURenderer only.
 // Helpers.
-import ResourceLoadHelper from './ResourceLoadHelper.js';
+import ResourceLoadHelper from '../helpers/ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
 /** @type {import('../ffl-emscripten.cjs')} */

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { FFL, CharModel, FFLCharModelDescDefault } from '../ffl.js';
 import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
-import ResourceLoadHelper from './ResourceLoadHelper.js';
+import ResourceLoadHelper from '../helpers/ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
 /** @type {import('../ffl-emscripten.cjs')} */
