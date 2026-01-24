@@ -3,7 +3,11 @@
  * Makes use of {@link TextureShaderNodeMaterial} for texture modulation.
  */
 export default class FFLShaderNodeMaterial extends NodeMaterial {
-    /** @param {import('three').MeshBasicMaterialParameters & {color?: Color|Array<Color>}} [options] */
+    /**
+     * Constructs an FFLShaderNodeMaterial instance.
+     * @param {import('three').MeshBasicMaterialParameters
+     * & {color?: Color|Array<Color>}} [options] - Parameters for the material.
+     */
     constructor(options?: import("three").MeshBasicMaterialParameters & {
         color?: Color | Array<Color>;
     });

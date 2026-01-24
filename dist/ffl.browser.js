@@ -979,7 +979,7 @@ three = __toESM(three);
 			this._data = data;
 			/**
 			* @type {MaterialConstructor}
-			* @private
+			* @package
 			*/
 			this._materialClass = materialClass;
 			const modelSourcePtr = this._module._malloc(FFLCharModelSource_size);
@@ -1301,7 +1301,6 @@ three = __toESM(three);
 		static FFLCharModelDesc_size = 24;
 		/**
 		* Used to index DrawParam array in FFLiCharModel.
-		* @enum {number}
 		* @private
 		*/
 		static FFLiShapeType = {
@@ -1779,10 +1778,7 @@ three = __toESM(three);
 	* @package
 	*/
 	var DrawParam = class DrawParam {
-		/**
-		* @enum {number}
-		* @private
-		*/
+		/** @private */
 		static FFLAttributeBufferType = {
 			POSITION: 0,
 			TEXCOORD: 1,
@@ -2378,7 +2374,7 @@ three = __toESM(three);
 		set modulateMode(value) {
 			this.uniforms.modulateMode = { value };
 		}
-		/** @returns {THREE.Texture|null}The texture map, or null if it is unset. */
+		/** @returns {THREE.Texture|null} The texture map, or null if it is unset. */
 		get map() {
 			return this.uniforms.map ? this.uniforms.map.value : null;
 		}

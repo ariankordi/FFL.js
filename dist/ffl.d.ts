@@ -434,7 +434,6 @@ export class CharModel {
     private static FFLCharModelDesc_size;
     /**
      * Used to index DrawParam array in FFLiCharModel.
-     * @enum {number}
      * @private
      */
     private static FFLiShapeType;
@@ -489,9 +488,9 @@ export class CharModel {
     private _data;
     /**
      * @type {MaterialConstructor}
-     * @private
+     * @package
      */
-    private _materialClass;
+    _materialClass: MaterialConstructor;
     /**
      * Pointer to the FFLiCharModel in memory, set to null when deleted.
      * @private
@@ -945,7 +944,7 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
     get modulateMode(): FFLModulateMode | null;
     /** @param {THREE.Texture} value - The new texture map. */
     set map(value: THREE.Texture);
-    /** @returns {THREE.Texture|null}The texture map, or null if it is unset. */
+    /** @returns {THREE.Texture|null} The texture map, or null if it is unset. */
     get map(): THREE.Texture | null;
 }
 export namespace ModelTexturesConverter {
