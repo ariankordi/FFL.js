@@ -20,5 +20,5 @@
     "emitDeclarationOnly": true,
     "outDir": "dist" // Emit .d.ts into dist so it can be found by TypeScript.
   },
-  "exclude": ["dist/"]
+	"exclude": ["node_modules", "examples/**/*", "dist/**/*"]
 }

@@ -6,7 +6,11 @@
     "lint": "eslint ffl.js",
     "check-types": "tsc --noEmit",
     "typedoc": "typedoc --skipErrorChecking ffl.js materials/* helpers/*",
-    "prepare": "npx eslint; npx tsc; npx rolldown -c rolldown.config.mjs",
+    "build:lint": "eslint ffl.js",
+    "build:types": "tsc",
+    "build:bundle": "rolldown -c rolldown.config.mjs",
+    "build": "npm run build:lint && npm run build:types && npm run build:bundle",
+    "prepare": "npm run build",
     "closure": "google-closure-compiler --warning_level VERBOSE ffl.js --js_output_file ffl.min.js --language_in UNSTABLE --module_resolution NODE"
   },
   "repository": {
@@ -18,7 +22,8 @@
     "./helpers/*": "./helpers/*",
     "./materials/*": "./materials/*",
     "./examples/*": "./examples/*",
-    "./ffl-emscripten.cjs": "./ffl-emscripten.cjs"
+    "./ffl-emscripten.cjs": "./ffl-emscripten.cjs",
+    "./FFLShaderMaterial.js": "./materials/FFLShaderMaterial.js"
   },
   "author": "Arian Kordi",
   "license": "AGPL-3.0-only",
@@ -42,6 +47,10 @@
     "eslint-plugin-unicorn": "^61.0.2",
     "globals": "^15.15.0",
     "rolldown": "^1.0.0-beta.42",
-    "tsconfig-paths": "^4.2.0"
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "webgpu": "^0.3.8"
   }
 }

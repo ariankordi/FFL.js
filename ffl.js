@@ -1818,6 +1818,7 @@ class CharModel {
 	 * @enum {number}
 	 * @private
 	 */
+	// @ts-ignore
 	static FFLiShapeType = {
 		OPA_BEARD: 0,
 		OPA_FACELINE: 1,
@@ -2490,6 +2491,7 @@ class DrawParam {
 	 * @enum {number}
 	 * @private
 	 */
+	// @ts-ignore
 	static FFLAttributeBufferType = {
 		POSITION: 0,
 		TEXCOORD: 1,

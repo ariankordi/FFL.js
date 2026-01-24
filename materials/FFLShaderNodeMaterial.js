@@ -41,6 +41,7 @@ class ParamColorNode extends AttributeNode {
 		) === true
 			? super.generate(builder)
 			// Vertex color fallback should be white
+			// @ts-ignore
 			: builder.generateConst(this.nodeType, new Vector4(1, 1, 0, 1));
 	}
 }
