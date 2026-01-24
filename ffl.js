@@ -1309,7 +1309,7 @@ class CharModel {
 		this._data = data;
 		/**
 		 * @type {MaterialConstructor}
-		 * @private
+		 * @package
 		 */
 		this._materialClass = materialClass;
 
@@ -1815,7 +1815,6 @@ class CharModel {
 
 	/**
 	 * Used to index DrawParam array in FFLiCharModel.
-	 * @enum {number}
 	 * @private
 	 */
 	static FFLiShapeType = {
@@ -2486,10 +2485,7 @@ const matSupportsFFL = material => 'modulateMode' in material.prototype;
 class DrawParam {
 	// Define FFL types needed.
 
-	/**
-	 * @enum {number}
-	 * @private
-	 */
+	/** @private */
 	static FFLAttributeBufferType = {
 		POSITION: 0,
 		TEXCOORD: 1,

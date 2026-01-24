@@ -58,11 +58,8 @@ let scene;
 let renderer;
 /** @type {THREE.Camera} */
 let camera;
-/**
- * Initialize to empty so properties can be set.
- * @type {OrbitControls}
- */
-let controls = {};
+/** @type {import('three/addons/controls/OrbitControls.js').OrbitControls} */
+let controls;
 /** @type {CharModel|null} */
 let currentCharModel;
 /** @type {Promise<void>} */
@@ -110,15 +107,21 @@ const materials = {
 	MeshPhongMaterial: THREE.MeshPhongMaterial
 };
 
+// WebGPU support is optional since three.module.js
+// and three.webgpu.js aren't fully compatible.
+// The hack below replaces FFLShaderMaterial with the WebGPU version if imported.
 if ('WebGPURenderer' in THREE) {
-	// Replace FFLShaderMaterial with WebGPURenderer-compatible equivalent.
-	materials.FFLShaderMaterial = FFLShaderNodeMaterial;
+	/* eslint-disable no-undef -- Only imported for WebGPU. */
+	materials.FFLShaderMaterial =
+		/** @type {typeof import('../materials/FFLShaderNodeMaterial.js').default} */
+		// @ts-ignore -- Not defined by default.
+		(FFLShaderNodeMaterial);
+	/* eslint-enable no-undef -- Re-enable */
 }
 
-// Expression flag with default expression, blink, FFL_EXPRESSION_LIKE_WINK_LEFT
-const expressionFlagBlinking = makeExpressionFlag(
-	[FFLExpression.NORMAL, FFLExpression.BLINK, FFLExpression.LIKE_WINK_LEFT]
-);
+/** Expression flag with default expression, blink, FFL_EXPRESSION_LIKE_WINK_LEFT */
+const expressionBlinking = [FFLExpression.NORMAL,
+	FFLExpression.BLINK, FFLExpression.LIKE_WINK_LEFT];
 
 // For debugging.
 let reinitModelEveryFrame = false;
@@ -128,7 +131,7 @@ let displayRenderTexturesElement = null;
 /** Default shader as first. */
 let activeMaterialClassName = Object.keys(materials)[0];
 /** Expression. */
-let currentExpressionFlag = expressionFlagBlinking;
+let currentExpressionFlag = makeExpressionFlag(expressionBlinking);
 /** Controls if the animation sets blinking. updateCanBlink() */
 let canBlink = false;
 
@@ -162,7 +165,9 @@ function getSceneWithLights() {
 async function initializeThreeRenderer() {
 	if ('WebGPURenderer' in THREE) {
 		console.info('Using THREE.WebGPURenderer.');
-		renderer = new THREE.WebGPURenderer({ alpha: true });
+		renderer = new /** @type {typeof import('three/webgpu').WebGPURenderer} */
+		// eslint-disable-next-line import-x/namespace -- We check if this exists.
+		(THREE.WebGPURenderer)({ alpha: true });
 	} else {
 		// Uncomment the canvas/context lines to test WebGL 1.0.
 		// const canvas = document.createElement('canvas');
@@ -210,21 +215,14 @@ async function initializeScene() {
 	// don't set near/far plane with care.
 	camera.position.set(0, 10, 500);
 
-	// Set up OrbitControls if it is loaded.
-	if (OrbitControls === undefined) {
+	// eslint-disable-next-line unicorn/no-typeof-undefined -- Only this expression works.
+	if (typeof OrbitControls === 'undefined') {
+		// Don't use OrbitControls if not imported.
 		console.warn('THREE.OrbitControls is undefined, continuing without controls.');
 	} else {
-		const controlsOld = controls;
+		// Set up OrbitControls if it is loaded.
 		controls = new OrbitControls(camera, renderer.domElement);
-		// Initialize defaults.
-		if (Object.keys(controlsOld).length) {
-			for (const prop in controlsOld) {
-				// Apply properties already set to controls.
-				controls[prop] = controlsOld[prop];
-			}
-		} else {
-			controls.autoRotateSpeed = 8; // Set default rotate speed.
-		}
+		controls.autoRotateSpeed = 8; // Set default rotate speed.
 		controls.minDistance = 50;
 		controls.maxDistance = 2000;
 		controls.target.set(0, 20, 0);
@@ -266,10 +264,8 @@ function startAnimationLoop() {
 	function animate() {
 		requestAnimationFrame(animate);
 
-		// Update OrbitControls.
-		if ('update' in controls) {
-			controls.update();
-		}
+		// Optionally update OrbitControls.
+		controls && controls.update();
 
 		// Reinitialize CharModel every frame for debugging if enabled.
 		if (reinitModelEveryFrame) {
@@ -429,13 +425,23 @@ function updateCharModelInScene(data, descOrExpFlag, texOnly = false) {
 	/** @type {*} */ (globalThis).currentCharModel = currentCharModel;
 }
 
+const requireElementById = (/** @type {string} */ id) => {
+	const el = document.getElementById(id);
+	if (!el) {
+		const msg = `HTML element not found: ${id}`;
+		alert(msg);
+		throw new Error(msg);
+	}
+	return el;
+};
+
 // // ---------------------------------------------------------------------
 // //  Light Direction
 // // ---------------------------------------------------------------------
 
-const lightDirXElement = /** @type {HTMLInputElement|null} */ (document.getElementById('lightDirX'));
-const lightDirYElement = /** @type {HTMLInputElement|null} */ (document.getElementById('lightDirY'));
-const lightDirZElement = /** @type {HTMLInputElement|null} */ (document.getElementById('lightDirZ'));
+const lightDirXElement = /** @type {HTMLInputElement} */ (requireElementById('lightDirX'));
+const lightDirYElement = /** @type {HTMLInputElement} */ (requireElementById('lightDirY'));
+const lightDirZElement = /** @type {HTMLInputElement} */ (requireElementById('lightDirZ'));
 
 /**
  * Updates the light direction for all ShaderMaterials in the current CharModel.
@@ -462,7 +468,7 @@ function updateLightDirection(normalize = true) {
 	// currentCharModel.meshes.forEach((mesh) => {
 	currentCharModel.meshes.traverse((mesh) => {
 		// Make sure this mesh is non-null and has a compatible ShaderMaterial.
-		if (mesh instanceof THREE.Mesh && mesh.material.lightDirection) {
+		if (mesh instanceof THREE.Mesh && 'lightDirection' in mesh.material) {
 			// mesh.material.opacity = 0.1; // Test materials updating
 			// Set the lightDirection on the material.
 			mesh.material.lightDirection = newDir.clone();
@@ -470,7 +476,7 @@ function updateLightDirection(normalize = true) {
 	});
 }
 
-const resetLightButtonElement = document.getElementById('resetLightButton');
+const resetLightButtonElement = requireElementById('resetLightButton');
 
 /**
  * Resets the light direction of all ShaderMaterials in the current CharModel to the default.
@@ -497,7 +503,7 @@ function resetLightDirection() {
 // //  Shader Material Selection
 // // ---------------------------------------------------------------------
 
-const shaderMaterialSelectElement = /** @type {HTMLInputElement|null} */ (document.getElementById('shaderMaterialSelect'));
+const shaderMaterialSelectElement = /** @type {HTMLInputElement} */ (requireElementById('shaderMaterialSelect'));
 
 /**
  * Populates the shader selector (a <select> element)
@@ -568,7 +574,7 @@ function onShaderMaterialChange() {
 			return;
 		}
 		// Recreate material with same parameters but using the new shader class.
-		const oldMat = /** @type {LUTShaderMaterial} */ (mesh.material);
+		const oldMat = mesh.material;
 		/** Get modulateMode/Type */
 		const userData = mesh.geometry.userData;
 
@@ -598,7 +604,7 @@ function onShaderMaterialChange() {
 			params.colorInfo = currentCharModel.getColorInfo();
 		}
 
-		mesh.material = new materials[activeMaterialClassName](params);
+		mesh.material = new (materials[activeMaterialClassName])(params);
 	});
 
 	resetLightDirection(); // There is now a new light direction.
@@ -612,14 +618,14 @@ function onShaderMaterialChange() {
 
 let rotationEnabled = false;
 
-const rotationSpeedElement = /** @type {HTMLInputElement|null} */ (document.getElementById('rotationSpeed'));
+const rotationSpeedElement = /** @type {HTMLInputElement} */ (requireElementById('rotationSpeed'));
 
 /** Updates the global rotation speed from the range input with id "rotationSpeed". */
 function updateRotationSpeed() {
 	controls.autoRotateSpeed = Number.parseFloat(rotationSpeedElement.value);
 }
 
-const toggleRotationElement = document.getElementById('toggleRotation');
+const toggleRotationElement = requireElementById('toggleRotation');
 
 /** Toggles rotation on/off. */
 function toggleRotation() {
@@ -637,12 +643,12 @@ function updateCanBlink() {
 	if (!currentCharModel) {
 		return;
 	}
-	const flag = currentCharModel._modelDesc.allExpressionFlag;
-	// Compare expressionFlagBlinking to flag to see if they match.
-	canBlink = expressionFlagBlinking.every((val, i) => val === flag[i]);
+	// Deep compare the array contents for the blinking expression option.
+	canBlink = JSON.stringify(expressionBlinking) ===
+		JSON.stringify([...currentCharModel.expressions]);
 }
 
-const expressionSelectElement = /** @type {HTMLInputElement|null} */ (document.getElementById('expressionSelect'));
+const expressionSelectElement = /** @type {HTMLInputElement} */ (requireElementById('expressionSelect'));
 
 /**
  * Updates the current expression on the CharModel based on the select element value.
@@ -653,7 +659,7 @@ function updateExpression() {
 	// Set currentExpressionFlag global.
 	if (val === -1) {
 		// For value of -1, set as expressionFlagBlinking.
-		currentExpressionFlag = expressionFlagBlinking;
+		currentExpressionFlag = makeExpressionFlag(expressionBlinking);
 		console.log('Expression set to normal blinking mode.');
 	} else {
 		currentExpressionFlag = makeExpressionFlag(val);
@@ -671,9 +677,9 @@ function updateExpression() {
 // //  CharModel Render Textures Control
 // // ---------------------------------------------------------------------
 
-const renderTexturesDisplayElement = /** @type {HTMLDetailsElement|null} */ (document.getElementById('renderTexturesDisplay'));
-const renderTexturesContainerElement = document.getElementById('ffl-js-display-render-textures');
-const reinitModelElement = /** @type {HTMLInputElement|null} */ (document.getElementById('reinitModel'));
+const renderTexturesDisplayElement = /** @type {HTMLDetailsElement} */ (requireElementById('renderTexturesDisplay'));
+const renderTexturesContainerElement = requireElementById('ffl-js-display-render-textures');
+const reinitModelElement = /** @type {HTMLInputElement} */ (requireElementById('reinitModel'));
 
 /** Toggle display of render textures for newly created CharModels. */
 function toggleRenderTexturesDisplay() {
@@ -702,7 +708,7 @@ function toggleReinitModel() {
 // //  CharModel Icon and Info Updates
 // // ---------------------------------------------------------------------
 
-const modelIconElement = /** @type {HTMLCanvasElement|null} */ (document.getElementById('modelIcon'));
+const modelIconElement = /** @type {HTMLCanvasElement} */ (requireElementById('modelIcon'));
 
 /** Updates the icon beside the options for the current CharModel. */
 function updateCharModelIcon() {
@@ -720,8 +726,8 @@ function updateCharModelIcon() {
 	})();
 }
 
-const charModelNameElement = document.getElementById('charModelName');
-const charModelFavoriteColorElement = document.getElementById('charModelFavoriteColor');
+const charModelNameElement = requireElementById('charModelName');
+const charModelFavoriteColorElement = requireElementById('charModelFavoriteColor');
 
 /** Updates the info section above the options for the current CharModel. */
 function updateCharModelInfo() {
@@ -813,8 +819,8 @@ function setupCharModelForm() {
 	populateShaderSelector();
 
 	// Assume a form with id "charform" exists in the HTML.
-	const charFormElement = /** @type {HTMLFormElement|null} */ (document.getElementById('charForm'));
-	const charDataInputElement = /** @type {HTMLInputElement|null} */ (document.getElementById('charData'));
+	const charFormElement = /** @type {HTMLFormElement} */ (requireElementById('charForm'));
+	const charDataInputElement = /** @type {HTMLInputElement} */ (requireElementById('charData'));
 
 	// -------------- Form Submission Handler ------------------
 	charFormElement.addEventListener('submit', (event) => {
@@ -909,7 +915,7 @@ function loadCharacterButtons() {
 		}
 	}
 
-	const btnTemplateElement = document.getElementById('btn-template');
+	const btnTemplateElement = requireElementById('btn-template');
 	const elements = document.querySelectorAll('[data-name][data-data]');
 	for (const el of elements) {
 		const clone = /** @type {HTMLButtonElement} */ (btnTemplateElement.cloneNode(true));
@@ -938,23 +944,12 @@ function loadCharacterButtons() {
 
 		el.replaceWith(clone);
 	}
-}
 
-// TODO: NULL CHECK
-// * expressionSelectElement
-// * lightDir{X,Y,Z}Element
-// * shaderMaterialSelectElement
-// * rotationSpeedElement
-// * expressionSelectElement
-// * renderTexturesDisplayElement
-// * reinitModelElement
-// * charModelNameElement
-// * charModelFavoriteColorElement
-// * rotationSpeedElement
-// * resetLightButtonElement
-// * shaderMaterialSelectElement
-// * expressionSelectElement
-// * charFormElement
+	if (location.hostname === 'localhost') {
+		// Reveal the "ugly only for test" characters during local dev.
+		/** @type {HTMLDetailsElement} */ (requireElementById('char-for-test')).open = true;
+	}
+}
 
 /**
  * Event listener for clicking a preset character button.

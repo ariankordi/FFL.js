@@ -110,7 +110,10 @@ export default [
 				'newlines-between': 'never'
 			}],
 			'import-x/first': 'error',
-			'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level']
+			'import-x/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+			// Keep getting this for importPlugin, jsdoc:
+			'import-x/no-named-as-default-member': 'off',
+			'import-x/no-rename-default': 'off'
 		},
 		languageOptions: {
 			ecmaVersion // Default sets this to 2018???, so let's reset this to the default

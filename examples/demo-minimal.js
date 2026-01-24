@@ -157,20 +157,20 @@ function updateCharModelInScene(data, modelDesc) {
 // //  Form Submission Handling
 // // ---------------------------------------------------------------------
 
-/**
- * Logging helper for missing elements.
- * @param {string} elementName - The name of the HTML element.
- */
-function elNotFound(elementName) {
-	const msg = `HTML element not found: ${elementName}`;
-	console.error(msg);
-	alert(msg);
-}
+const requireElementById = (/** @type {string} */ id) => {
+	const el = document.getElementById(id);
+	if (!el) {
+		const msg = `HTML element not found: ${id}`;
+		alert(msg);
+		throw new Error(msg);
+	}
+	return el;
+};
 
 /** Set up event handling for the CharModel submission form (charform). */
 function setupCharModelForm() {
-	const charFormElement = /** @type {HTMLFormElement} */ (document.getElementById('charForm')) || elNotFound('charForm');
-	const charDataInputElement = /** @type {HTMLInputElement} */ (document.getElementById('charData')) || elNotFound('charData');
+	const charFormElement = /** @type {HTMLFormElement} */ requireElementById(('charForm'));
+	const charDataInputElement = /** @type {HTMLInputElement} */ (requireElementById('charData'));
 
 	// -------------- Form Submission Handler ------------------
 	charFormElement.addEventListener('submit', (event) => {

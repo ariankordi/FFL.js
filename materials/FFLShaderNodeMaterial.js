@@ -31,17 +31,15 @@ class ParamColorNode extends AttributeNode {
 	// eslint-disable-next-line class-methods-use-this -- Needs to be a method for the inherited class.
 	getAttributeName = () => '_color';
 
-	/**
-	 * @param {import('three/webgpu').NodeBuilder} builder - The builder.
-	 * @returns {string|null|undefined}
-	 */
-	generate(builder) {
+	generate(/** @type {import('three/webgpu').NodeBuilder} */ builder) {
 		return builder.hasGeometryAttribute(
 			this.getAttributeName()
 		) === true
 			? super.generate(builder)
-			// Vertex color fallback should be white
-			: builder.generateConst(this.nodeType, new Vector4(1, 1, 0, 1));
+			// @ts-ignore -- generateConst not defined in the .d.ts.
+			: builder.generateConst(this.nodeType,
+				// Vertex color fallback should be white.
+				new Vector4(1, 1, 0, 1));
 	}
 }
 
@@ -50,7 +48,11 @@ class ParamColorNode extends AttributeNode {
  * Makes use of {@link TextureShaderNodeMaterial} for texture modulation.
  */
 export default class FFLShaderNodeMaterial extends NodeMaterial {
-	/** @param {import('three').MeshBasicMaterialParameters & {color?: Color|Array<Color>}} [options] */
+	/**
+	 * Constructs an FFLShaderNodeMaterial instance.
+	 * @param {import('three').MeshBasicMaterialParameters
+	 * & {color?: Color|Array<Color>}} [options] - Parameters for the material.
+	 */
 	constructor(options = {}) {
 		super();
 

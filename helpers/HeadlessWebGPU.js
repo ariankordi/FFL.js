@@ -1,5 +1,3 @@
-// @ts-check
-
 import { globals, create } from 'webgpu';
 import { WebGPURenderer } from 'three/webgpu';
 
