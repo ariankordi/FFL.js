@@ -7,7 +7,7 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
   - Full rendering of Mii head models from the [FFL decomp by aboood40091](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).
   - Accurate shaders from Wii U, Miitomo, and Switch (`FFLShaderMaterial`, `LUTShaderMaterial`, `SampleShaderMaterial`).
     * For THREE.WebGPURenderer, only the Wii U shader is ported (`FFLShaderNodeMaterial`).
-    * The shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy.](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
+    * The shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
   - Linear color support from FFL, enabled with `ffl.module._FFLSetLinearGammaMode(1)`. Useful for built-in Three.js materials.
   - Misc: Multiple expressions, texture mipmaps, bounding box, head-only icon creation, `CharModel.partsTransform` and `FFLModelFlag` for headwear
 * Data

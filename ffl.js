@@ -1559,6 +1559,10 @@ class CharModel {
 		const newCharModel = new CharModel(/** @type {FFL} */ ({ module: charModel._module }),
 			newData, newModelDesc, charModel._materialClass, undefined, verify);
 
+		// TODO: HACK to fix random faceline color when updating textures only.
+		// @ts-expect-error -- The skin color is read from the nose mesh, but it's undefined data.
+		newCharModel.facelineColor = charModel.facelineColor;
+
 		// Initialize its textures unconditionally.
 		newCharModel.initTextures(renderer,
 			materialTextureClass || charModel._materialTextureClass);
@@ -1570,6 +1574,7 @@ class CharModel {
 			// Transfer faceline and mask targets.
 			charModel._facelineTarget = newCharModel._facelineTarget;
 			charModel._maskTargets = newCharModel._maskTargets;
+
 			// Set new CharModel and unset texture only flag.
 			charModel._model = newCharModel._model;
 			charModel._modelDesc = newModelDesc;
@@ -2063,10 +2068,10 @@ const PantsColor = {
 
 /** @type {Object<PantsColor, THREE.Color>} */
 const pantsColors = {
-	[PantsColor.GrayNormal]: new THREE.Color(0x40474E),
-	[PantsColor.BluePresent]: new THREE.Color(0x28407A),
-	[PantsColor.RedRegular]: new THREE.Color(0x702015),
-	[PantsColor.GoldSpecial]: new THREE.Color(0xC0A030)
+	[PantsColor.GrayNormal]: /* @__PURE__ */ new THREE.Color(0x40474E),
+	[PantsColor.BluePresent]: /* @__PURE__ */ new THREE.Color(0x28407A),
+	[PantsColor.RedRegular]: /* @__PURE__ */ new THREE.Color(0x702015),
+	[PantsColor.GoldSpecial]: /* @__PURE__ */ new THREE.Color(0xC0A030)
 };
 
 // // ---------------------------------------------------------------------
@@ -3398,7 +3403,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		const uniforms = {
 			opacity: { value: 1 }
 		};
-		const blankMatrix3 = { value: new THREE.Matrix3() };
+		const blankMatrix3 = { value: /* @__PURE__ */ new THREE.Matrix3() };
 		if (Number(THREE.REVISION) < 151) {
 			uniforms.uvTransform = blankMatrix3;
 		} else {
