@@ -51,6 +51,7 @@ import * as THREE from 'three';
  * @property {function(): *} _FFLInitResGPUStep
  * @property {function(): *} _FFLExit
  * @property {function(number, number): *} _FFLGetFavoriteColor
+ * @property {function(number, number): *} _FFLGetFacelineColor
  * @property {function(boolean): *} _FFLSetTextureFlipY
  * @property {function(boolean): *} _FFLSetNormalIsSnorm8_8_8_8
  * @property {function(boolean): *} _FFLSetFrontCullForFlipX
@@ -1252,8 +1253,8 @@ class FFL {
 
 /** @typedef {function(new: THREE.Material, ...*): THREE.Material} MaterialConstructor */
 
-/** @package */
-const FFLColor_size = 16;
+/** @package */ const FFLColor_size = 16;
+/** @package */ const FFLAdditionalInfo_size = 80;
 /**
  * Converts an FFLColor pointer to a THREE.Color.
  * @param {Float32Array} f32 - HEAPF32 buffer view within {@link Module}.
@@ -1441,6 +1442,16 @@ class CharModel {
 		// always available in the class.
 		this._addCharModelMeshes(this._module);
 
+		// Populate facelineColor from FFLAdditionalInfo.
+		const addlPtr = this._module._malloc(FFLAdditionalInfo_size);
+		// this._module._FFLGetFacelineColor(colorPtr, this._model.getCharInfo().faceColor);
+		if (this._module._FFLGetAdditionalInfo(addlPtr,
+			/* dataSource = DIRECT_POINTER */ 6, this._ptr, 0, false) === FFLResult.OK) {
+			this.facelineColor.fromArray(this._module.HEAPF32,
+				(addlPtr + 0x38) / 4 /* = offsetof(FFLAdditionalInfo.skinColor) */);
+		}
+		this._module._free(addlPtr);
+
 		/**
 		 * Favorite color, also used for hats and body.
 		 * @readonly
@@ -1560,10 +1571,6 @@ class CharModel {
 		// Create a new CharModel with the new data and ModelDesc.
 		const newCharModel = new CharModel(/** @type {FFL} */ ({ module: charModel._module }),
 			newData, newModelDesc, charModel._materialClass, undefined, verify);
-
-		// TODO: HACK to fix random faceline color when updating textures only.
-		// @ts-expect-error -- The skin color is read from the nose mesh, but it's undefined data.
-		newCharModel.facelineColor = charModel.facelineColor;
 
 		// Initialize its textures unconditionally.
 		newCharModel.initTextures(renderer,
@@ -1934,13 +1941,6 @@ class CharModel {
 			// Iterate through all DrawParams and convert to THREE.Mesh.
 			const ptr = this._model.getDrawParamPtr(shapeType);
 			const drawParam = new DrawParam(module.HEAPU8, ptr);
-
-			// Copy faceline color from nose mesh, as it's always present/simplest.
-			if (shapeType === CharModel.FFLiShapeType.OPA_NOSE) {
-				this.facelineColor
-					.fromArray(module.HEAPF32, drawParam.modulateParam.pColorR / 4);
-				// Assume this is in working color space because it is used for clear color.
-			}
 
 			// Skip shape if it's not empty.
 			if (!drawParam.primitiveParam.indexCount) {
