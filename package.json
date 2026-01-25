@@ -3,10 +3,14 @@
   "main": "ffl.js",
   "type": "module",
   "scripts": {
-    "lint": "eslint ffl.js",
+    "lint": "eslint",
     "check-types": "tsc --noEmit",
     "typedoc": "typedoc --skipErrorChecking ffl.js materials/* helpers/*",
-    "prepare": "npx eslint; npx tsc; npx rolldown -c rolldown.config.mjs",
+    "build:lint": "eslint ffl.js materials/*",
+    "build:types": "tsc",
+    "build:bundle": "rolldown -c rolldown.config.mjs",
+    "build": "npm run build:lint && npm run build:types && npm run build:bundle",
+    "prepare": "npm run build",
     "closure": "google-closure-compiler --warning_level VERBOSE ffl.js --js_output_file ffl.min.js --language_in UNSTABLE --module_resolution NODE"
   },
   "repository": {
@@ -34,7 +38,7 @@
     "@eslint/js": "^9.37.0",
     "@stylistic/eslint-plugin": "^3.1.0",
     "@types/node": "^22.13.8",
-    "@types/three": "^0.173.0",
+    "@types/three": "^0.175.0",
     "eslint": "^9.37.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import-x": "^4.16.1",
@@ -43,6 +47,7 @@
     "fast-png": "^8.0.0",
     "globals": "^15.15.0",
     "rolldown": "^1.0.0-beta.42",
-    "tsconfig-paths": "^4.2.0"
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.3"
   }
 }
