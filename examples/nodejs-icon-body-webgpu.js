@@ -1,8 +1,7 @@
 /**
  * @file Sample CLI tool for rendering a Mii icon with body
  * headlessly using Node.js and THREE.WebGPURenderer.
- * Before running, install: npm install webgpu three fast-png
- * (fast-png is used only because it's native JS, so probably less fuss)
+ * Before running, install: npm install webgpu three
  *
  * Currently, this requires acquiring body models yourself.
  * Search "BodyPath" to see where to get them and replace their paths.
@@ -13,14 +12,14 @@
 // Specific to this example.
 import * as fs from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import * as png from 'fast-png'; // encode
 import * as THREE from 'three/webgpu'; // THREE.*, WebGPURenderer
 // Dependencies for body scaling.
 import { GLTFLoader, SkeletonUtils } from 'three/examples/jsm/Addons.js';
+import { GPUTextureFormat } from 'three/src/renderers/webgpu/utils/WebGPUConstants.js';
 import { addSkeletonScalingExtensions } from '../helpers/SkeletonScalingExtensions.js';
 import { detectModelDesc } from '../helpers/ModelScaleDesc.js';
 // FFL.js imports.
-import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.js';
+import { addWebGPUExtensions, createThreeRenderer, encodeBmpImage } from '../helpers/HeadlessWebGPU.js';
 import {
 	prepareBodyForCharModel,
 	attachHeadToBody, disposeModel,
@@ -164,9 +163,9 @@ function loadBodyModel(gender) {
  * @param {FFL} ffl - The FFL.js instance.
  * @param {MaterialConstructor} matClass - The material class for the head and body.
  * @param {IconRenderRequest} request - Parameters for rendering the icon.
- * @returns {Promise<Uint8Array>} Rendered image as PNG pixels.
+ * @returns {Promise<Uint8Array>} Rendered image as image file data.
  */
-async function renderRequestToPNG(renderer, ffl, matClass, request) {
+async function renderRequestToImage(renderer, ffl, matClass, request) {
 	const scene = new THREE.Scene();
 	// Scene should have a transparent background.
 	// Usually, it's transparent white (FFFFFF00) - then colored glasses
@@ -214,6 +213,10 @@ async function renderRequestToPNG(renderer, ffl, matClass, request) {
 		// Render the scene, and read the pixels into a buffer.
 		const rt = new THREE.RenderTarget(request.width, request.width, {
 			samples: 4, // Uncomment for antialiasing.
+			// @ts-ignore -- The type is incompatible, but it works.
+			internalFormat: GPUTextureFormat.BGRA8Unorm,
+			// NOTE: The pixel format has to be BGRA to output BMP.
+			// Remove the internalFormat above if you are using PNG.
 			minFilter: THREE.LinearFilter,
 			magFilter: THREE.LinearFilter
 		});
@@ -222,16 +225,16 @@ async function renderRequestToPNG(renderer, ffl, matClass, request) {
 
 		renderer.render(scene, camera);
 
-		// Read the pixels out and encode to PNG.
+		// Read the pixels out and encode to an image file.
 		const pixels = await renderer.readRenderTargetPixelsAsync(rt, 0, 0, rt.width, rt.height);
 		// console.debug('pixel size:', pixels.length, ', sqrt:', Math.sqrt(pixels.length / 4))
 
-		const pngPixels = png.encode({
-			width: rt.width, height: rt.height,
-			channels: 4 /* RGBA */, data: /** @type {Uint8Array} */ (pixels)
-		});
+		const imageData = encodeBmpImage(
+			rt.width, rt.height,
+			/** @type {Uint8Array} */ (pixels)
+		);
 
-		return pngPixels;
+		return imageData;
 	} finally {
 		charModel && charModel.dispose(); // Mii model
 		if (body) {
@@ -288,7 +291,7 @@ Example:
 	}
 
 	if (width % 64 !== 0) {
-		console.error('The resolution needs to be a multiple of 64. If it\'s not, the pixels will have this weird padding applied that doesn\'t play nice with PNG encoders. Examples: 128, 192, 256');
+		console.error('The resolution needs to be a multiple of 64. If it\'s not, the pixels will have this weird padding applied that doesn\'t play nice with image encoders. Examples: 128, 192, 256');
 		process.exit(1);
 	}
 
@@ -327,7 +330,7 @@ Example:
 		for (const dataString of charDataArray) {
 			// Add a timestamp by ms at the end of the filename.
 			const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, '');
-			const outFile = `${outPrefix}${timestamp}.png`;
+			const outFile = `${outPrefix}${timestamp}.bmp`;
 
 			console.info(`Rendering: ${outFile}`);
 			/** @type {IconRenderRequest} */ const request = {
@@ -335,8 +338,8 @@ Example:
 				width, isAllBody, expression
 			};
 			// Create the icon render and write it to its file output.
-			const pngData = await renderRequestToPNG(renderer, ffl, matClass, request);
-			await fs.writeFile(outFile, pngData);
+			const imageData = await renderRequestToImage(renderer, ffl, matClass, request);
+			await fs.writeFile(outFile, imageData);
 		}
 	} finally {
 		// Clean up.

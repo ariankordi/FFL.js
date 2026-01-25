@@ -1,16 +1,15 @@
 /**
  * @file Sample for rendering a Mii icon headlessly
  * using Node.js and THREE.WebGPURenderer.
- * Before running, install: npm install webgpu three fast-png
- * (fast-png is used only because it's native JS, so probably less fuss)
+ * Before running, install: npm install webgpu three
  * @author Arian Kordi <https://github.com/ariankordi>
  */
 // @ts-check
 
 import * as fs from 'node:fs/promises';
-import { encode } from 'fast-png';
 import * as THREE from 'three/webgpu';
-import { addWebGPUExtensions, createThreeRenderer } from '../helpers/HeadlessWebGPU.js';
+import { GPUTextureFormat } from 'three/src/renderers/webgpu/utils/WebGPUConstants.js';
+import { addWebGPUExtensions, createThreeRenderer, encodeBmpImage } from '../helpers/HeadlessWebGPU.js';
 // Standard non-Node dependencies:
 import { FFL, CharModel, ModelIcon } from '../ffl.js';
 import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js';
@@ -46,11 +45,11 @@ function usage() {
 Arguments:
   resourceFile      Path to FFLResHigh.dat/AFLResHigh_2_3.dat.
   hexOrBase64Data   Hex or Base64 Mii data. Most formats are supported.
-  outputFile        Path to write PNG image.
+  outputFile        Path to write BMP image file.
   width             Optional. Image width and height in pixels (default: 256).
 
 Example:
-  node nodejs-icon-webgpu.mjs ../AFLResHigh_2_3.dat 000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1 mii.png 256
+  node nodejs-icon-webgpu.mjs ../AFLResHigh_2_3.dat 000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1 mii.bmp 256
 `);
 }
 
@@ -79,7 +78,7 @@ async function main() {
 	/*
 	const resourceFile = fs.readFile('../AFLResHigh_2_3.dat');
 	const data = '000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1';
-	const outFile = 'mii.png';
+	const outFile = 'mii.bmp';
 	const width = 256;
 	const height = width;
 	*/
@@ -110,6 +109,10 @@ async function main() {
 		// Render the scene, and read the pixels into a buffer.
 		const rt = new THREE.RenderTarget(width, height, {
 			// samples: 4, // Uncomment for antialiasing.
+			// @ts-ignore -- The type is incompatible, but it works.
+			internalFormat: GPUTextureFormat.BGRA8Unorm,
+			// NOTE: The pixel format has to be BGRA to output BMP.
+			// Remove the internalFormat above if you are using PNG.
 			minFilter: THREE.LinearFilter,
 			magFilter: THREE.LinearFilter
 		});
@@ -117,14 +120,14 @@ async function main() {
 
 		renderer.render(scene, camera);
 
-		// Read the pixels out and encode to PNG.
+		// Read the pixels out and encode to an image file.
 		const pixels = await renderer.readRenderTargetPixelsAsync(rt, 0, 0, rt.width, rt.height);
-		const pngPixels = encode({
-			width: rt.width, height: rt.height,
-			channels: 4 /* RGBA */, data: /** @type {Uint8Array} */ (pixels)
-		});
+		const imageData = encodeBmpImage(
+			rt.width, rt.height,
+			/** @type {Uint8Array} */ (pixels)
+		);
 
-		fs.writeFile(outFile, pngPixels);
+		fs.writeFile(outFile, imageData);
 	} finally {
 		// Clean up.
 		(currentCharModel) && currentCharModel.dispose(); // Mii model
