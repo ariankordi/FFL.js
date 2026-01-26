@@ -1,3 +1,5 @@
+// ts-check is skipped here, in order to avoid a tsc error
+// due to "webgpu" not being a dependency in package.json.
 import { globals, create } from 'webgpu';
 import { WebGPURenderer } from 'three/webgpu';
 
