@@ -8,7 +8,7 @@
 // @ts-check
 
 import * as THREE from 'three';
-import { applyScaleDescToSkinnedMesh } from './ModelScaleDesc.js';
+import { applyScaleDescToBones } from './ModelScaleDesc.js';
 
 // Imports for standalone JSDoc types.
 /**
@@ -136,7 +136,9 @@ function prepareBodyForCharModel(body, mat, favoriteColor, bodyScale, pantsColor
 
 	const skinned = body.model.getObjectByProperty('type', 'SkinnedMesh');
 	if (skinned && skinned instanceof THREE.SkinnedMesh) {
-		applyScaleDescToSkinnedMesh(skinned, bodyScale, body.scaleDesc);
+		const skl = skinned.skeleton;
+		applyScaleDescToBones(skl.bones, bodyScale, body.scaleDesc);
+		skl.update(); // Eagerly update the skeleton to avoid a delay.
 	}
 }
 

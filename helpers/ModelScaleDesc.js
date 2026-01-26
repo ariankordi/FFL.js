@@ -123,13 +123,38 @@ function detectModelDesc(object) {
  * Apply scaling to a model's bones based on a given scale description.
  * If there are multiple SkinnedMeshes, make sure the bones are shared
  * between them by checking the IDs. Otherwise, this needs to run for every SkinnedMesh.
+ * @param {THREE.Object3D} object - The model to apply scaling to.
+ * @param {THREE.Vector3Like} scaleVector - The base scale vector.
+ * @param {ModelScaleDesc} desc - Scaling behavior descriptor for the model.
+ */
+function applyScaleDesc(object, scaleVector, desc) {
+	// Handle the input as an object with multiple SkinnedMeshes.
+	object.traverse((node) => {
+		if (node instanceof THREE.SkinnedMesh) {
+			const skl = /** @type {THREE.SkinnedMesh} */ (node).skeleton;
+			applyScaleDescToBones(skl.bones, scaleVector, desc);
+
+			// Eager skeleton update (to avoid deferred frame-lagged updates).
+			// It will still update without this, but the update will be delayed.
+			skl.update();
+		}
+	});
+	// model.traverse(node =>
+	// 	node instanceof THREE.SkinnedMesh &&
+	// 		// On all SkinnedMeshes, apply to each skeleton.
+	// 		applyScaleDescToBones(/** @type {THREE.SkinnedMesh} */(node)
+	// 			.skeleton.bones, scaleVector, desc));
+}
+
+/**
+ * Apply scaling to the array of bones based on a given scale description.
  * @param {Array<THREE.Bone>} bones - The array of bones to apply scaling to.
  * This comes from {@link THREE.SkinnedMesh.prototype.skeleton.bones}.
  * @param {THREE.Vector3Like} scaleVector - The base scale vector.
  * @param {ModelScaleDesc} desc - Scaling behavior descriptor for the model.
  * @throws {Error} Throws if addSkeletonScalingExtensions has not been called yet.
  */
-function applyScaleDesc(bones, scaleVector, desc) {
+function applyScaleDescToBones(bones, scaleVector, desc) {
 	if (!('attach' in THREE.Skeleton.prototype)) { // Notify the caller if this won't work.
 		throw new Error('applyScaleDesc: This function to apply "scalling" has no effect, until "addSkeletonScalingExtensions" is run to patch THREE.Skeleton.prototype to allow per-bone scaling. Try running that first.');
 	}
@@ -179,25 +204,10 @@ function applyScaleDesc(bones, scaleVector, desc) {
 	}
 }
 
-/**
- *
- * @param {THREE.SkinnedMesh} skinnedMesh
- * @param {THREE.Vector3Like} scaleVector
- * @param {ModelScaleDesc} desc
- */
-function applyScaleDescToSkinnedMesh(skinnedMesh, scaleVector, desc) {
-	const skl = skinnedMesh.skeleton;
-	applyScaleDesc(skl.bones, scaleVector, desc);
-
-	// Eager skeleton update (to avoid deferred frame-lagged updates).
-	// It will still update without this, but the update will be delayed.
-	skl.update();
-}
-
 export {
 	editorBodyScaleDesc,
 	archBodyScaleDesc,
 	detectModelDesc,
 	applyScaleDesc,
-	applyScaleDescToSkinnedMesh
+	applyScaleDescToBones
 };
