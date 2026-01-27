@@ -1587,7 +1587,7 @@ class CharModel {
 			// Set new CharModel and unset texture only flag.
 			charModel._model = newCharModel._model;
 			charModel._modelDesc = newModelDesc;
-			// charModel._modelDesc.modelFlag &= ~FFLModelFlag.NEW_MASK_ONLY;
+			charModel._modelDesc.modelFlag &= ~FFLModelFlag.NEW_MASK_ONLY;
 			charModel.expressions = newCharModel.expressions;
 			charModel._expression = newCharModel._expression;
 			// Apply new faceline and mask to old shapes.

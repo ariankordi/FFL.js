@@ -1159,6 +1159,7 @@ three = __toESM(three);
 				charModel._maskTargets = newCharModel._maskTargets;
 				charModel._model = newCharModel._model;
 				charModel._modelDesc = newModelDesc;
+				charModel._modelDesc.modelFlag &= ~FFLModelFlag.NEW_MASK_ONLY;
 				charModel.expressions = newCharModel.expressions;
 				charModel._expression = newCharModel._expression;
 				if (newCharModel._facelineTarget) charModel._setFaceline(newCharModel._facelineTarget);

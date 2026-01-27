@@ -644,8 +644,8 @@ function updateCanBlink() {
 		return;
 	}
 	// Deep compare the array contents for the blinking expression option.
-	canBlink = JSON.stringify(expressionBlinking) ===
-		JSON.stringify([...currentCharModel.expressions]);
+	const exp = currentCharModel.expressions;
+	canBlink = expressionBlinking.every((val, i) => val === exp[i]);
 }
 
 const expressionSelectElement = /** @type {HTMLInputElement} */ (requireElementById('expressionSelect'));
