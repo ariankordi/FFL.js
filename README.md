@@ -22,7 +22,7 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
     * Base library is 140 KB minified.
     <!-- 140 = ffl.browser.min.js = 38.5 + ffl-emscripten.js = 12.5 + ffl-emscripten.wasm = 86.4 -->
     <!-- (ffl-emscripten built with em_inflate without checksum) -->
-  - Tested from Three.js r144 up to r180 (latest as of writing), WebGL 1/2 and WebGPU.
+  - Tested from Three.js r144 up to r182 (latest as of writing), WebGL 1/2 and WebGPU.
     * For WebGPU, use `FFLShaderNodeMaterial`. For r152 and later, opt out of sRGB by following the link above.
 
 There are currently two demos within `examples`: `demo-basic.html` and `demo-minimal.html`, both of which just show spinning Mii heads.
@@ -43,7 +43,7 @@ For more help, you can either examine the `ffl.js` source, or, generate document
 
 ### Importing as module
 
-For projects using npm, since this isn't on NPM as of writing you'll need to install it like so: `npm install https://github.com/ariankordi/FFL.js#v2.0.0` (You may replace v2.0.0 with whatever is latest)
+This isn't on npmjs.com as of writing, so you'll need to install it from the repo: `npm install https://github.com/ariankordi/FFL.js#v2.1.1` (replacing v2.1.1 with whatever is latest)
 
 For the browser, you have to use `<script type="module">`, as well as adding import maps.
 
@@ -58,16 +58,15 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 	<script type="importmap">
 		{
 			"imports": {
-				"three": "https://esm.sh/three@0.180.0",
-				"three/": "https://esm.sh/three@0.180.0/",
-				"https://esm.sh/three?target=es2022": "https://esm.sh/three@0.180.0",
-				"FFL.js": "https://esm.sh/gh/ariankordi/FFL.js@v2.0.0",
-				"FFL.js/": "https://esm.sh/gh/ariankordi/FFL.js@v2.0.0/"
+				"three": "https://esm.sh/three@0.177.0",
+				"three/": "https://esm.sh/three@0.177.0/",
+				"FFL.js": "https://esm.sh/*gh/ariankordi/FFL.js@v2.1.1",
+				"FFL.js/": "https://esm.sh/*gh/ariankordi/FFL.js@v2.1.1/"
 			}
 		}
 	</script>
-	<!-- The "esm.sh/three?target=es2022" import is to make
-			sure FFL.js uses the same version of Three.js. -->
+	<!-- The * before gh is to make sure that the import
+			 uses our version of Three.js, and not theirs.-->
 
 	<!-- This is your JS code. It can be in a file too. -->
 	<script type="module">
@@ -89,7 +88,7 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 			// You need to get AFLResHigh_2_3.dat from somewhere.
 			const ffl = await FFL.initWithResource(fetch('../AFLResHigh_2_3.dat'),
 				// If not using a CDN like esm.sh, then pass just "ModuleFFL" to CharModel directly.
-				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js@v2.0.0/ffl-emscripten.wasm'}));
+				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js@v2.1.1/ffl-emscripten.wasm'}));
 			/** Mii data from NNID: JasmineChlora */
 			const data = Uint8Array.fromHex('000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1');
 			const model = new CharModel(ffl, data, FFLCharModelDescDefault,
@@ -110,6 +109,8 @@ There are builds that don't need ES modules/"import" available in `dist/`, for e
 Shaders are available in global namespace (`window.FFLShaderMaterial`), but FFL.js itself is dropped in the `FFLjs` namespace. Example: `await FFLjs.FFL.initWithResource(fetch('../AFLResHigh_2_3.dat'), ModuleFFL)`
 
 For these, you'll need to use a UMD build of Three.js, which are no longer supported. The last one is r160: `https://unpkg.com/three@0.160.0/build/three.min.js`
+
+You can adapt the previous example to fit all of these, but this is left as an exercise to the reader :)
 
 ### Building `ffl-emscripten.js`/`.wasm`
 

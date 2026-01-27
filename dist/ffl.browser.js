@@ -8,12 +8,16 @@ var FFLjs = (function(exports, three) {
 	var __getProtoOf = Object.getPrototypeOf;
 	var __hasOwnProp = Object.prototype.hasOwnProperty;
 	var __copyProps = (to, from, except, desc) => {
-		if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
-			key = keys[i];
-			if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
-				get: ((k) => from[k]).bind(null, key),
-				enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-			});
+		if (from && typeof from === "object" || typeof from === "function") {
+			for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+				key = keys[i];
+				if (!__hasOwnProp.call(to, key) && key !== except) {
+					__defProp(to, key, {
+						get: ((k) => from[k]).bind(null, key),
+						enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+					});
+				}
+			}
 		}
 		return to;
 	};
@@ -26,7 +30,13 @@ var FFLjs = (function(exports, three) {
 three = __toESM(three);
 
 //#region ffl.js
-/**
+/*!
+	* Bindings for FFL, a Mii renderer, in JavaScript.
+	* Uses the FFL decompilation by aboood40091.
+	* https://github.com/ariankordi/FFL.js
+	* @author Arian Kordi <https://github.com/ariankordi>
+	*/
+	/**
 	* Generic type for both types of Three.js renderers.
 	* @typedef {import('three/webgpu').Renderer|THREE.WebGLRenderer} Renderer
 	*/
@@ -63,6 +73,7 @@ three = __toESM(three);
 	* @property {function(): *} _FFLInitResGPUStep
 	* @property {function(): *} _FFLExit
 	* @property {function(number, number): *} _FFLGetFavoriteColor
+	* @property {function(number, number): *} _FFLGetFacelineColor
 	* @property {function(boolean): *} _FFLSetTextureFlipY
 	* @property {function(boolean): *} _FFLSetNormalIsSnorm8_8_8_8
 	* @property {function(boolean): *} _FFLSetFrontCullForFlipX
@@ -932,8 +943,8 @@ three = __toESM(three);
 		}
 	};
 	/** @typedef {function(new: THREE.Material, ...*): THREE.Material} MaterialConstructor */
-	/** @package */
-	const FFLColor_size = 16;
+	/** @package */ const FFLColor_size = 16;
+	/** @package */ const FFLAdditionalInfo_size = 80;
 	/**
 	* Converts an FFLColor pointer to a THREE.Color.
 	* @param {Float32Array} f32 - HEAPF32 buffer view within {@link Module}.
@@ -1068,6 +1079,9 @@ three = __toESM(three);
 			*/
 			this.meshes = new three.Group();
 			this._addCharModelMeshes(this._module);
+			const addlPtr = this._module._malloc(FFLAdditionalInfo_size);
+			if (this._module._FFLGetAdditionalInfo(addlPtr, 6, this._ptr, 0, false) === FFLResult.OK) this.facelineColor.fromArray(this._module.HEAPF32, (addlPtr + 56) / 4);
+			this._module._free(addlPtr);
 			/**
 			* Favorite color, also used for hats and body.
 			* @readonly
@@ -1089,6 +1103,7 @@ three = __toESM(three);
 			this.boundingBox = this._getBoundingBox();
 			if (renderer) this.initTextures(renderer, this._materialTextureClass);
 		}
+		/** @typedef {THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>} MeshWithTexture */
 		/**
 		* Initializes textures (faceline and mask) for a CharModel.
 		* Calling this is not necessary, unless you haven't provided
@@ -1381,7 +1396,6 @@ three = __toESM(three);
 			for (let shapeType = 0; shapeType < CharModel.FFLiShapeType.MAX; shapeType++) {
 				const ptr = this._model.getDrawParamPtr(shapeType);
 				const drawParam = new DrawParam(module.HEAPU8, ptr);
-				if (shapeType === CharModel.FFLiShapeType.OPA_NOSE) this.facelineColor.fromArray(module.HEAPF32, drawParam.modulateParam.pColorR / 4);
 				if (!drawParam.primitiveParam.indexCount) continue;
 				const mesh = drawParam.toMesh(this._materialClass, module, this._textureManager);
 				mesh.renderOrder = drawParam.modulateParam.type + 1;
@@ -1407,10 +1421,10 @@ three = __toESM(three);
 		_getBoundingBox() {
 			const excludeFromBox = /* @__PURE__ */ new Set([FFLModulateType.SHAPE_MASK, FFLModulateType.SHAPE_GLASS]);
 			const box = /* @__PURE__ */ new three.Box3();
-			this.meshes.traverse((child) => {
-				if (!(child instanceof three.Mesh) || excludeFromBox.has(child.geometry.userData.modulateType)) return;
+			for (const child of this.meshes.children) {
+				if (excludeFromBox.has(child.geometry.userData.modulateType)) continue;
 				box.expandByObject(child);
-			});
+			}
 			return box;
 		}
 		/**
@@ -1466,10 +1480,10 @@ three = __toESM(three);
 	};
 	/** @type {Object<PantsColor, THREE.Color>} */
 	const pantsColors = {
-		[PantsColor.GrayNormal]: new three.Color(4212558),
-		[PantsColor.BluePresent]: new three.Color(2637946),
-		[PantsColor.RedRegular]: new three.Color(7348245),
-		[PantsColor.GoldSpecial]: new three.Color(12623920)
+		[PantsColor.GrayNormal]: /* @__PURE__ */ new three.Color(4212558),
+		[PantsColor.BluePresent]: /* @__PURE__ */ new three.Color(2637946),
+		[PantsColor.RedRegular]: /* @__PURE__ */ new three.Color(7348245),
+		[PantsColor.GoldSpecial]: /* @__PURE__ */ new three.Color(12623920)
 	};
 	/** @package */
 	const FFLDrawParam_size = 104;
@@ -1643,9 +1657,9 @@ three = __toESM(three);
 		* @throws {Error} Throws if the function returned false.
 		* @private
 		*/
-		function callGetCharInfoFunc(data$1, size, funcName) {
+		function callGetCharInfoFunc(data, size, funcName) {
 			const dataPtr = module._malloc(size);
-			module.HEAPU8.set(data$1, dataPtr);
+			module.HEAPU8.set(data, dataPtr);
 			const result = module[funcName](bufferPtr, dataPtr);
 			module._free(dataPtr);
 			if (!result) {
@@ -2191,12 +2205,10 @@ three = __toESM(three);
 				FFLModulateType.SHAPE_NOSELINE,
 				FFLModulateType.SHAPE_GLASS
 			]);
-			charModel.meshes.traverse((mesh) => {
-				if (mesh instanceof three.Mesh && mesh.geometry.userData.modulateType !== void 0 && mesh.material.map && convertTextureForTypes.has(mesh.geometry.userData.modulateType)) {
-					const target = this._texDrawRGBATarget(renderer, mesh.material, mesh.geometry.userData, materialTextureClass);
-					charModel._maskTargets.push(target);
-				}
-			});
+			for (const mesh of charModel.meshes.children) if (mesh.geometry.userData.modulateType !== void 0 && mesh.material.map && convertTextureForTypes.has(mesh.geometry.userData.modulateType)) {
+				const target = this._texDrawRGBATarget(renderer, mesh.material, mesh.geometry.userData, materialTextureClass);
+				charModel._maskTargets.push(target);
+			}
 		},
 		_texDrawRGBATarget(renderer, material, userData, materialTextureClass) {
 			const scene = new three.Scene();
@@ -2232,9 +2244,9 @@ three = __toESM(three);
 			return target;
 		},
 		async convModelTargetsToDataTex(charModel, renderer) {
-			charModel.meshes.traverse(async (mesh) => {
-				if (!(mesh instanceof three.Mesh) || !mesh.material.map) return;
+			for (const mesh of charModel.meshes.children) {
 				const tex = mesh.material.map;
+				if (!tex) continue;
 				console.assert(tex.format === three.RGBAFormat, "convModelTargetsToDataTex: found a texture that is not of format THREE.RGBAFormat, but, this function is only meant to be used if all textures in CharModel meshes are RGBA (so render targets)...");
 				const target = tex._target;
 				console.assert(target, "convModelTargetsToDataTex: mesh.material.map (texture)._target is null or undefined.");
@@ -2246,7 +2258,7 @@ three = __toESM(three);
 				dataTex.magFilter = tex.magFilter;
 				dataTex.needsUpdate = true;
 				mesh.material.map = dataTex;
-			});
+			}
 			charModel.disposeTargets();
 		}
 	};
@@ -2271,7 +2283,7 @@ three = __toESM(three);
 		constructor(options = {}) {
 			/** @type {Object<string, THREE.IUniform>} */
 			const uniforms = { opacity: { value: 1 } };
-			const blankMatrix3 = { value: new three.Matrix3() };
+			const blankMatrix3 = { value: /* @__PURE__ */ new three.Matrix3() };
 			if (Number(three.REVISION) < 151) uniforms.uvTransform = blankMatrix3;
 			else uniforms.mapTransform = blankMatrix3;
 			super({

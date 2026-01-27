@@ -72,6 +72,7 @@ export type Module = {
     _FFLInitResGPUStep: () => any;
     _FFLExit: () => any;
     _FFLGetFavoriteColor: (arg0: number, arg1: number) => any;
+    _FFLGetFacelineColor: (arg0: number, arg1: number) => any;
     _FFLSetTextureFlipY: (arg0: boolean) => any;
     _FFLSetNormalIsSnorm8_8_8_8: (arg0: boolean) => any;
     _FFLSetFrontCullForFlipX: (arg0: boolean) => any;
@@ -638,6 +639,7 @@ export class CharModel {
      * @public
      */
     public boundingBox: THREE.Box3;
+    /** @typedef {THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>} MeshWithTexture */
     /**
      * Initializes textures (faceline and mask) for a CharModel.
      * Calling this is not necessary, unless you haven't provided

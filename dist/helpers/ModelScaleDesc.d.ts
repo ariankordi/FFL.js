@@ -94,10 +94,20 @@ export const archBodyScaleDesc: ModelScaleDesc;
 export function detectModelDesc(object: THREE.Object3D): ModelScaleDesc;
 /**
  * Apply scaling to a model's bones based on a given scale description.
- * @param {THREE.Object3D} model - The skinned model to apply scaling to.
+ * If there are multiple SkinnedMeshes, make sure the bones are shared
+ * between them by checking the IDs. Otherwise, this needs to run for every SkinnedMesh.
+ * @param {THREE.Object3D} object - The model to apply scaling to.
+ * @param {THREE.Vector3Like} scaleVector - The base scale vector.
+ * @param {ModelScaleDesc} desc - Scaling behavior descriptor for the model.
+ */
+export function applyScaleDesc(object: THREE.Object3D, scaleVector: THREE.Vector3Like, desc: ModelScaleDesc): void;
+/**
+ * Apply scaling to the array of bones based on a given scale description.
+ * @param {Array<THREE.Bone>} bones - The array of bones to apply scaling to.
+ * This comes from {@link THREE.SkinnedMesh.prototype.skeleton.bones}.
  * @param {THREE.Vector3Like} scaleVector - The base scale vector.
  * @param {ModelScaleDesc} desc - Scaling behavior descriptor for the model.
  * @throws {Error} Throws if addSkeletonScalingExtensions has not been called yet.
  */
-export function applyScaleDesc(model: THREE.Object3D, scaleVector: THREE.Vector3Like, desc: ModelScaleDesc): void;
+export function applyScaleDescToBones(bones: Array<THREE.Bone>, scaleVector: THREE.Vector3Like, desc: ModelScaleDesc): void;
 import * as THREE from 'three';

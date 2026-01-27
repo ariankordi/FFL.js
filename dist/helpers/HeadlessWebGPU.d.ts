@@ -20,3 +20,13 @@ export function addWebGPUExtensions(obj?: typeof globalThis): void;
  * @returns {Promise<import('three/webgpu').Renderer>} The created renderer.
  */
 export function createThreeRenderer(width?: number, height?: number): Promise<import("three/webgpu").Renderer>;
+/**
+ * Writes a 32-bit (transparent) image in Microsoft BMP format.
+ * Useful for testing since it's uncompressed and can be viewed in web browsers.
+ * NOTE: If the output has inverted colors, you must output BGRA instead of RGBA.
+ * @param {number} width - Width of the image.
+ * @param {number} height - Height of the image.
+ * @param {Uint8Array} bgraPixels - Image data in BGRA format, 32 bits per pixel.
+ * @returns {Uint8Array} BMP file bytes.
+ */
+export function encodeBmpImage(width: number, height: number, bgraPixels: Uint8Array): Uint8Array;

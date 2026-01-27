@@ -8,12 +8,16 @@ var SampleShaderMaterial = (function(three) {
 	var __getProtoOf = Object.getPrototypeOf;
 	var __hasOwnProp = Object.prototype.hasOwnProperty;
 	var __copyProps = (to, from, except, desc) => {
-		if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
-			key = keys[i];
-			if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
-				get: ((k) => from[k]).bind(null, key),
-				enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-			});
+		if (from && typeof from === "object" || typeof from === "function") {
+			for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+				key = keys[i];
+				if (!__hasOwnProp.call(to, key) && key !== except) {
+					__defProp(to, key, {
+						get: ((k) => from[k]).bind(null, key),
+						enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+					});
+				}
+			}
 		}
 		return to;
 	};
@@ -27,6 +31,11 @@ three = __toESM(three);
 
 //#region materials/SampleShaderMaterial.js
 /**
+	* @file SampleShaderMaterial.js
+	* Three.js material class using the Switch SampleShader.
+	* @author Arian Kordi <https://github.com/ariankordi>
+	*/
+	/**
 	* @typedef {number} FFLModulateMode
 	* @typedef {number} FFLModulateType
 	*/
@@ -872,8 +881,8 @@ void main()
 			* @param {number} opacity - Opacity mapped to .a.
 			* @returns {THREE.Vector4} Vector4 containing color and opacity.
 			*/
-			function toColor4(color, opacity$1 = 1) {
-				return new three.Vector4(color.r, color.g, color.b, opacity$1);
+			function toColor4(color, opacity = 1) {
+				return new three.Vector4(color.r, color.g, color.b, opacity);
 			}
 			if (Array.isArray(value)) {
 				/** @type {IUniformVector4} */ this.uniforms.constColor1 = { value: toColor4(value[0]) };
