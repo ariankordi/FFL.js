@@ -287,7 +287,7 @@ function startAnimationLoop() {
 					isBlinking = true;
 					lastBlinkTime = now;
 				}
-				// Unblink
+				// Un-blink
 				if (isBlinking && now - lastBlinkTime >= blinkDuration) {
 					currentCharModel.setExpression(FFLExpression.NORMAL);
 					isBlinking = false;
@@ -335,12 +335,12 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 	const faceTarget = model.getFaceline();
 	faceTarget && displayTarget(faceTarget);
 	// for (let i = 0; i < FFLExpression.MAX; i++) {
-	for (const tgt of model._maskTargets) {
-		// const tgt = model.getMask(i);
+	for (const target of model._maskTargets) {
+		// const target = model.getMask(i);
 		// While _maskTargets is public, looking here
 		// makes sure that the RGBA textures added
 		// in convModelTexturesToRGBA are also included.
-		tgt !== null && displayTarget(tgt);
+		target !== null && displayTarget(target);
 	}
 }
 
@@ -555,7 +555,7 @@ function onShaderMaterialChange() {
 		}
 
 		if (isSampleMaterial(curMat) !== isSampleMaterial(newMatClass.prototype)) {
-			console.log('The new or old material is SampleShaderMaterial, but both aren\'t.');
+			console.log('The new or old material is SampleShaderMaterial, but both are not.');
 			return true;
 		}
 
@@ -679,7 +679,7 @@ function updateExpression() {
 
 const renderTexturesDisplayElement = /** @type {HTMLDetailsElement} */ (requireElementById('renderTexturesDisplay'));
 const renderTexturesContainerElement = requireElementById('ffl-js-display-render-textures');
-const reinitModelElement = /** @type {HTMLInputElement} */ (requireElementById('reinitModel'));
+const reInitModelElement = /** @type {HTMLInputElement} */ (requireElementById('reInitModel'));
 
 /** Toggle display of render textures for newly created CharModels. */
 function toggleRenderTexturesDisplay() {
@@ -688,10 +688,10 @@ function toggleRenderTexturesDisplay() {
 		displayRenderTexturesElement = renderTexturesContainerElement;
 		console.log('Render texture view enabled.');
 	} else {
-		// When closed, disable render texture display and reinit checkbox
+		// When closed, disable render texture display and re-init checkbox
 		displayRenderTexturesElement = null;
-		reinitModelElement.checked = false;
-		toggleReinitModel();
+		reInitModelElement.checked = false;
+		toggleReInitModel();
 		// Clear the contents.
 		renderTexturesContainerElement.innerHTML = '';
 		console.log('Render texture view disabled.');
@@ -699,9 +699,9 @@ function toggleRenderTexturesDisplay() {
 }
 
 /** Toggle the option to reinitialize the current CharModel every frame. */
-function toggleReinitModel() {
-	reinitModelEveryFrame = reinitModelElement.checked;
-	console.log(`Reinitialize CharModel every frame: ${reinitModelElement.checked}`);
+function toggleReInitModel() {
+	reinitModelEveryFrame = reInitModelElement.checked;
+	console.log(`Reinitialize CharModel every frame: ${reInitModelElement.checked}`);
 }
 
 // // ---------------------------------------------------------------------
@@ -750,8 +750,8 @@ function updateCharModelInfo() {
 	charModelNameElement.textContent = name;
 
 	// Update favorite color block
-	const favColor = currentCharModel.favoriteColor;
-	charModelFavoriteColorElement.style.backgroundColor = favColor.getStyle();
+	const faveColor = currentCharModel.favoriteColor;
+	charModelFavoriteColorElement.style.backgroundColor = faveColor.getStyle();
 }
 
 // // ---------------------------------------------------------------------
@@ -779,7 +779,7 @@ function addUIControls() {
 	expressionSelectElement.addEventListener('change', updateExpression);
 
 	renderTexturesDisplayElement.addEventListener('toggle', toggleRenderTexturesDisplay);
-	reinitModelElement.addEventListener('change', toggleReinitModel);
+	reInitModelElement.addEventListener('change', toggleReInitModel);
 }
 
 // // ---------------------------------------------------------------------
@@ -818,7 +818,7 @@ function setupCharModelForm() {
 	// Populate shader selector (assumes materials is defined).
 	populateShaderSelector();
 
-	// Assume a form with id "charform" exists in the HTML.
+	// Assume a form with id "charForm" exists in the HTML.
 	const charFormElement = /** @type {HTMLFormElement} */ (requireElementById('charForm'));
 	const charDataInputElement = /** @type {HTMLInputElement} */ (requireElementById('charData'));
 

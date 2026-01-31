@@ -8,8 +8,9 @@
 
 import * as THREE from 'three';
 
+
 /**
- * Generic type for both types of Three.js renderers.
+ * Generic type for both types of Three.js renderer.
  * @typedef {import('three/webgpu').Renderer|THREE.WebGLRenderer} Renderer
  */
 
@@ -68,7 +69,7 @@ import * as THREE from 'three';
  * @property {function(number): *} _FFLSetLinearGammaMode
  * @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
  * @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo -
- * This isn't used and can't be used without a decoding method (with bitfields),
+ * The output is encoded in a bitfield that has to be decoded, so it's not used now,
  * but to get "additional info" would be nice in general.
  * @package
  */
@@ -595,12 +596,12 @@ class TextureManager {
 		// Map FFLTextureFormat to Three.js texture formats.
 
 		// THREE.RGFormat did not work for me on Three.js r136/older.
-		const useGLES2Formats = Number(THREE.REVISION) <= 136 || TextureManager.isWebGL1;
-		const r8 = useGLES2Formats
+		const useOldFormats = Number(THREE.REVISION) <= 136 || TextureManager.isWebGL1;
+		const r8 = useOldFormats
 			// eslint-disable-next-line import-x/namespace -- deprecated, maybe deleted
 			? THREE.LuminanceFormat
 			: THREE.RedFormat;
-		const r8g8 = useGLES2Formats
+		const r8g8 = useOldFormats
 		// NOTE: Using THREE.LuminanceAlphaFormat before it
 		// was removed on WebGL 1.0/2.0 causes the texture
 		// to be converted to RGBA resulting in two issues.
@@ -647,7 +648,7 @@ class TextureManager {
 		 *
 		 * This is also disabled for WebGL 1.0, since there are some NPOT textures.
 		 * Those aren't supposed to have mipmaps e.g., glass, but I found that
-		 * while in GLES2, some textures that didn't wrap could have mips with
+		 * while in OpenGL ES 2, some textures that didn't wrap could have mips with
 		 * NPOT, this didn't work in WebGL 1.0.
 		 */
 		const canUseMipmaps = Number(THREE.REVISION) >= 138 && !TextureManager.isWebGL1;
@@ -1072,6 +1073,7 @@ class FFL {
 	 * @property {Array<number>} size
 	 * @private
 	 */
+	/** @private */
 	static FFLResourceDesc_size = 16;
 	/**
 	 * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
@@ -1095,7 +1097,7 @@ class FFL {
 	 * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
 	 * @param {Module} module - The Emscripten module instance.
 	 * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
-	 * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
+	 * @throws {Error} resource must be a Uint8Array or fetch that can be streamed and has Content-Length.
 	 * @private
 	 */
 	static async _loadDataIntoHeap(resource, module) {
@@ -1119,14 +1121,14 @@ class FFL {
 				if (!resource.ok) {
 					throw new Error(`_loadDataIntoHeap: Failed to fetch resource at URL = ${resource.url}, response code = ${resource.status}`);
 				}
-				// Throw an error if it is not a streamable response.
+				// Throw an error if it response body cannot be streamed.
 				if (!resource.body) {
 					throw new Error(`_loadDataIntoHeap: Fetch response body is null (resource.body = ${resource.body})`);
 				}
 				// Get the total size of the resource from the headers.
 				const contentLength = resource.headers.get('Content-Length');
 				if (!contentLength) {
-					// Cannot stream the response. Read as ArrayBuffer and reinvoke function.
+					// Cannot stream the response. Read as ArrayBuffer and re-invoke function.
 					console.debug('_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.');
 					return this._loadDataIntoHeap(await resource.arrayBuffer(), module);
 				}
@@ -1443,14 +1445,14 @@ class CharModel {
 		this._addCharModelMeshes(this._module);
 
 		// Populate facelineColor from FFLAdditionalInfo.
-		const addlPtr = this._module._malloc(FFLAdditionalInfo_size);
+		const infoPtr = this._module._malloc(FFLAdditionalInfo_size);
 		// this._module._FFLGetFacelineColor(colorPtr, this._model.getCharInfo().faceColor);
-		if (this._module._FFLGetAdditionalInfo(addlPtr,
+		if (this._module._FFLGetAdditionalInfo(infoPtr,
 			/* dataSource = DIRECT_POINTER */ 6, this._ptr, 0, false) === FFLResult.OK) {
 			this.facelineColor.fromArray(this._module.HEAPF32,
-				(addlPtr + 0x38) / 4 /* = offsetof(FFLAdditionalInfo.skinColor) */);
+				(infoPtr + 0x38) / 4 /* = offsetof(FFLAdditionalInfo.skinColor) */);
 		}
-		this._module._free(addlPtr);
+		this._module._free(infoPtr);
 
 		/**
 		 * Favorite color, also used for hats and body.
@@ -1470,8 +1472,8 @@ class CharModel {
 		// { get: () => this.boundingBox }); // NOTE: box is too large using this
 		/**
 		 * Bounding box of the model.
-		 * Please use this instead of Three.js's built-in methods to get
-		 * the bounding box, since this excludes invisible shapes.
+		 * This needs to be used instead of the Three.js built-in method
+		 * for getting bounding boxes, since this excludes invisible shapes.
 		 * @public
 		 */
 		this.boundingBox = this._getBoundingBox();
@@ -1561,7 +1563,7 @@ class CharModel {
 			// Updating textures only. Set respective flag.
 			// console.debug(`updateCharModel: Updating ONLY textures for model ` +
 			// `"${charModel.charInfo.name}", ptr =`, charModel._ptr);
-			// NOTE: This flag will only take effect if your FFL is built with -DFFL_ENABLE_NEW_MASK_ONLY_FLAG=ON.
+			// NOTE: This flag will only take effect if your FFL is built with -D FFL_ENABLE_NEW_MASK_ONLY_FLAG=ON.
 			newModelDesc.modelFlag |= FFLModelFlag.NEW_MASK_ONLY;
 		} else {
 			// Dispose of the old CharModel.
@@ -1661,8 +1663,8 @@ class CharModel {
 	 */
 	setExpression(expression) {
 		/** or getMaskTexture()? */
-		const targ = this._maskTargets[expression];
-		if (!targ || !targ.texture) {
+		const target = this._maskTargets[expression];
+		if (!target || !target.texture) {
 			throw new ExpressionNotSet(expression);
 		}
 		/** @private */
@@ -1682,8 +1684,8 @@ class CharModel {
 		}
 		// Update texture and material.
 		/** @type {THREE.Texture & {_target:THREE.RenderTarget}} */
-		(targ.texture)._target = targ;
-		mesh.material.map = targ.texture;
+		(target.texture)._target = target;
+		mesh.material.map = target.texture;
 		mesh.material.needsUpdate = true;
 	}
 
@@ -1734,7 +1736,7 @@ class CharModel {
 		const build = this.charInfo.build;
 		const height = this.charInfo.height;
 
-		// calculated here in libnn_mii/draw/src/detail/mii_VariableIconBodyImpl.cpp:
+		// calculated here in mii_VariableIconBodyImpl.cpp:
 		// void nn::mii::detail::`anonymous namespace'::GetBodyScale(struct nn::util::Float3 *, int, int)
 		// also in Mii Maker USA (0x000500101004A100 v50 ffl_app.rpx): FUN_020737b8
 		const m = 128;
@@ -1799,7 +1801,7 @@ class CharModel {
 	}
 	*/
 
-	// Accessors:
+	// Accessor methods:
 
 	/**
 	 * The current expression for this CharModel.
@@ -1893,7 +1895,7 @@ class CharModel {
 	 */
 	static _descOrExpFlagToModelDesc(descOrExpFlag, defaultDesc = FFLCharModelDescDefault) {
 		if (!descOrExpFlag && typeof descOrExpFlag !== 'number') {
-			return defaultDesc; // Use default if input is falsey.
+			return defaultDesc; // Use default if input is falsy.
 		}
 
 		// Convert descOrExpFlag to an expression flag if needed.
@@ -2365,6 +2367,8 @@ function _allocateModelSource(data, module) {
 		// Unsupported types.
 		case 88:
 			throw new Error('_allocateModelSource: NX CharInfo is not supported.');
+			//module.HEAPU8.set(_nxCharInfoToFFLiCharInfo(data), bufferPtr);
+			//break;
 		case 48:
 		case 68:
 			throw new Error('_allocateModelSource: NX CoreData/StoreData is not supported.');
@@ -2619,7 +2623,7 @@ class DrawParam {
 			...params
 		};
 
-		// Special case for if tangent (NEEDED for aniso) is missing, and...
+		// Special case for if tangent (NEEDED for anisotropic) is missing, and...
 		if (geometry.attributes.tangent === undefined && // "_color" can be tested too.
 			// ... material is FFLShaderMaterial. Which is the only one using that attribute.
 			'useSpecularModeBlinn' in materialClass.prototype) {
@@ -2942,13 +2946,13 @@ class DrawParam {
 	 * Applies transformations in pAdjustMatrix within a FFLDrawParam to a mesh.
 	 * @param {number} pMtx - Pointer to rio::Matrix34f.
 	 * @param {THREE.Object3D} mesh - The mesh to apply transformations to.
-	 * @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
+	 * @param {Float32Array} heapF32 - HEAPF32 buffer view within {@link Module}.
 	 * @private
 	 */
-	static _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
+	static _applyAdjustMatrixToMesh(pMtx, mesh, heapF32) {
 		// console.debug('DrawParam.toMesh: shape has pAdjustMatrix: ', m);
 		// rio::Matrix34f = 12 floats
-		const m = new Float32Array(heapf32.buffer, pMtx, 12);
+		const m = new Float32Array(heapF32.buffer, pMtx, 12);
 		// Set position and scale from matrix. (FFLiAdjustShape does no rotation)
 		// Effectively decomposes the 3x4 column-major elements.
 		mesh.scale.set(m[0], m[5], m[10]);
@@ -3117,7 +3121,7 @@ const CharModelTextures = {
 	/**
 	 * Iterates through mask textures and draws each mask texture.
 	 * @param {CharModelAccessor} charModel - FFLiCharModel representation.
-	 * @param {Uint32Array} maskParamPtrs - Pointers to DrawParams for each mask.
+	 * @param {Uint32Array} maskParams - Pointers to DrawParams for each mask.
 	 * @param {Array<THREE.RenderTarget|null>} targets - Array of mask render targets to set.
 	 * @param {Renderer} renderer - The renderer.
 	 * @param {Module} module - The Emscripten module.
@@ -3125,7 +3129,7 @@ const CharModelTextures = {
 	 * @param {MaterialConstructor} materialClass - The material class (e.g., FFLShaderMaterial).
 	 * @private
 	 */
-	_drawMaskTextures(charModel, maskParamPtrs,
+	_drawMaskTextures(charModel, maskParams,
 		targets, renderer, module, texMgr, materialClass) {
 		const maskTempObjectPtr = charModel.getMaskTempObjectPtr();
 		const expressionFlagPtr = charModel.getExpressionFlagPtr();
@@ -3135,12 +3139,12 @@ const CharModelTextures = {
 		const scenes = [];
 
 		// Iterate to find out which masks are needed.
-		for (let i = 0; i < maskParamPtrs.length; i++) {
+		for (let i = 0; i < maskParams.length; i++) {
 			// If pointer is null, no mask is needed in this slot.
-			if (maskParamPtrs[i] === 0) {
+			if (maskParams[i] === 0) {
 				continue;
 			}
-			const maskParamPtr = maskParamPtrs[i];
+			const maskParamPtr = maskParams[i];
 			const rawMaskDrawParam = this._unpackDrawParamArray(
 				module.HEAPU8, maskParamPtr, this.MaskPartCount);
 			module._FFLiInvalidateRawMask(maskParamPtr);
@@ -3154,7 +3158,7 @@ const CharModelTextures = {
 			scenes.push(scene);
 		}
 
-		// Some texures are shared which is why this
+		// Some textures are shared which is why this
 		// needs to be done given that disposeMeshes
 		// unconditionally deletes textures.
 		for (const scene of scenes) {
@@ -3543,7 +3547,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 const GeometryConversion = {
 	/**
 	 * Modifies a BufferGeometry in place to be compatible with glTF.
-	 * It currently: deinterleaves attributes, converts half-float to float,
+	 * It currently: de-interleaves attributes, converts half-float to float,
 	 * and converts signed integer formats (not uint8 for color) to float.
 	 * Attributes named "normal" are reduced to three components.
 	 * @param {THREE.BufferGeometry} geometry - The BufferGeometry to modify in place.
@@ -3557,7 +3561,7 @@ const GeometryConversion = {
 
 		// Process each attribute in the geometry.
 		for (const [key, attr] of Object.entries(geometry.attributes)) {
-			// If the attribute is interleaved, deinterleave it.
+			// If the attribute is interleaved, de-interleave it.
 			const bufferAttribute = attr instanceof THREE.InterleavedBufferAttribute
 				? this._interleavedToBufferAttribute(attr)
 				: attr;
@@ -3606,9 +3610,9 @@ const GeometryConversion = {
 	},
 
 	/**
-	 * Deinterleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
+	 * De-interleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
 	 * @param {THREE.InterleavedBufferAttribute} attr - The interleaved attribute.
-	 * @returns {THREE.BufferAttribute} A new BufferAttribute containing deinterleaved data.
+	 * @returns {THREE.BufferAttribute} A new BufferAttribute containing de-interleaved data.
 	 * @private
 	 */
 	_interleavedToBufferAttribute(attr) {
@@ -3701,7 +3705,7 @@ const GeometryConversion = {
 			const baseOut = i * targetItemSize;
 
 			if (targetItemSize === 4 && srcItemSize === 4) {
-				// Tangent case: normalize xyz, keep w
+				// Tangent case: normalize XYZ, keep W.
 				const x = src[baseIn] / 127;
 				const y = src[baseIn + 1] / 127;
 				const z = src[baseIn + 2] / 127;
@@ -3739,7 +3743,7 @@ const GeometryConversion = {
 const _isWebGPU = renderer => 'isWebGPURenderer' in renderer;
 
 /**
- * Returns an ortho camera that is effectively the same as
+ * Returns a camera that is effectively the same as
  * if you used identity MVP matrix, for rendering 2D planes.
  * @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
  * @returns {THREE.OrthographicCamera} The orthographic camera.
@@ -3910,8 +3914,8 @@ const ModelIcon = {
 	/** @returns {THREE.PerspectiveCamera} The camera for FFLMakeIcon. */
 	getCamera() {
 		/** rad2deg(Math.atan2(43.2 / aspect, 500) / 0.5); */
-		const fovy = 9.8762;
-		const camera = new THREE.PerspectiveCamera(fovy, 1 /* aspect = square */, 500, 1000);
+		const fovY = 9.8762;
+		const camera = new THREE.PerspectiveCamera(fovY, 1 /* aspect = square */, 500, 1000);
 		camera.position.set(0, 34.5, 600);
 		return camera;
 	},
@@ -3943,7 +3947,7 @@ const ModelIcon = {
 		const plane = new THREE.PlaneGeometry(2, 2);
 		const mesh = new THREE.Mesh(plane, material);
 		scene.add(mesh);
-		/** Ortho camera filling whole screen. */
+		/** Orthographic camera filling whole screen. */
 		const camera = _getIdentCamera(flipY);
 
 		// Get previous render target, color space, and size.
@@ -4003,7 +4007,7 @@ const ModelIcon = {
 	},
 
 	/**
-	 * Copies the renderer's swapchain to a canvas.
+	 * Copies the renderer's framebuffer to a canvas.
 	 * @param {Renderer} renderer - The renderer.
 	 * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
 	 * @returns {HTMLCanvasElement} The canvas containing the rendered output.
@@ -4034,7 +4038,7 @@ const ModelIcon = {
 
 /**
  * Converts StudioCharInfo to FFLiCharInfo type needed by FFL internally.
- * @param {Uint8Array} src - The raw, unobfuscated StudioCharInfo data.
+ * @param {Uint8Array} src - The raw, un-obfuscated StudioCharInfo data.
  * @returns {Uint8Array} Byte form of FFLiCharInfo.
  * @package
  */
@@ -4043,7 +4047,7 @@ function _studioToFFLiCharInfo(src) {
 	// reading/writing raw structs, then decompiling and porting to JS.
 
 	// Also, most of the destination fields are 32-bit but this
-	// is choosing to set the (little-endian) LSB.
+	// is choosing to set the (little-endian) least significant byte.
 	// This should be fine, since the source fields are 8 bits each.
 	// Those result in an otherwise smaller function, at the cost
 	// of being severely unreadable.
@@ -4120,7 +4124,6 @@ function _studioURLObfuscationDecode(data) {
 }
 
 // Module exports.
-
 export {
 	// Generic enums
 	FFLModulateMode,

@@ -950,7 +950,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 			lightEnable: { value: true }, // Default to true.
 			gammaType: { value: 1 } // TODO: potentially allow fully linear flow?
 			// 0 = linear (output is LINEAR, use HARDWARE DEGAMMA), 1 = sRGB
-			// if type is sRGB, it will degamma input and output colors
+			// if type is sRGB, it will de-gamma input and output colors
 			// from/to sRGB, which is being used right now
 		};
 
@@ -1211,13 +1211,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	set colorInfo(value) {
 		console.assert(this._modulateType !== undefined, 'modulateType must be set before colorInfo');
 
-		// facelineColor: maps identically, no conv needed
-		/**
-		 * 0->8
-		 * @param {number} c - Ver3 hair color.
-		 * @returns {number} The corresponding common color.
-		 */
-		const ver3ToVer4HairColor = c => c === 0
+		const ver3ToVer4HairColor = (/** @type {number} */ c) => c === 0
 			? 8 // ver3 0 -> common 8
 			// Applying the commonColorEnableMask.
 			: (c & ~(1 << 31));

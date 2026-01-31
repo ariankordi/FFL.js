@@ -1247,11 +1247,11 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	set modulateType(value) {
 		// Assign LUT textures using modulate type.
 		const lutTextures = LUTShaderMaterial.getLUTTextures();
-		const specType =
+		const specular =
       LUTShaderMaterial.modulateTypeToLUTSpecular[value];
-		const fresType =
+		const fresnel =
       LUTShaderMaterial.modulateTypeToLUTFresnel[value];
-		if (specType === undefined || fresType === undefined) {
+		if (specular === undefined || fresnel === undefined) {
 			return;
 		}
 		/**
@@ -1260,8 +1260,8 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		 */
 		this._modulateType = value;
 
-		const lutSpecTexture = lutTextures.specular[specType];
-		const lutFresTexture = lutTextures.fresnel[fresType];
+		const lutSpecTexture = lutTextures.specular[specular];
+		const lutFresTexture = lutTextures.fresnel[fresnel];
 
 		this.uniforms.uLUTSpecTexture = { value: lutSpecTexture };
 		this.uniforms.uLUTFresTexture = { value: lutFresTexture };

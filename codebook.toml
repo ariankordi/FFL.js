@@ -1,0 +1,66 @@
+words = [
+    ## Mii
+    "mii",
+    "headwear",
+    "faceline",
+    "noseline",
+    "ffsd",
+    "charinfo",
+    ## Mii internal
+    #"ffl",
+    "ffli",
+    #"rfl",
+    #"afl",
+    #"rpx",
+    "localonly",
+    "ffra",
+    "arff",
+    #"hdb",
+    ## Names
+    "aboood",
+    "kordi",
+    ## Rendering
+    "webgl",
+    "webgpu",
+    "renderer",
+    "renderer's",
+    #"opa",
+    #"xlu",
+    "glsl",
+    "gltf",
+    #"mip",
+    "snorm",
+    "unorm",
+    "npot",
+    "spector", # library
+    #"mtx",
+    #"fov",
+    ## Shaders
+    "shader",
+    "shaders",
+    #"tsl",
+    #"lut",
+    "alphamap",
+    "colorspace",
+    "blinn",
+    "phong",
+    ## Code
+    "emscripten",
+    "vppp",
+    "heapu",
+    "heapf",
+    "offsetof",
+    "malloc",
+    "srgb",
+    "bgra",
+    ## HTML/JS
+    #"cjs",
+    "importmap",
+    #"umd",
+]
+
+# excludes so much
+min_word_length = 4
+
+# materials get excluded because they have japanese
+ignore_paths = ["materials/*.js"]

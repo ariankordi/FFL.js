@@ -167,7 +167,7 @@ const requireElementById = (/** @type {string} */ id) => {
 	return el;
 };
 
-/** Set up event handling for the CharModel submission form (charform). */
+/** Set up event handling for the CharModel submission form (charForm). */
 function setupCharModelForm() {
 	const charFormElement = /** @type {HTMLFormElement} */ requireElementById(('charForm'));
 	const charDataInputElement = /** @type {HTMLInputElement} */ (requireElementById('charData'));
