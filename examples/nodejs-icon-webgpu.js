@@ -109,10 +109,6 @@ async function main() {
 		// Render the scene, and read the pixels into a buffer.
 		const rt = new THREE.RenderTarget(width, height, {
 			// samples: 4, // Uncomment for antialiasing.
-			// @ts-ignore -- The type is incompatible, but it works.
-			internalFormat: GPUTextureFormat.BGRA8Unorm,
-			// NOTE: The pixel format has to be BGRA to output BMP.
-			// Remove the internalFormat above if you are using PNG.
 			minFilter: THREE.LinearFilter,
 			magFilter: THREE.LinearFilter
 		});

@@ -85,20 +85,20 @@ async function createThreeRenderer(width = 1, height = 1) {
 /**
  * Writes a 32-bit (transparent) image in Microsoft BMP format.
  * Useful for testing since it's uncompressed and can be viewed in web browsers.
- * NOTE: If the output has inverted colors, you must output BGRA instead of RGBA.
  * @param {number} width - Width of the image.
  * @param {number} height - Height of the image.
- * @param {Uint8Array} bgraPixels - Image data in BGRA format, 32 bits per pixel.
+ * @param {Uint8Array} rgbaPixels - Image data in RGBA format, 32 bits per pixel.
+ * @param {boolean} flipY - Whether Y should be flipped in the image, should be true for WebGL.
  * @returns {Uint8Array} BMP file bytes.
  */
-function encodeBmpImage(width, height, bgraPixels) {
+function encodeBmpImage(width, height, rgbaPixels, flipY = false) {
 	const sizeof_BITMAPFILEHEADER = 14;
 	const sizeof_DIB = 40;
 	// Contains RGBA masks. This is the format GIMP emits.
 	const masksSize = 16;
 	const dibSize = sizeof_DIB + masksSize;
 	const pixelOffset = sizeof_BITMAPFILEHEADER + dibSize;
-	const fileSize = pixelOffset + bgraPixels.length;
+	const fileSize = pixelOffset + rgbaPixels.length;
 
 	const bytes = new Uint8Array(fileSize);
 	const view = new DataView(bytes.buffer);
@@ -113,24 +113,27 @@ function encodeBmpImage(width, height, bgraPixels) {
 	// Encode BITMAPINFOHEADER (40 bytes).
 	view.setUint32(14, dibSize, true); // biSize
 	view.setInt32(18, width, true); // biWidth
-	view.setInt32(22, -height, true); // biHeight (negative = top-down)
+        const biHeight = flipY ? height : -height; // Negative = top-down.
+	view.setInt32(22, biHeight, true); // biHeight
 	view.setUint16(26, 1, true); // biPlanes
 	view.setUint16(28, 32, true); // biBitCount
 	view.setUint32(30, 3, true); // biCompression = BI_BITFIELDS
-	view.setUint32(34, bgraPixels.length, true); // biSizeImage
+	view.setUint32(34, rgbaPixels.length, true); // biSizeImage
 	view.setInt32(38, 2835, true); // biXPelsPerMeter (~72 DPI)
 	view.setInt32(42, 2835, true); // biYPelsPerMeter
 	view.setUint32(46, 0, true); // biClrUsed
 	view.setUint32(50, 0, true); // biClrImportant
 
-	// Copy RGBA masks, needed for this to show up as properly transparent.
-	view.setUint32(54, 0x00FF0000, true); // Red
+	// Copy RGBA channel masks.
+	// This is needed for transparency to work, and for
+	// RGBA pixels to show up properly instead of needing BGRA.
+	view.setUint32(54, 0x000000FF, true); // Red
 	view.setUint32(58, 0x0000FF00, true); // Green
-	view.setUint32(62, 0x000000FF, true); // Blue
+	view.setUint32(62, 0x00FF0000, true); // Blue
 	view.setUint32(66, 0xFF000000, true); // Alpha
 
 	// Copy BGRA pixel data.
-	bytes.set(bgraPixels, pixelOffset);
+	bytes.set(rgbaPixels, pixelOffset);
 	return bytes;
 }
 
