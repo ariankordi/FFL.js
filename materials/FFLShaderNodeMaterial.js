@@ -51,7 +51,7 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 	/**
 	 * Constructs an FFLShaderNodeMaterial instance.
 	 * @param {import('three').MeshBasicMaterialParameters
-	 * & {color?: Color|Array<Color>}} [options] - Parameters for the material.
+	 * & {colorG?: Color, colorB?: Color}} [options] - Parameters for the material.
 	 */
 	constructor(options = {}) {
 		super();
@@ -59,6 +59,8 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 		this.map = options.map; // Set texture map.
 		// Use setter to set all colors if they are there.
 		this.color = options.color ?? new Color();
+		this.colorG = options.colorG ?? new Color();
+		this.colorB = options.colorB ?? new Color();
 
 		// Set FFL specific defaults, which will be overridden by options.
 		this.modulateMode = this.modulateType = 0;
@@ -79,9 +81,9 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 			// TODO: This should be included more elegantly.
 			// Like, we need it to be a colorNode.
 			const color = TextureShaderNodeMaterial.fragmentNode({
-				diffuse: uniform(this.diffuse),
-				color1: uniform(this.color1),
-				color2: uniform(this.color2),
+				diffuse: uniform(this.color),
+				colorG: uniform(this.colorG),
+				colorB: uniform(this.colorB),
 				opacity: uniform(this.opacity),
 				modulateMode: uniform(this._modulateMode),
 				texel: this.map ? materialReference('map', 'texture') : null
@@ -167,33 +169,6 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
 					.add(rimColor),
 				color.a);
 		})();
-	}
-
-	/**
-	 * Gets the constant color (diffuse) uniform as THREE.Color.
-	 * @returns {Color|undefined} The constant color if set.
-	 */
-	get color() {
-		return this.diffuse;
-	}
-
-	/**
-	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {Color|Array<Color>} value -
-	 * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
-	 */
-	set color(value) {
-		// Set an array of colors, assumed to have 3 elements.
-		if (Array.isArray(value)) {
-			// Assign multiple color instances.
-			this.diffuse = value[0];
-			this.color1 = value[1];
-			this.color2 = value[2];
-		} else {
-			// Otherwise, assign diffuse and the other colors
-			// all to the single color instance.
-			this.diffuse = this.color1 = this.color2 = value;
-		}
 	}
 
 	/** @returns {import('../ffl.js').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */

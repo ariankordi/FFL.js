@@ -19,7 +19,7 @@ import { NodeMaterial } from 'three/webgpu';
  * Has no lighting whatsoever, just meant to render 2D planes.
  */
 export default class TextureShaderNodeMaterial extends NodeMaterial {
-	/** @param {import('three').MeshBasicMaterialParameters & {color?: Color|Array<Color>}} [options] - Options */
+	/** @param {import('three').MeshBasicMaterialParameters & {colorG?: Color, colorB?: Color}} [options] - Options */
 	constructor(options = {}) {
 		super();
 
@@ -28,6 +28,8 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 		this.map = options.map; // Set texture map.
 		// Use setter to set all colors if they are there.
 		this.color = options.color ?? new Color();
+		this.colorG = options.colorG ?? new Color();
+		this.colorB = options.colorB ?? new Color();
 
 		// Set FFL specific defaults so they are considered valid parameters.
 		this.modulateMode = this.modulateType = 0;
@@ -41,9 +43,9 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 		// I seemingly get the same error any time I don't have a fragmentNode.
 		// So, for now this will use the fragmentNode, which is ok since it can still be combined.
 		this.fragmentNode = TextureShaderNodeMaterial.fragmentNode({
-			diffuse: uniform(this.diffuse),
-			color1: uniform(this.color1),
-			color2: uniform(this.color2),
+			diffuse: uniform(this.color),
+			colorG: uniform(this.colorG),
+			colorB: uniform(this.colorB),
 			opacity: uniform(this.opacity),
 			modulateMode: uniform(this.modulateMode),
 			texel: this.map ? materialReference('map', 'texture') : null
@@ -53,15 +55,15 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 	/**
 	 * @typedef {Object} FragmentInputs
 	 * @property {ShaderNodeObject} diffuse - color
-	 * @property {ShaderNodeObject} color1 - color
-	 * @property {ShaderNodeObject} color2 - color
+	 * @property {ShaderNodeObject} colorG - color
+	 * @property {ShaderNodeObject} colorB - color
 	 * @property {ShaderNodeObject} opacity - float
 	 * @property {ShaderNodeObject} modulateMode - int
 	 * @property {ShaderNodeObject|null} texel - texture
 	 */
 	/** @type {import('three/src/nodes/tsl/TSLBase.js').ShaderNodeFn<[FragmentInputs]>} */
 	static fragmentNode = /* @__PURE__ */ Fn((/** @type {FragmentInputs} */ args) => {
-		const { diffuse, color1, color2, opacity, modulateMode, texel } = args;
+		const { diffuse, colorG, colorB, opacity, modulateMode, texel } = args;
 		// Start with diffuse/opacity.
 		const diffuseColor = vec4(diffuse, opacity);
 
@@ -81,8 +83,8 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 		const rgbLayered = vec4(
 			diffuse
 				.mul(texel.r)
-				.add(color1.mul(texel.g))
-				.add(color2.mul(texel.b)),
+				.add(colorG.mul(texel.g))
+				.add(colorB.mul(texel.b)),
 			texel.a
 		);
 		const alpha = vec4(diffuse.mul(texel.r), texel.r);
@@ -111,33 +113,6 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
 
 		return outColor;
 	});
-
-	/**
-	 * Gets the constant color (diffuse) uniform as THREE.Color.
-	 * @returns {import('three').Color|undefined} The constant color if set.
-	 */
-	get color() {
-		return this.diffuse;
-	}
-
-	/**
-	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {import('three').Color|Array<import('three').Color>} value -
-	 * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
-	 */
-	set color(value) {
-		// Set an array of colors, assumed to have 3 elements.
-		if (Array.isArray(value)) {
-			// Assign multiple color instances.
-			this.diffuse = value[0];
-			this.color1 = value[1];
-			this.color2 = value[2];
-		} else {
-			// Otherwise, assign diffuse and the other colors
-			// all to the single color instance.
-			this.diffuse = this.color1 = this.color2 = value;
-		}
-	}
 
 	/** @returns {import('../ffl.js').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */
 	get modulateMode() {

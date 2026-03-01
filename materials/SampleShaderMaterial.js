@@ -978,9 +978,12 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 
 		// Use the setters to set the rest of the uniforms.
 		this.setValues(options);
+		// Set the opacity uniform to the temporary variable storage.
+		// eslint-disable-next-line no-self-assign -- Commit opacity uniform from temporary storage.
+		this.opacity = this.opacity;
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} The color. */
 	get color() {
 		return this.uniforms.constColor1 ? this.uniforms.constColor1.value : undefined;
 	}
@@ -989,7 +992,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.constColor1 = { value: value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorG color if defined. */
 	get colorG() {
 		return this.uniforms.constColor2 ? this.uniforms.constColor2.value : undefined;
 	}
@@ -998,7 +1001,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.constColor2 = { value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorB color if defined. */
 	get colorB() {
 		return this.uniforms.constColor3 ? this.uniforms.constColor3.value : undefined;
 	}
@@ -1031,6 +1034,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (this.uniforms) {
 			this.uniforms.opacity = { value };
+			delete this._opacity;
 		} else {
 			// Store here for later when color is set.
 			/** @private */

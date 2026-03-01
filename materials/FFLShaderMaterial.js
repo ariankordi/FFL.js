@@ -589,9 +589,14 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 
 		// Use the setters to set the rest of the uniforms.
 		this.setValues(options);
+
+		// This is needed because Three.js sets "opacity" before
+		// the uniforms are ready, so we must set it again properly.
+		// eslint-disable-next-line no-self-assign -- Commit opacity uniform from temporary storage.
+		this.opacity = this.opacity;
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} The color. */
 	get color() {
 		return this.uniforms.u_const1 ? this.uniforms.u_const1.value : undefined;
 	}
@@ -600,7 +605,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.u_const1 = { value: value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorG color if defined. */
 	get colorG() {
 		return this.uniforms.u_const2 ? this.uniforms.u_const2.value : undefined;
 	}
@@ -609,7 +614,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.u_const2 = { value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorB color if defined. */
 	get colorB() {
 		return this.uniforms.u_const3 ? this.uniforms.u_const3.value : undefined;
 	}
@@ -642,6 +647,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (this.uniforms) {
 			this.uniforms.u_opacity = { value };
+			delete this._opacity;
 		} else {
 			// Store here for later when color is set.
 			/** @private */

@@ -465,6 +465,8 @@ uniform mediump vec3    uColor2;            //!< 入力:[ 1 : 3 ] カラー2 (OR
 uniform mediump vec3    uLightColor;        //!< 入力:[ 1 : 4 ] ライトの色
 //#endif
 
+uniform mediump float uColor0Multiply; // custom (only applied in "Mii" block)
+
 #if defined(AGX_FEATURE_ALBEDO_TEXTURE)
 uniform sampler2D       uAlbedoTexture;     //!< 入力: テクスチャー
 #endif
@@ -525,7 +527,7 @@ void main()
    //#if defined(AGX_FEATURE_MII_CONSTANT)
     if(uMode == FFL_MODULATE_MODE_CONSTANT)
     {
-        albedoColor = vec4(uColor0.rgb, uOpacity);
+        albedoColor = vec4(uColor0.rgb * uColor0Multiply, uOpacity);
     }
     //#elif defined(AGX_FEATURE_MII_TEXTURE_DIRECT)
     else if(uMode == FFL_MODULATE_MODE_TEXTURE_DIRECT)
@@ -543,19 +545,19 @@ void main()
     else if(uMode == FFL_MODULATE_MODE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(uColor0.rgb, uOpacity * albedoColor.r);
+        albedoColor = vec4(uColor0.rgb * uColor0Multiply, uOpacity * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_LUMINANCE_ALPHA)
     else if(uMode == FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.g * uColor0.rgb, uOpacity * albedoColor.r);
+        albedoColor = vec4(albedoColor.g * uColor0.rgb * uColor0Multiply, uOpacity * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_ALPHA_OPA)
     else if(uMode == FFL_MODULATE_MODE_ALPHA_OPA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.r * uColor0.rgb, uOpacity);
+        albedoColor = vec4(albedoColor.r * uColor0.rgb * uColor0Multiply, uOpacity);
     }
 //#endif
 
@@ -579,7 +581,7 @@ void main()
     // Deprecated
 #if defined(AGX_FEATURE_ALPHA_COLOR_FILTER)
     // 一部の場所にColor0を反映する
-    albedoColor.rgb = (albedoColor.rgb * albedoColor.a + uColor0.rgb * (1.0 - albedoColor.a));
+    albedoColor.rgb = (albedoColor.rgb * albedoColor.a + (uColor0.rgb * uColor0Multiply) * (1.0 - albedoColor.a));
     albedoColor.a = 1.0;
 #elif defined(AGX_FEATURE_MASK_TEXTURE)
     lowp vec3  maskTextureColor = texture2D(uMaskTexture, vTexcoord0).rgb;
@@ -587,12 +589,12 @@ void main()
 #   if defined(AGX_FEATURE_SKIN_MASK) && defined(AGX_FEATURE_HAIR_MASK)
     // 肌と髪両方マスクが存在する
     lowp float maskColorValue = maskTextureColor.g + maskTextureColor.b;
-    lowp vec3  maskColor      = maskTextureColor.g * uColor0.rgb + maskTextureColor.b * uColor1.rgb;
+    lowp vec3  maskColor      = maskTextureColor.g * (uColor0.rgb * uColor0Multiply) + maskTextureColor.b * uColor1.rgb;
     albedoColor.rgb = (albedoColor.rgb * (1.0 - maskColorValue) + maskColor);
 
 #   elif defined(AGX_FEATURE_SKIN_MASK)
     // 肌しかマスクが存在しない
-    albedoColor.rgb = (albedoColor.rgb * (1.0 - maskTextureColor.g) + maskTextureColor.g * uColor0.rgb);
+    albedoColor.rgb = (albedoColor.rgb * (1.0 - maskTextureColor.g) + maskTextureColor.g * (uColor0.rgb * uColor0Multiply));
 
 #   elif defined(AGX_FEATURE_HAIR_MASK)
     // 髪しかマスクが存在しない
@@ -901,7 +903,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 	// Tables mapping modulate type to LUT type.
 	/** @type {Object<FFLModulateType, LUTSpecularTextureType>} */
-	static modulateTypeToLUTSpecular = [
+	static lutSpecularTypes = [
 		LUTShaderMaterial.LUTSpecularTextureType.SKIN_01, // 0: FACELINE
 		LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 1: BEARD
 		LUTShaderMaterial.LUTSpecularTextureType.SKIN_01, // 2: NOSE
@@ -916,7 +918,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	];
 
 	/** @type {Object<FFLModulateType, LUTFresnelTextureType>} */
-	static modulateTypeToLUTFresnel = [
+	static lutFresnelTypes = [
 		LUTShaderMaterial.LUTFresnelTextureType.SKIN_01, // 0: FACELINE
 		LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 1: BEARD
 		LUTShaderMaterial.LUTFresnelTextureType.SKIN_01, // 2: NOSE
@@ -1021,32 +1023,6 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	static defaultLightDirection = this.defaultDirLightDirAndType0;
 
 	/**
-	 * Multiplies beard and hair colors by a factor seen
-	 * in libcocos2dcpp.so in order to match its rendering style.
-	 * Refer to: https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/src/ShaderMiitomo.cpp#L587
-	 * @param {THREE.Color} color - The original color.
-	 * @param {FFLModulateType} modulateType - The modulate type, or type of shape.
-	 * @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
-	 * @returns {THREE.Color} The final color.
-	 * @private
-	 */
-	static _multiplyColorIfNeeded(color, modulateType, modulateMode) {
-		if (
-			modulateType === 1 || // SHAPE_BEARD
-			modulateType === 4 || // SHAPE_HAIR
-			(modulateMode === 0 && // CONSTANT
-				modulateType === 9) // CUSTOM (BODY)
-		) {
-			const mul = 0.9019608;
-			// Multiply XYZ (RGB) by mul and not alpha.
-			color.r *= mul;
-			color.g *= mul;
-			color.b *= mul;
-		}
-		return color; // no multiply needed
-	}
-
-	/**
 	 * Constructs a LUTShaderMaterial instance.
 	 * NOTE: Pass parameters in this order: side, modulateType, color
 	 * @param {THREE.ShaderMaterialParameters & LUTShaderMaterialParameters} [options] -
@@ -1058,6 +1034,8 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		const uniforms = {
 			uBoneCount: { value: 0 },
 			uAlpha: { value: 1 },
+			// Custom uniform for multiplying uColor0 uniform by.
+			uColor0Multiply: { value: 1 },
 			uHSLightGroundColor: {
 				value: LUTShaderMaterial.defaultHSLightGroundColor
 			},
@@ -1102,23 +1080,20 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 		// Use the setters to set the rest of the uniforms.
 		this.setValues(options);
+		// eslint-disable-next-line no-self-assign -- Commit opacity uniform from temporary storage.
+		this.opacity = this.opacity;
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} The color. */
 	get color() {
 		return this.uniforms.uColor0 ? this.uniforms.uColor0.value : undefined;
 	}
 
 	set color(/** @type {THREE.Color} */ value) {
-		const color = value.clone();
-		// Use multiplyColorIfNeeded method for a single color.
-		if (this.modulateType !== undefined && typeof this.modulateMode === 'number') {
-			LUTShaderMaterial._multiplyColorIfNeeded(color, this.modulateType, this.modulateMode);
-		}
-		this.uniforms.uColor0 = { value: color };
+		this.uniforms.uColor0 = { value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorG color if defined. */
 	get colorG() {
 		return this.uniforms.uColor1 ? this.uniforms.uColor1.value : undefined;
 	}
@@ -1127,7 +1102,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.uColor1 = { value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorB color if defined. */
 	get colorB() {
 		return this.uniforms.uColor2 ? this.uniforms.uColor2.value : undefined;
 	}
@@ -1160,6 +1135,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (this.uniforms) {
 			this.uniforms.uOpacity = { value };
+			delete this._opacity;
 		} else {
 			// Store here for later when color is set.
 			/** @private */
@@ -1213,20 +1189,30 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {FFLModulateType} value - The new modulateType value.
 	 */
 	set modulateType(value) {
-		// Assign LUT textures using modulate type.
-		const lutTextures = LUTShaderMaterial.getLUTTextures();
-		const specular =
-      LUTShaderMaterial.modulateTypeToLUTSpecular[value];
-		const fresnel =
-      LUTShaderMaterial.modulateTypeToLUTFresnel[value];
-		if (specular === undefined || fresnel === undefined) {
-			return;
-		}
 		/**
 		 * @type {FFLModulateType}
 		 * @private
 		 */
 		this._modulateType = value;
+
+		const needsColorDarken = (
+			value === 1 || // SHAPE_BEARD
+			value === 4 || // SHAPE_HAIR
+			(this.modulateMode === 0 && // CONSTANT
+				value === 9) // CUSTOM (BODY)
+		);
+		// Multiplies beard and hair colors by a factor seen
+		// in libcocos2dcpp.so in order to match its rendering style.
+		// Refer to: https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/src/ShaderMiitomo.cpp#L587
+		this.uniforms.uColor0Multiply.value = needsColorDarken ? 0.902 : 1;
+
+		// Assign LUT textures using modulate type.
+		const lutTextures = LUTShaderMaterial.getLUTTextures();
+		const specular = LUTShaderMaterial.lutSpecularTypes[value];
+		const fresnel = LUTShaderMaterial.lutFresnelTypes[value];
+		if (specular === undefined || fresnel === undefined) {
+			return;
+		}
 
 		const lutSpecTexture = lutTextures.specular[specular];
 		const lutFresTexture = lutTextures.fresnel[fresnel];

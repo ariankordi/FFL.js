@@ -2681,6 +2681,9 @@ class DrawParam {
 		console.assert(pos.size, '_bindDrawParamGeometry: Position buffer must not be empty.');
 		/** Whether or not attributes are using float16 format. */
 		const isHalfFloat = pos.stride < 16;
+		// NOTE: The float16 format used has 3 components, which
+		// is not actually a supported configuration for WebGPU. Whoops!
+
 		const txc = attributes[this.FFLAttributeBufferType.TEXCOORD];
 		const nrm = attributes[this.FFLAttributeBufferType.NORMAL];
 		const tan = attributes[this.FFLAttributeBufferType.TANGENT];
@@ -2853,9 +2856,6 @@ class DrawParam {
 			? _getFFLColor(f32, modulateParam.pColorR)
 			: null;
 
-		// Only set opacity to 0 for "fill" 2D plane.
-		const opacity = modulateParam.type === FFLModulateType.FILL ? 0 : 1;
-
 		// Set transparent property for Xlu/mask and higher.
 		const transparent = modulateParam.type >= FFLModulateType.SHAPE_MASK;
 
@@ -2876,7 +2876,6 @@ class DrawParam {
 		const param = Object.assign(modulateModeType, {
 			// Common Three.js material parameters.
 			color,
-			opacity: opacity,
 			transparent: transparent,
 			// Depth writing is disabled for DrawXlu stage however
 			// it is kept enabled in LUTShaderMaterial because its
@@ -3447,7 +3446,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		this.setValues(options);
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} The color. */
 	get color() {
 		return this.uniforms.diffuse ? this.uniforms.diffuse.value : undefined;
 	}
@@ -3456,7 +3455,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.diffuse = { value: value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorG color if defined. */
 	get colorG() {
 		return this.uniforms.colorG ? this.uniforms.colorG.value : undefined;
 	}
@@ -3465,7 +3464,7 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		this.uniforms.colorG = { value };
 	}
 
-	/** @returns {THREE.Color|undefined} */
+	/** @returns {THREE.Color|undefined} colorB color if defined. */
 	get colorB() {
 		return this.uniforms.colorB ? this.uniforms.colorB.value : undefined;
 	}
