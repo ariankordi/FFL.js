@@ -1180,16 +1180,16 @@ else
 		*/
 		set modulateType(value) {
 			const lutTextures = LUTShaderMaterial.getLUTTextures();
-			const specType = LUTShaderMaterial.modulateTypeToLUTSpecular[value];
-			const fresType = LUTShaderMaterial.modulateTypeToLUTFresnel[value];
-			if (specType === void 0 || fresType === void 0) return;
+			const specular = LUTShaderMaterial.modulateTypeToLUTSpecular[value];
+			const fresnel = LUTShaderMaterial.modulateTypeToLUTFresnel[value];
+			if (specular === void 0 || fresnel === void 0) return;
 			/**
 			* @type {FFLModulateType}
 			* @private
 			*/
 			this._modulateType = value;
-			const lutSpecTexture = lutTextures.specular[specType];
-			const lutFresTexture = lutTextures.fresnel[fresType];
+			const lutSpecTexture = lutTextures.specular[specular];
+			const lutFresTexture = lutTextures.fresnel[fresnel];
 			this.uniforms.uLUTSpecTexture = { value: lutSpecTexture };
 			this.uniforms.uLUTFresTexture = { value: lutFresTexture };
 			this.uniforms.uAlphaTest = { value: value >= 6 && value <= 8 };

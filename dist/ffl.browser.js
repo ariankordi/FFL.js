@@ -37,7 +37,7 @@ three = __toESM(three);
 	* @author Arian Kordi <https://github.com/ariankordi>
 	*/
 	/**
-	* Generic type for both types of Three.js renderers.
+	* Generic type for both types of Three.js renderer.
 	* @typedef {import('three/webgpu').Renderer|THREE.WebGLRenderer} Renderer
 	*/
 	/**
@@ -90,7 +90,7 @@ three = __toESM(three);
 	* @property {function(number): *} _FFLSetLinearGammaMode
 	* @property {function(number, number): *} _FFLpGetStoreDataFromCharInfo
 	* @property {function(number, number, number, number, boolean): *} _FFLGetAdditionalInfo -
-	* This isn't used and can't be used without a decoding method (with bitfields),
+	* The output is encoded in a bitfield that has to be decoded, so it's not used now,
 	* but to get "additional info" would be nice in general.
 	* @package
 	*/
@@ -510,10 +510,10 @@ three = __toESM(three);
 		* @private
 		*/
 		static _getTextureFormat(format) {
-			const useGLES2Formats = Number(three.REVISION) <= 136 || TextureManager.isWebGL1;
+			const useOldFormats = Number(three.REVISION) <= 136 || TextureManager.isWebGL1;
 			const dataFormat = [
-				useGLES2Formats ? three.LuminanceFormat : three.RedFormat,
-				useGLES2Formats ? three.LuminanceAlphaFormat : three.RGFormat,
+				useOldFormats ? three.LuminanceFormat : three.RedFormat,
+				useOldFormats ? three.LuminanceAlphaFormat : three.RGFormat,
 				three.RGBAFormat
 			][format];
 			console.assert(dataFormat !== void 0, `_textureCreateFunc: Unexpected FFLTextureFormat value: ${format}`);
@@ -536,7 +536,7 @@ three = __toESM(three);
 			*
 			* This is also disabled for WebGL 1.0, since there are some NPOT textures.
 			* Those aren't supposed to have mipmaps e.g., glass, but I found that
-			* while in GLES2, some textures that didn't wrap could have mips with
+			* while in OpenGL ES 2, some textures that didn't wrap could have mips with
 			* NPOT, this didn't work in WebGL 1.0.
 			*/
 			const canUseMipmaps = Number(three.REVISION) >= 138 && !TextureManager.isWebGL1;
@@ -831,6 +831,7 @@ three = __toESM(three);
 		* @property {Array<number>} size
 		* @private
 		*/
+		/** @private */
 		static FFLResourceDesc_size = 16;
 		/**
 		* @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
@@ -853,7 +854,7 @@ three = __toESM(three);
 		* Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
 		* @param {Module} module - The Emscripten module instance.
 		* @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
-		* @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
+		* @throws {Error} resource must be a Uint8Array or fetch that can be streamed and has Content-Length.
 		* @private
 		*/
 		static async _loadDataIntoHeap(resource, module) {
@@ -1079,9 +1080,9 @@ three = __toESM(three);
 			*/
 			this.meshes = new three.Group();
 			this._addCharModelMeshes(this._module);
-			const addlPtr = this._module._malloc(FFLAdditionalInfo_size);
-			if (this._module._FFLGetAdditionalInfo(addlPtr, 6, this._ptr, 0, false) === FFLResult.OK) this.facelineColor.fromArray(this._module.HEAPF32, (addlPtr + 56) / 4);
-			this._module._free(addlPtr);
+			const infoPtr = this._module._malloc(FFLAdditionalInfo_size);
+			if (this._module._FFLGetAdditionalInfo(infoPtr, 6, this._ptr, 0, false) === FFLResult.OK) this.facelineColor.fromArray(this._module.HEAPF32, (infoPtr + 56) / 4);
+			this._module._free(infoPtr);
 			/**
 			* Favorite color, also used for hats and body.
 			* @readonly
@@ -1096,8 +1097,8 @@ three = __toESM(three);
 			this.partsTransform = this._model.getPartsTransform();
 			/**
 			* Bounding box of the model.
-			* Please use this instead of Three.js's built-in methods to get
-			* the bounding box, since this excludes invisible shapes.
+			* This needs to be used instead of the Three.js built-in method
+			* for getting bounding boxes, since this excludes invisible shapes.
 			* @public
 			*/
 			this.boundingBox = this._getBoundingBox();
@@ -1210,8 +1211,8 @@ three = __toESM(three);
 		*/
 		setExpression(expression) {
 			/** or getMaskTexture()? */
-			const targ = this._maskTargets[expression];
-			if (!targ || !targ.texture) throw new ExpressionNotSet(expression);
+			const target = this._maskTargets[expression];
+			if (!target || !target.texture) throw new ExpressionNotSet(expression);
 			/** @private */
 			this._expression = expression;
 			if (this._isTexOnly) return;
@@ -1221,8 +1222,8 @@ three = __toESM(three);
 				throw new Error("setExpression: mask mesh does not exist, cannot set expression on it");
 			}
 			/** @type {THREE.Texture & {_target:THREE.RenderTarget}} */
-			targ.texture._target = targ;
-			mesh.material.map = targ.texture;
+			target.texture._target = target;
+			mesh.material.map = target.texture;
 			mesh.material.needsUpdate = true;
 		}
 		/**
@@ -1922,76 +1923,33 @@ three = __toESM(three);
 		* @param {Array<FFLAttributeBuffer>} attributes - {@link FFLDrawParam.attributeBuffers}
 		* @param {FFLPrimitiveParam} primitiveParam - {@link FFLDrawParam.primitiveParam}
 		* @param {Module} module - The Emscripten module from which to read the heap.
-		* @returns {THREE.BufferGeometry} The geometry.
+		* @param {THREE.BufferGeometry} [geometry] - The BufferGeometry to populate.
+		* @returns {THREE.BufferGeometry} The populated BufferGeometry.
 		* @private
-		* @todo Does not yet handle color stride = 0
 		*/
-		static _bindDrawParamGeometry(attributes, primitiveParam, module) {
-			/**
-			* @param {string} typeStr - The type of the attribute.
-			* @param {number} stride - The stride to display.
-			* @returns {void}
-			*/
-			const unexpectedStride = (typeStr, stride) => console.assert(false, `_bindDrawParamGeometry: Unexpected stride for attribute ${typeStr}: ${stride}`);
-			const positionBuffer = attributes[this.FFLAttributeBufferType.POSITION];
-			console.assert(positionBuffer.size, "_bindDrawParamGeometry: Position buffer must not have size of 0");
-			const vertexCount = positionBuffer.size / positionBuffer.stride;
-			/** Create BufferGeometry. */
-			const geometry = new three.BufferGeometry();
+		static _bindDrawParamGeometry(attributes, primitiveParam, module, geometry = new three.BufferGeometry()) {
 			const indexPtr = primitiveParam.pIndexBuffer / 2;
-			const indexCount = primitiveParam.indexCount;
-			const indices = module.HEAPU16.slice(indexPtr, indexPtr + indexCount);
+			const indices = module.HEAPU16.slice(indexPtr, indexPtr + primitiveParam.indexCount);
 			geometry.setIndex(new three.Uint16BufferAttribute(indices, 1));
-			for (const typeStr in attributes) {
-				const buffer = attributes[typeStr];
-				const type = Number.parseInt(typeStr);
-				if (buffer.size === 0) continue;
-				switch (type) {
-					case this.FFLAttributeBufferType.POSITION:
-						if (buffer.stride === 16) {
-							/** float data type */
-							const ptr = buffer.ptr / 4;
-							const data = module.HEAPF32.slice(ptr, ptr + vertexCount * 4);
-							const interleavedBuffer = new three.InterleavedBuffer(data, 4);
-							geometry.setAttribute("position", new three.InterleavedBufferAttribute(interleavedBuffer, 3, 0));
-						} else if (buffer.stride === 6) {
-							/** half-float data type */
-							const ptr = buffer.ptr / 2;
-							const data = module.HEAPU16.slice(ptr, ptr + vertexCount * 3);
-							geometry.setAttribute("position", new three.Float16BufferAttribute(data, 3));
-						} else unexpectedStride(typeStr, buffer.stride);
-						break;
-					case this.FFLAttributeBufferType.NORMAL: {
-						const data = module.HEAP8.slice(buffer.ptr, buffer.ptr + buffer.size);
-						geometry.setAttribute("normal", new three.Int8BufferAttribute(data, buffer.stride, true));
-						break;
-					}
-					case this.FFLAttributeBufferType.TANGENT: {
-						const data = module.HEAP8.slice(buffer.ptr, buffer.ptr + buffer.size);
-						geometry.setAttribute("tangent", new three.Int8BufferAttribute(data, buffer.stride, true));
-						break;
-					}
-					case this.FFLAttributeBufferType.TEXCOORD:
-						if (buffer.stride === 8) {
-							/** float data type */
-							const ptr = buffer.ptr / 4;
-							const data = module.HEAPF32.slice(ptr, ptr + vertexCount * 2);
-							geometry.setAttribute("uv", new three.Float32BufferAttribute(data, 2));
-						} else if (buffer.stride === 4) {
-							/** half-float data type */
-							const ptr = buffer.ptr / 2;
-							const data = module.HEAPU16.slice(ptr, ptr + vertexCount * 2);
-							geometry.setAttribute("uv", new three.Float16BufferAttribute(data, 2));
-						} else unexpectedStride(typeStr, buffer.stride);
-						break;
-					case this.FFLAttributeBufferType.COLOR: {
-						if (buffer.stride === 0) break;
-						const data = module.HEAPU8.slice(buffer.ptr, buffer.ptr + buffer.size);
-						geometry.setAttribute("_color", new three.Uint8BufferAttribute(data, buffer.stride, true));
-						break;
-					}
-				}
+			const pos = attributes[this.FFLAttributeBufferType.POSITION];
+			console.assert(pos.size, "_bindDrawParamGeometry: Position buffer must not be empty.");
+			/** Whether or not attributes are using float16 format. */
+			const isHalfFloat = pos.stride < 16;
+			const txc = attributes[this.FFLAttributeBufferType.TEXCOORD];
+			const nrm = attributes[this.FFLAttributeBufferType.NORMAL];
+			const tan = attributes[this.FFLAttributeBufferType.TANGENT];
+			const col = attributes[this.FFLAttributeBufferType.COLOR];
+			const posEnd = pos.ptr + pos.size;
+			const posAttribute = isHalfFloat ? new three.Float16BufferAttribute(module.HEAPU16.slice(pos.ptr / 2, posEnd / 2), 3) : new three.InterleavedBufferAttribute(new three.InterleavedBuffer(module.HEAPF32.slice(pos.ptr / 4, posEnd / 4), 4), 3, 0);
+			geometry.setAttribute("position", posAttribute);
+			if (txc.size) {
+				const end = txc.ptr + txc.size;
+				const attr = isHalfFloat ? new three.Float16BufferAttribute(module.HEAPU16.slice(txc.ptr / 2, end / 2), 2) : new three.Float32BufferAttribute(module.HEAPF32.slice(txc.ptr / 4, end / 4), 2);
+				geometry.setAttribute("uv", attr);
 			}
+			if (nrm.size) geometry.setAttribute("normal", new three.Int8BufferAttribute(module.HEAP8.slice(nrm.ptr, nrm.ptr + nrm.size), nrm.stride, true));
+			if (tan.size) geometry.setAttribute("tangent", new three.Int8BufferAttribute(module.HEAP8.slice(tan.ptr, tan.ptr + tan.size), tan.stride, true));
+			if (col.size && col.stride > 0) geometry.setAttribute("_color", new three.Uint8BufferAttribute(module.HEAPU8.slice(col.ptr, col.ptr + col.size), col.stride, true));
 			return geometry;
 		}
 		/**
@@ -2088,11 +2046,11 @@ three = __toESM(three);
 		* Applies transformations in pAdjustMatrix within a FFLDrawParam to a mesh.
 		* @param {number} pMtx - Pointer to rio::Matrix34f.
 		* @param {THREE.Object3D} mesh - The mesh to apply transformations to.
-		* @param {Float32Array} heapf32 - HEAPF32 buffer view within {@link Module}.
+		* @param {Float32Array} heapF32 - HEAPF32 buffer view within {@link Module}.
 		* @private
 		*/
-		static _applyAdjustMatrixToMesh(pMtx, mesh, heapf32) {
-			const m = new Float32Array(heapf32.buffer, pMtx, 12);
+		static _applyAdjustMatrixToMesh(pMtx, mesh, heapF32) {
+			const m = new Float32Array(heapF32.buffer, pMtx, 12);
 			mesh.scale.set(m[0], m[5], m[10]);
 			mesh.position.set(m[3], m[7], m[11]);
 		}
@@ -2142,14 +2100,14 @@ three = __toESM(three);
 			_disposeMany(offscreenScene);
 			return target;
 		},
-		_drawMaskTextures(charModel, maskParamPtrs, targets, renderer, module, texMgr, materialClass) {
+		_drawMaskTextures(charModel, maskParams, targets, renderer, module, texMgr, materialClass) {
 			const maskTempObjectPtr = charModel.getMaskTempObjectPtr();
 			const expressionFlagPtr = charModel.getExpressionFlagPtr();
 			/** @type {Array<THREE.Scene>} */
 			const scenes = [];
-			for (let i = 0; i < maskParamPtrs.length; i++) {
-				if (maskParamPtrs[i] === 0) continue;
-				const maskParamPtr = maskParamPtrs[i];
+			for (let i = 0; i < maskParams.length; i++) {
+				if (maskParams[i] === 0) continue;
+				const maskParamPtr = maskParams[i];
 				const rawMaskDrawParam = this._unpackDrawParamArray(module.HEAPU8, maskParamPtr, this.MaskPartCount);
 				module._FFLiInvalidateRawMask(maskParamPtr);
 				const res = charModel.getResolution();
@@ -2396,81 +2354,6 @@ three = __toESM(three);
 			this.uniforms.map = { value };
 		}
 	};
-	const GeometryConversion = {
-		convertForGLTF(geometry) {
-			if (!(geometry instanceof three.BufferGeometry) || !geometry.attributes) throw new TypeError("convGeometryToGLTFCompatible: geometry is not BufferGeometry with attributes.");
-			for (const [key, attr] of Object.entries(geometry.attributes)) {
-				const bufferAttribute = attr instanceof three.InterleavedBufferAttribute ? this._interleavedToBufferAttribute(attr) : attr;
-				const array = bufferAttribute.array;
-				const originalItemSize = bufferAttribute.itemSize;
-				const count = bufferAttribute.count;
-				/**
-				* Size of the target attribute. Force vec3 for "normal".
-				* @type {number}
-				*/
-				const targetItemSize = key.toLowerCase() === "normal" ? 3 : originalItemSize;
-				/** @type {Float32Array|Uint8Array} */ let newArray;
-				/** Whether the value is normalized. False by default for float attributes. */
-				let normalized = false;
-				if (array instanceof Float32Array) newArray = targetItemSize === originalItemSize ? array : this._copyFloat32Reduced(array, count, originalItemSize, targetItemSize);
-				else if (array instanceof Uint16Array) {
-					const float32Full = this._halfArrayToFloat(array);
-					newArray = targetItemSize === originalItemSize ? float32Full : this._copyFloat32Reduced(float32Full, count, originalItemSize, targetItemSize);
-				} else if (array instanceof Int8Array) newArray = this._snormToFloat(array, count, originalItemSize, targetItemSize);
-				else if (array instanceof Uint8Array) {
-					newArray = array;
-					normalized = true;
-				} else throw new TypeError(`convGeometryToGLTFCompatible: Unsupported attribute data type for ${key}: ${array.constructor.name}`);
-				geometry.setAttribute(key, new three.BufferAttribute(newArray, targetItemSize, normalized));
-			}
-		},
-		_interleavedToBufferAttribute(attr) {
-			const { itemSize, count } = attr;
-			const dest = new attr.array.constructor(count * itemSize);
-			for (let i = 0; i < count; i++) for (let j = 0; j < itemSize; j++) dest[i * itemSize + j] = attr.getComponent(i, j);
-			return new three.BufferAttribute(dest, itemSize);
-		},
-		_copyFloat32Reduced(src, count, srcItemSize, targetItemSize) {
-			const dst = new Float32Array(count * targetItemSize);
-			for (let i = 0; i < count; i++) for (let j = 0; j < targetItemSize; j++) dst[i * targetItemSize + j] = src[i * srcItemSize + j];
-			return dst;
-		},
-		_halfToFloat(half) {
-			const sign = (half & 32768) >> 15;
-			const exponent = (half & 31744) >> 10;
-			const mantissa = half & 1023;
-			if (exponent === 0) return (sign ? -1 : 1) * Math.pow(2, -14) * (mantissa / Math.pow(2, 10));
-			else if (exponent === 31) return mantissa ? NaN : (sign ? -1 : 1) * Infinity;
-			return (sign ? -1 : 1) * Math.pow(2, exponent - 15) * (1 + mantissa / 1024);
-		},
-		_halfArrayToFloat(halfArray) {
-			const floatArray = new Float32Array(halfArray.length);
-			for (let i = 0; i < halfArray.length; i++) floatArray[i] = this._halfToFloat(halfArray[i]);
-			return floatArray;
-		},
-		_snormToFloat(src, count, srcItemSize, targetItemSize) {
-			const dst = new Float32Array(count * targetItemSize);
-			for (let i = 0; i < count; i++) {
-				const baseIn = i * srcItemSize;
-				const baseOut = i * targetItemSize;
-				if (targetItemSize === 4 && srcItemSize === 4) {
-					const x = src[baseIn] / 127;
-					const y = src[baseIn + 1] / 127;
-					const z = src[baseIn + 2] / 127;
-					const w = src[baseIn + 3] / 127;
-					const mag = Math.hypot(x, y, z) || 1;
-					dst[baseOut] = x / mag;
-					dst[baseOut + 1] = y / mag;
-					dst[baseOut + 2] = z / mag;
-					dst[baseOut + 3] = w;
-				} else for (let j = 0; j < targetItemSize; j++) {
-					const val = src[baseIn + j];
-					dst[baseOut + j] = val < 0 ? val / 128 : val / 127;
-				}
-			}
-			return dst;
-		}
-	};
 	/**
 	* @param {Renderer} renderer - The input renderer.
 	* @returns {boolean} Whether the renderer is THREE.WebGPURenderer.
@@ -2478,7 +2361,7 @@ three = __toESM(three);
 	*/
 	const _isWebGPU = (renderer) => "isWebGPURenderer" in renderer;
 	/**
-	* Returns an ortho camera that is effectively the same as
+	* Returns a camera that is effectively the same as
 	* if you used identity MVP matrix, for rendering 2D planes.
 	* @param {boolean} flipY - Flip the Y axis. Default is oriented for OpenGL.
 	* @returns {THREE.OrthographicCamera} The orthographic camera.
@@ -2571,7 +2454,7 @@ three = __toESM(three);
 			const plane = new three.PlaneGeometry(2, 2);
 			const mesh = new three.Mesh(plane, material);
 			scene.add(mesh);
-			/** Ortho camera filling whole screen. */
+			/** Orthographic camera filling whole screen. */
 			const camera = _getIdentCamera(flipY);
 			const state = this._saveRendererState(renderer);
 			renderer.setRenderTarget(null);
@@ -2612,7 +2495,7 @@ three = __toESM(three);
 	};
 	/**
 	* Converts StudioCharInfo to FFLiCharInfo type needed by FFL internally.
-	* @param {Uint8Array} src - The raw, unobfuscated StudioCharInfo data.
+	* @param {Uint8Array} src - The raw, un-obfuscated StudioCharInfo data.
 	* @returns {Uint8Array} Byte form of FFLiCharInfo.
 	* @package
 	*/
@@ -2699,7 +2582,6 @@ exports.FFLModulateType = FFLModulateType;
 exports.FFLRace = FFLRace;
 exports.FFLResultException = FFLResultException;
 exports.FFLiVerifyReasonException = FFLiVerifyReasonException;
-exports.GeometryConversion = GeometryConversion;
 exports.ModelIcon = ModelIcon;
 exports.ModelTexturesConverter = ModelTexturesConverter;
 exports.PantsColor = PantsColor;

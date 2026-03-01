@@ -24,7 +24,7 @@ export type FFLCharModelDesc = {
     modelFlag: FFLModelFlag;
 };
 /**
- * Generic type for both types of Three.js renderers.
+ * Generic type for both types of Three.js renderer.
  */
 export type Renderer = import("three/webgpu").Renderer | THREE.WebGLRenderer;
 /**
@@ -92,7 +92,7 @@ export type Module = {
     _FFLpGetStoreDataFromCharInfo: (arg0: number, arg1: number) => any;
     /**
      * -
-     * This isn't used and can't be used without a decoding method (with bitfields),
+     * The output is encoded in a bitfield that has to be decoded, so it's not used now,
      * but to get "additional info" would be nice in general.
      */
     _FFLGetAdditionalInfo: (arg0: number, arg1: number, arg2: number, arg3: number, arg4: boolean) => any;
@@ -312,6 +312,7 @@ export class FFL {
      * @property {Array<number>} size
      * @private
      */
+    /** @private */
     private static FFLResourceDesc_size;
     /**
      * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
@@ -326,7 +327,7 @@ export class FFL {
      * Use a Fetch response to stream directly, or a Uint8Array if you only have the raw bytes.
      * @param {Module} module - The Emscripten module instance.
      * @returns {Promise<{pointer: number, size: number}>} Pointer and size of the allocated heap memory.
-     * @throws {Error} resource must be a Uint8Array or fetch that is streamable and has Content-Length.
+     * @throws {Error} resource must be a Uint8Array or fetch that can be streamed and has Content-Length.
      * @private
      */
     private static _loadDataIntoHeap;
@@ -634,8 +635,8 @@ export class CharModel {
     };
     /**
      * Bounding box of the model.
-     * Please use this instead of Three.js's built-in methods to get
-     * the bounding box, since this excludes invisible shapes.
+     * This needs to be used instead of the Three.js built-in method
+     * for getting bounding boxes, since this excludes invisible shapes.
      * @public
      */
     public boundingBox: THREE.Box3;
@@ -849,7 +850,7 @@ export namespace ModelIcon {
      */
     function _restoreRendererState(renderer: Renderer, state: ReturnType<typeof this._saveRendererState>): void;
     /**
-     * Copies the renderer's swapchain to a canvas.
+     * Copies the renderer's framebuffer to a canvas.
      * @param {Renderer} renderer - The renderer.
      * @param {HTMLCanvasElement} [canvas] - Optional target canvas. If not provided, a new one is created.
      * @returns {HTMLCanvasElement} The canvas containing the rendered output.
@@ -985,61 +986,6 @@ export namespace ModelTexturesConverter {
      * @public
      */
     function convModelTargetsToDataTex(charModel: CharModel, renderer: Renderer): Promise<void>;
-}
-export namespace GeometryConversion {
-    /**
-     * Modifies a BufferGeometry in place to be compatible with glTF.
-     * It currently: deinterleaves attributes, converts half-float to float,
-     * and converts signed integer formats (not uint8 for color) to float.
-     * Attributes named "normal" are reduced to three components.
-     * @param {THREE.BufferGeometry} geometry - The BufferGeometry to modify in place.
-     * @throws {TypeError} Throws if an unsupported attribute format is encountered.
-     * @public
-     */
-    function convertForGLTF(geometry: THREE.BufferGeometry): void;
-    /**
-     * Deinterleaves an InterleavedBufferAttribute into a standalone BufferAttribute.
-     * @param {THREE.InterleavedBufferAttribute} attr - The interleaved attribute.
-     * @returns {THREE.BufferAttribute} A new BufferAttribute containing deinterleaved data.
-     * @private
-     */
-    function _interleavedToBufferAttribute(attr: THREE.InterleavedBufferAttribute): THREE.BufferAttribute;
-    /**
-     * Creates a new Float32Array by copying only a subset of components per vertex.
-     * @param {Float32Array} src - The source Float32Array.
-     * @param {number} count - Number of vertices.
-     * @param {number} srcItemSize - Original components per vertex.
-     * @param {number} targetItemSize - Number of components to copy per vertex.
-     * @returns {Float32Array} A new Float32Array with reduced component count.
-     * @private
-     */
-    function _copyFloat32Reduced(src: Float32Array, count: number, srcItemSize: number, targetItemSize: number): Float32Array;
-    /**
-     * Converts a 16-bit half-float value to a 32-bit float.
-     * @param {number} half - The half-float value.
-     * @returns {number} The corresponding 32-bit float value.
-     * @private
-     */
-    function _halfToFloat(half: number): number;
-    /**
-     * Converts a Uint16Array assumed to represent half-float values into a Float32Array.
-     * @param {Uint16Array} halfArray - The Uint16Array of half-float values.
-     * @returns {Float32Array} A Float32Array with converted float values.
-     * @private
-     */
-    function _halfArrayToFloat(halfArray: Uint16Array): Float32Array;
-    /**
-     * Converts an Int8Array of SNORM values to a Float32Array.
-     * If the targetItemSize is less than the original (e.g. for normals), only the first targetItemSize
-     * components of each vertex are copied.
-     * @param {Int8Array} src - The source Int8Array.
-     * @param {number} count - Number of vertices.
-     * @param {number} srcItemSize - Original number of components per vertex.
-     * @param {number} targetItemSize - Number of components per vertex for the output.
-     * @returns {Float32Array} A Float32Array with converted values.
-     * @private
-     */
-    function _snormToFloat(src: Int8Array, count: number, srcItemSize: number, targetItemSize: number): Float32Array;
 }
 import * as THREE from 'three';
 /**

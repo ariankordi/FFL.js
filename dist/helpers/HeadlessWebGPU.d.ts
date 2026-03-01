@@ -23,10 +23,10 @@ export function createThreeRenderer(width?: number, height?: number): Promise<im
 /**
  * Writes a 32-bit (transparent) image in Microsoft BMP format.
  * Useful for testing since it's uncompressed and can be viewed in web browsers.
- * NOTE: If the output has inverted colors, you must output BGRA instead of RGBA.
  * @param {number} width - Width of the image.
  * @param {number} height - Height of the image.
- * @param {Uint8Array} bgraPixels - Image data in BGRA format, 32 bits per pixel.
+ * @param {Uint8Array} rgbaPixels - Image data in RGBA format, 32 bits per pixel.
+ * @param {boolean} flipY - Whether Y should be flipped in the image (true for WebGL).
  * @returns {Uint8Array} BMP file bytes.
  */
-export function encodeBmpImage(width: number, height: number, bgraPixels: Uint8Array): Uint8Array;
+export function encodeBmpImage(width: number, height: number, rgbaPixels: Uint8Array, flipY?: boolean): Uint8Array;

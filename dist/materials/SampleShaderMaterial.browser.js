@@ -1019,11 +1019,6 @@ void main()
 		*/
 		set colorInfo(value) {
 			console.assert(this._modulateType !== void 0, "modulateType must be set before colorInfo");
-			/**
-			* 0->8
-			* @param {number} c - Ver3 hair color.
-			* @returns {number} The corresponding common color.
-			*/
 			const ver3ToVer4HairColor = (c) => c === 0 ? 8 : c & 2147483647;
 			const getSssTable = () => this._sssColorTable[this._modulateType];
 			const getSpecularTable = () => this._specularColorTable[this._modulateType];
