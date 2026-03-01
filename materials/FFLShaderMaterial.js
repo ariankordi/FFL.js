@@ -15,13 +15,14 @@ import * as THREE from 'three';
  * @typedef {Object} FFLShaderMaterialParameters
  * @property {FFLModulateMode} [modulateMode] - Modulate mode.
  * @property {FFLModulateType} [modulateType] - Modulate type.
- * @property {THREE.Color|Array<THREE.Color>} [color] -
- * Constant color assigned to u_const1/2/3 depending on single or array.
+ * @property {THREE.Color|null} [color] - Constant color.
+ * @property {THREE.Color} [colorG]
+ * @property {THREE.Color} [colorB]
  * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
  * @property {THREE.Vector3} [lightDirection] - Light direction.
  * @property {boolean} [useSpecularModeBlinn] - Whether to override
  * specular mode on all materials with 0 (Blinn-Phong specular).
- * @property {THREE.Texture} [map] - Texture map.
+ * @property {THREE.Texture|null} [map] - Texture map.
  */
 
 // // ---------------------------------------------------------------------
@@ -54,44 +55,14 @@ varying   vec2 v_texCoord;       //!< 出力: テクスチャー座標
 //uniform mat4 projectionMatrix; //!< ユニフォーム: モデル行列
 // All provided by three.js ^^
 
-// skinning_pars_vertex.glsl.js
-#ifdef USE_SKINNING
-    uniform mat4 bindMatrix;
-    uniform mat4 bindMatrixInverse;
-    uniform highp sampler2D boneTexture;
-    mat4 getBoneMatrix( const in float i ) {
-        int size = textureSize( boneTexture, 0 ).x;
-        int j = int( i ) * 4;
-        int x = j % size;
-        int y = j / size;
-        vec4 v1 = texelFetch( boneTexture, ivec2( x, y ), 0 );
-        vec4 v2 = texelFetch( boneTexture, ivec2( x + 1, y ), 0 );
-        vec4 v3 = texelFetch( boneTexture, ivec2( x + 2, y ), 0 );
-        vec4 v4 = texelFetch( boneTexture, ivec2( x + 3, y ), 0 );
-        return mat4( v1, v2, v3, v4 );
-    }
-#endif
+#include <skinning_pars_vertex>
 
 void main()
 {
 
-    // begin_vertex.glsl.js
-    vec3 transformed = vec3( position );
-// skinbase_vertex.glsl.js
-#ifdef USE_SKINNING
-    mat4 boneMatX = getBoneMatrix( skinIndex.x );
-    mat4 boneMatY = getBoneMatrix( skinIndex.y );
-    mat4 boneMatZ = getBoneMatrix( skinIndex.z );
-    mat4 boneMatW = getBoneMatrix( skinIndex.w );
-    // skinning_vertex.glsl.js
-    vec4 skinVertex = bindMatrix * vec4( transformed, 1.0 );
-    vec4 skinned = vec4( 0.0 );
-    skinned += boneMatX * skinVertex * skinWeight.x;
-    skinned += boneMatY * skinVertex * skinWeight.y;
-    skinned += boneMatZ * skinVertex * skinWeight.z;
-    skinned += boneMatW * skinVertex * skinWeight.w;
-    transformed = ( bindMatrixInverse * skinned ).xyz;
-#endif
+    #include <begin_vertex>
+    #include <skinbase_vertex>
+    #include <skinning_vertex>
 
 //#ifdef FFL_COORDINATE_MODE_NORMAL
     // 頂点座標を変換
@@ -100,19 +71,8 @@ void main()
 
     vec3 objectNormal = normal;
     vec3 objectTangent = tangent.xyz;
-// skinnormal_vertex.glsl.js
-#ifdef USE_SKINNING
-    mat4 skinMatrix = mat4( 0.0 );
-    skinMatrix += skinWeight.x * boneMatX;
-    skinMatrix += skinWeight.y * boneMatY;
-    skinMatrix += skinWeight.z * boneMatZ;
-    skinMatrix += skinWeight.w * boneMatW;
-    skinMatrix = bindMatrixInverse * skinMatrix * bindMatrix;
 
-    objectNormal = vec4( skinMatrix * vec4( objectNormal, 0.0 ) ).xyz;
-    objectTangent = vec4( skinMatrix * vec4( objectTangent, 0.0 ) ).xyz;
-
-#endif
+    #include <skinnormal_vertex>
 
     // 法線も変換
     //v_normal = mat3(inverse(u_mv)) * a_normal;
@@ -301,9 +261,9 @@ varying mediump vec3 v_tangent;        //!< 出力: 異方位
 varying mediump vec2 v_texCoord;       //!< 出力: テクスチャー座標
 
 /// constカラー
-uniform mediump vec4  u_const1; ///< constカラー1
-uniform mediump vec4  u_const2; ///< constカラー2
-uniform mediump vec4  u_const3; ///< constカラー3
+uniform mediump vec3  u_const1; ///< constカラー1
+uniform mediump vec3  u_const2; ///< constカラー2
+uniform mediump vec3  u_const3; ///< constカラー3
 
 /// ライト設定
 uniform mediump vec3 u_light_ambient;  ///< カメラ空間のライト方向
@@ -321,6 +281,7 @@ uniform mediump float u_material_specular_power; ///< スペキュラの鋭さ(0
 
 /// 変調設定
 uniform int u_mode;   ///< 描画モード
+uniform mediump float u_opacity; // Needed for Three.js opacity value.
 
 /// リム設定
 uniform mediump vec3  u_rim_color;
@@ -342,38 +303,38 @@ void main()
 //#ifdef FFL_MODULATE_MODE_CONSTANT
     if(u_mode == FFL_MODULATE_MODE_CONSTANT)
     {
-      color = u_const1;
+      color = vec4(u_const1.rgb, u_opacity);
     }
     // modified to handle u_const1 alpha:
 //#elif defined(FFL_MODULATE_MODE_TEXTURE_DIRECT)
     else if(u_mode == FFL_MODULATE_MODE_TEXTURE_DIRECT)
     {
         mediump vec4 texel = texture2D(s_texture, v_texCoord);
-        color = vec4(texel.rgb, u_const1.a * texel.a);
+        color = vec4(texel.rgb, u_opacity * texel.a);
     }
 //#elif defined(FFL_MODULATE_MODE_RGB_LAYERED)
     else if(u_mode == FFL_MODULATE_MODE_RGB_LAYERED)
     {
         mediump vec4 texel = texture2D(s_texture, v_texCoord);
-        color = vec4(texel.r * u_const1.rgb + texel.g * u_const2.rgb + texel.b * u_const3.rgb, u_const1.a * texel.a);
+        color = vec4(texel.r * u_const1.rgb + texel.g * u_const2.rgb + texel.b * u_const3.rgb, u_opacity * texel.a);
     }
 //#elif defined(FFL_MODULATE_MODE_ALPHA)
     else if(u_mode == FFL_MODULATE_MODE_ALPHA)
     {
         mediump vec4 texel = texture2D(s_texture, v_texCoord);
-        color = vec4(u_const1.rgb, u_const1.a * texel.r);
+        color = vec4(u_const1.rgb, u_opacity * texel.r);
     }
 //#elif defined(FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     else if(u_mode == FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     {
         mediump vec4 texel = texture2D(s_texture, v_texCoord);
-        color = vec4(texel.g * u_const1.rgb, u_const1.a * texel.r);
+        color = vec4(texel.g * u_const1.rgb, u_opacity * texel.r);
     }
 //#elif defined(FFL_MODULATE_MODE_ALPHA_OPA)
     else if(u_mode == FFL_MODULATE_MODE_ALPHA_OPA)
     {
         mediump vec4 texel = texture2D(s_texture, v_texCoord);
-        color = vec4(texel.r * u_const1.rgb, u_const1.a);
+        color = vec4(texel.r * u_const1.rgb, u_opacity);
     }
 //#endif
 
@@ -585,8 +546,6 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		}
 	];
 
-	/** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
-
 	/**
 	 * Constructs an FFLShaderMaterial instance.
 	 * @param {THREE.ShaderMaterialParameters & FFLShaderMaterialParameters} [options] -
@@ -618,6 +577,9 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		});
 
 		// Initialize default values.
+		this.color = /* @__PURE__ */ new THREE.Color();
+		this.colorG = /* @__PURE__ */ new THREE.Color();
+		this.colorB = /* @__PURE__ */ new THREE.Color();
 		/**
 		 * @type {FFLModulateType}
 		 * @private
@@ -629,66 +591,31 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		this.setValues(options);
 	}
 
-	/**
-	 * Gets the constant color (u_const1) uniform as THREE.Color.
-	 * @returns {THREE.Color|null} The constant color, or null if it is not set.
-	 */
+	/** @returns {THREE.Color|undefined} */
 	get color() {
-		if (!this.uniforms.u_const1) {
-			// If color is not set, return null.
-			return null;
-		} else if (this._color3) {
-			// Use cached THREE.Color instance if it is set.
-			return this._color3;
-		}
-		// Get THREE.Color from u_const1 (Vector4).
-		const color4 = /** @type {IUniformVector4} */ (this.uniforms.u_const1).value;
-		const color3 = new THREE.Color(color4.x, color4.y, color4.z);
-		/**
-		 * @type {THREE.Color}
-		 * @private
-		 */
-		this._color3 = color3; // Cache the THREE.Color instance.
-		return color3;
+		return this.uniforms.u_const1 ? this.uniforms.u_const1.value : undefined;
 	}
 
-	/**
-	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {THREE.Color|Array<THREE.Color>} value - The
-	 * constant color (u_const1), or multiple (u_const1/2/3) to set the uniforms for.
-	 */
-	set color(value) {
-		/**
-		 * @param {THREE.Color} color - THREE.Color instance.
-		 * @param {number} opacity - Opacity mapped to .a.
-		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
-		 */
-		function toColor4(color, opacity = 1) {
-			return new THREE.Vector4(color.r, color.g, color.b, opacity);
-		}
-		// Set an array of colors, assumed to have 3 elements.
-		if (Array.isArray(value)) {
-			// Assign multiple color instances to u_const1/2/3.
-			/** @type {IUniformVector4} */ (this.uniforms.u_const1) =
-				{ value: toColor4(value[0]) };
-			/** @type {IUniformVector4} */ (this.uniforms.u_const2) =
-				{ value: toColor4(value[1]) };
-			/** @type {IUniformVector4} */ (this.uniforms.u_const3) =
-				{ value: toColor4(value[2]) };
-			return;
-		}
-		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value || new THREE.Color(1, 1, 1);
-		/** @type {THREE.Color} */
-		this._color3 = color3;
-		// Assign single color with white as a placeholder.
-		const opacity = this.opacity;
-		if (this._opacity) {
-			// if _opacity is set then the above returned it, delete when done
-			delete this._opacity;
-		}
-		/** @type {IUniformVector4} */ (this.uniforms.u_const1) =
-			{ value: toColor4(color3, opacity) };
+	set color(/** @type {THREE.Color} */ value) {
+		this.uniforms.u_const1 = { value: value };
+	}
+
+	/** @returns {THREE.Color|undefined} */
+	get colorG() {
+		return this.uniforms.u_const2 ? this.uniforms.u_const2.value : undefined;
+	}
+
+	set colorG(/** @type {THREE.Color} */ value) {
+		this.uniforms.u_const2 = { value };
+	}
+
+	/** @returns {THREE.Color|undefined} */
+	get colorB() {
+		return this.uniforms.u_const3 ? this.uniforms.u_const3.value : undefined;
+	}
+
+	set colorB(/** @type {THREE.Color} */ value) {
+		this.uniforms.u_const3 = { value };
 	}
 
 	/**
@@ -697,12 +624,12 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	// @ts-ignore - Already defined on parent class.
 	get opacity() {
-		if (!this.uniforms.u_const1) {
-			// Get from _opacity if it is set before constant color.
-			return this._opacity || 1;
+		if (this._opacity !== undefined) {
+			const ret = this._opacity;
+			delete this._opacity;
+			return ret;
 		}
-		// Return w (alpha) of the constant color uniform.
-		return /** @type {IUniformVector4} */ (this.uniforms.u_const1).value.w;
+		return this.uniforms.u_opacity ? this.uniforms.u_opacity.value : 1;
 	}
 
 	/**
@@ -713,13 +640,13 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	// @ts-ignore - Already defined on parent class.
 	set opacity(value) {
-		if (!this.uniforms || !this.uniforms.u_const1) {
+		if (this.uniforms) {
+			this.uniforms.u_opacity = { value };
+		} else {
 			// Store here for later when color is set.
 			/** @private */
-			this._opacity = 1;
-			return;
+			this._opacity = value;
 		}
-		/** @type {IUniformVector4} */ (this.uniforms.u_const1).value.w = value;
 	}
 
 	/**

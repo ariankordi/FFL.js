@@ -15,11 +15,12 @@ import * as THREE from 'three';
  * @typedef {Object} LUTShaderMaterialParameters
  * @property {FFLModulateMode} [modulateMode] - Modulate mode.
  * @property {FFLModulateType} [modulateType] - Modulate type.
- * @property {THREE.Color|Array<THREE.Color>} [color] -
- * Constant color assigned to uColor0/1/2 depending on single or array.
+ * @property {THREE.Color|null} [color] - Constant color.
+ * @property {THREE.Color} [colorG]
+ * @property {THREE.Color} [colorB]
  * @property {THREE.Vector3} [lightDirection] - Light direction.
  * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
- * @property {THREE.Texture} [map] - Texture map.
+ * @property {THREE.Texture|null} [map] - Texture map.
  */
 
 // // ---------------------------------------------------------------------
@@ -456,9 +457,10 @@ precision mediump float;
 uniform int   uMode;   ///< 描画モード
 uniform bool uAlphaTest;
 uniform bool uLightEnable;
-uniform mediump vec4    uColor0;            //!< 入力:[ 1 : 1 ] カラー0 (OR 肌カラー)
-uniform mediump vec4    uColor1;            //!< 入力:[ 1 : 2 ] カラー1 (OR 髪カラー)
-uniform mediump vec4    uColor2;            //!< 入力:[ 1 : 3 ] カラー2 (OR フェードアウトカラー)
+uniform mediump float uOpacity; // custom
+uniform mediump vec3    uColor0;            //!< 入力:[ 1 : 1 ] カラー0 (OR 肌カラー)
+uniform mediump vec3    uColor1;            //!< 入力:[ 1 : 2 ] カラー1 (OR 髪カラー)
+uniform mediump vec3    uColor2;            //!< 入力:[ 1 : 3 ] カラー2 (OR フェードアウトカラー)
 //#if !defined(AGX_FEATURE_DISABLE_LIGHT)
 uniform mediump vec3    uLightColor;        //!< 入力:[ 1 : 4 ] ライトの色
 //#endif
@@ -523,7 +525,7 @@ void main()
    //#if defined(AGX_FEATURE_MII_CONSTANT)
     if(uMode == FFL_MODULATE_MODE_CONSTANT)
     {
-        albedoColor = uColor0;
+        albedoColor = vec4(uColor0.rgb, uOpacity);
     }
     //#elif defined(AGX_FEATURE_MII_TEXTURE_DIRECT)
     else if(uMode == FFL_MODULATE_MODE_TEXTURE_DIRECT)
@@ -535,25 +537,25 @@ void main()
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
         albedoColor = vec4(albedoColor.r * uColor0.rgb + albedoColor.g * uColor1.rgb + albedoColor.b * uColor2.rgb,
-                           uColor0.a * albedoColor.a);
+                           uOpacity * albedoColor.a);
     }
     //#elif defined(AGX_FEATURE_MII_ALPHA)
     else if(uMode == FFL_MODULATE_MODE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(uColor0.rgb, uColor0.a * albedoColor.r);
+        albedoColor = vec4(uColor0.rgb, uOpacity * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_LUMINANCE_ALPHA)
     else if(uMode == FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.g * uColor0.rgb, uColor0.a * albedoColor.r);
+        albedoColor = vec4(albedoColor.g * uColor0.rgb, uOpacity * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_ALPHA_OPA)
     else if(uMode == FFL_MODULATE_MODE_ALPHA_OPA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.r * uColor0.rgb, uColor0.a);
+        albedoColor = vec4(albedoColor.r * uColor0.rgb, uOpacity);
     }
 //#endif
 
@@ -1044,8 +1046,6 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		return color; // no multiply needed
 	}
 
-	/** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
-
 	/**
 	 * Constructs a LUTShaderMaterial instance.
 	 * NOTE: Pass parameters in this order: side, modulateType, color
@@ -1090,6 +1090,10 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 			uniforms: uniforms
 		});
 
+		// Initialize default values.
+		this.color = /* @__PURE__ */ new THREE.Color();
+		this.colorG = /* @__PURE__ */ new THREE.Color();
+		this.colorB = /* @__PURE__ */ new THREE.Color();
 		/**
 		 * @type {FFLModulateType}
 		 * @private
@@ -1100,72 +1104,36 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		this.setValues(options);
 	}
 
-	/**
-	 * Gets the constant color (uColor0) uniform as THREE.Color.
-	 * @returns {THREE.Color|null} The constant color, or null if it is not set.
-	 */
+	/** @returns {THREE.Color|undefined} */
 	get color() {
-		if (!this.uniforms.uColor0) {
-			// If color is not set, return null.
-			return null;
-		} else if (this._color3) {
-			// Use cached THREE.Color instance if it is set.
-			return this._color3;
-		}
-		// Get THREE.Color from uColor0 (Vector4).
-		const color4 = /** @type {IUniformVector4} */ (this.uniforms.uColor0).value;
-		const color3 = new THREE.Color(color4.x, color4.y, color4.z);
-		/**
-		 * @type {THREE.Color}
-		 * @private
-		 */
-		this._color3 = color3; // Cache the THREE.Color instance.
-		return color3;
+		return this.uniforms.uColor0 ? this.uniforms.uColor0.value : undefined;
 	}
 
-	/**
-	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {THREE.Color|Array<THREE.Color>} value - The
-	 * constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
-	 */
-	set color(value) {
-		/**
-		 * @param {THREE.Color} color - THREE.Color instance.
-		 * @param {number} opacity - Opacity mapped to .a.
-		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
-		 */
-		function toColor4(color, opacity = 1) {
-			return new THREE.Vector4(color.r, color.g, color.b, opacity);
-		}
-		// Set an array of colors, assumed to have 3 elements.
-		if (Array.isArray(value)) {
-			// Assign multiple color instances to uColor0/1/2.
-			/** @type {IUniformVector4} */ (this.uniforms.uColor0) =
-				{ value: toColor4(value[0]) };
-			/** @type {IUniformVector4} */ (this.uniforms.uColor1) =
-				{ value: toColor4(value[1]) };
-			/** @type {IUniformVector4} */ (this.uniforms.uColor2) =
-				{ value: toColor4(value[2]) };
-			return;
-		}
-		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value || new THREE.Color(1, 1, 1);
-		/** @type {THREE.Color} */
-		this._color3 = color3.clone(); // Clone and save the color before modification.
-
+	set color(/** @type {THREE.Color} */ value) {
+		const color = value.clone();
 		// Use multiplyColorIfNeeded method for a single color.
 		if (this.modulateType !== undefined && typeof this.modulateMode === 'number') {
-			LUTShaderMaterial._multiplyColorIfNeeded(color3, this.modulateType, this.modulateMode);
+			LUTShaderMaterial._multiplyColorIfNeeded(color, this.modulateType, this.modulateMode);
 		}
+		this.uniforms.uColor0 = { value: color };
+	}
 
-		// Assign single color with white as a placeholder.
-		const opacity = this.opacity;
-		if (this._opacity) {
-			// if _opacity is set then the above returned it, delete when done
-			delete this._opacity;
-		}
-		/** @type {IUniformVector4} */ (this.uniforms.uColor0) =
-			{ value: toColor4(color3, opacity) };
+	/** @returns {THREE.Color|undefined} */
+	get colorG() {
+		return this.uniforms.uColor1 ? this.uniforms.uColor1.value : undefined;
+	}
+
+	set colorG(/** @type {THREE.Color} */ value) {
+		this.uniforms.uColor1 = { value };
+	}
+
+	/** @returns {THREE.Color|undefined} */
+	get colorB() {
+		return this.uniforms.uColor2 ? this.uniforms.uColor2.value : undefined;
+	}
+
+	set colorB(/** @type {THREE.Color} */ value) {
+		this.uniforms.uColor2 = { value };
 	}
 
 	/**
@@ -1174,12 +1142,12 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	// @ts-ignore - Already defined on parent class.
 	get opacity() {
-		if (!this.uniforms.uColor0) {
-			// Get from _opacity if it is set before constant color.
-			return this._opacity || 1;
+		if (this._opacity !== undefined) {
+			const ret = this._opacity;
+			delete this._opacity;
+			return ret;
 		}
-		// Return w (alpha) of the constant color uniform.
-		return /** @type {IUniformVector4} */ (this.uniforms.uColor0).value.w;
+		return this.uniforms.uOpacity ? this.uniforms.uOpacity.value : 1;
 	}
 
 	/**
@@ -1190,13 +1158,13 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	// @ts-ignore - Already defined on parent class.
 	set opacity(value) {
-		if (!this.uniforms || !this.uniforms.uColor0) {
+		if (this.uniforms) {
+			this.uniforms.uOpacity = { value };
+		} else {
 			// Store here for later when color is set.
 			/** @private */
-			this._opacity = 1;
-			return;
+			this._opacity = value;
 		}
-		/** @type {IUniformVector4} */ (this.uniforms.uColor0).value.w = value;
 	}
 
 	/**
@@ -1274,7 +1242,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 		};
 
 		/**
-		 * @type {number|undefined}
+		 * @type {THREE.Side|undefined}
 		 * @package
 		 */
 		this._side = this.side; // Store original side.

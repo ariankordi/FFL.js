@@ -2847,21 +2847,11 @@ class DrawParam {
 	static _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
 		/* eslint-enable jsdoc/require-returns-type -- Allow TS to predict return type. */
 		// Apply constant colors.
-		/** @type {THREE.Color|Array<THREE.Color>|null} */
-		let color = null;
 
 		const f32 = module.HEAPF32;
-		// If both pColorG and pColorB are provided, combine them into an array.
-		if (modulateParam.pColorG !== 0 && modulateParam.pColorB !== 0) {
-			color = [
-				_getFFLColor(f32, modulateParam.pColorR),
-				_getFFLColor(f32, modulateParam.pColorG),
-				_getFFLColor(f32, modulateParam.pColorB)
-			];
-		} else if (modulateParam.pColorR !== 0) {
-			// Otherwise, set it as a single color.
-			color = _getFFLColor(f32, modulateParam.pColorR);
-		}
+		const color = modulateParam.pColorR
+			? _getFFLColor(f32, modulateParam.pColorR)
+			: null;
 
 		// Only set opacity to 0 for "fill" 2D plane.
 		const opacity = modulateParam.type === FFLModulateType.FILL ? 0 : 1;
@@ -2882,9 +2872,10 @@ class DrawParam {
 			: {};
 
 		// Not applying map here, that happens in _getTextureFromModulateParam.
+		/** @type {TextureShaderMaterialParameters} */
 		const param = Object.assign(modulateModeType, {
 			// Common Three.js material parameters.
-			color: color,
+			color,
 			opacity: opacity,
 			transparent: transparent,
 			// Depth writing is disabled for DrawXlu stage however
@@ -2896,6 +2887,9 @@ class DrawParam {
 			// Apply blending options (for mask/faceline) based on modulateType.
 			...this._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
 		});
+
+		modulateParam.pColorG && (param.colorG = _getFFLColor(f32, modulateParam.pColorG));
+		modulateParam.pColorB && (param.colorB = _getFFLColor(f32, modulateParam.pColorB));
 
 		// only for mask/faceline which should not be drawn in non-ffl materials:
 		if (!lightEnable) {
@@ -3357,8 +3351,9 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 	 * @typedef {Object} TextureShaderMaterialParameters
 	 * @property {FFLModulateMode} [modulateMode] - Modulate mode.
 	 * @property {FFLModulateType} [modulateType] - Modulate type.
-	 * @property {THREE.Color|Array<THREE.Color>} [color] -
-	 * Constant color assigned to u_const1/2/3 depending on single or array.
+	 * @property {THREE.Color|null} [color] - Constant color.
+	 * @property {THREE.Color} [colorG]
+	 * @property {THREE.Color} [colorB]
 	 */
 
 	/**
@@ -3397,8 +3392,8 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 				uniform vec3 diffuse;
 				uniform float opacity;
 				uniform int modulateMode;
-				uniform vec3 color1;
-				uniform vec3 color2;
+				uniform vec3 colorG;
+				uniform vec3 colorB;
 
 				void main() {
 					vec4 diffuseColor = vec4( diffuse, opacity );
@@ -3409,8 +3404,8 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 					if (modulateMode == 2) { // FFL_MODULATE_MODE_RGB_LAYERED
 				    diffuseColor = vec4(
 				      diffuse.rgb * sampledDiffuseColor.r +
-				      color1.rgb * sampledDiffuseColor.g +
-				      color2.rgb * sampledDiffuseColor.b,
+				      colorG.rgb * sampledDiffuseColor.g +
+				      colorB.rgb * sampledDiffuseColor.b,
 				      sampledDiffuseColor.a
 				    );
 				  } else if (modulateMode == 3) { // FFL_MODULATE_MODE_ALPHA
@@ -3442,6 +3437,9 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 			uniforms: uniforms
 		});
 		// Set defaults so that they are valid parameters.
+		this.color = /* @__PURE__ */ new THREE.Color();
+		this.colorG = /* @__PURE__ */ new THREE.Color();
+		this.colorB = /* @__PURE__ */ new THREE.Color();
 		this.lightEnable = false;
 		this.modulateType = 0;
 
@@ -3449,39 +3447,34 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 		this.setValues(options);
 	}
 
-	/**
-	 * Gets the constant color (diffuse) uniform as THREE.Color.
-	 * @returns {THREE.Color|null} The constant color, or null if it is not set.
-	 */
+	/** @returns {THREE.Color|undefined} */
 	get color() {
-		return this.uniforms.diffuse ? this.uniforms.diffuse.value : null;
+		return this.uniforms.diffuse ? this.uniforms.diffuse.value : undefined;
 	}
 
-	/**
-	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {THREE.Color|Array<THREE.Color>} value -
-	 * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
-	 */
-	set color(value) {
-		// Set an array of colors, assumed to have 3 elements.
-		if (Array.isArray(value)) {
-			// Assign multiple color instances.
-			this.uniforms.diffuse = { value: value[0] };
-			this.uniforms.color1 = { value: value[1] };
-			this.uniforms.color2 = { value: value[2] };
-			return;
-		}
-		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value || new THREE.Color(1, 1, 1);
-		/**
-		 * @type {THREE.Color}
-		 * @private
-		 */
-		this._color3 = color3;
-		this.uniforms.diffuse = { value: color3 };
+	set color(/** @type {THREE.Color} */ value) {
+		this.uniforms.diffuse = { value: value };
 	}
 
-	/** @returns {FFLModulateMode|null}The modulateMode value, or null if it is unset. */
+	/** @returns {THREE.Color|undefined} */
+	get colorG() {
+		return this.uniforms.colorG ? this.uniforms.colorG.value : undefined;
+	}
+
+	set colorG(/** @type {THREE.Color} */ value) {
+		this.uniforms.colorG = { value };
+	}
+
+	/** @returns {THREE.Color|undefined} */
+	get colorB() {
+		return this.uniforms.colorB ? this.uniforms.colorB.value : undefined;
+	}
+
+	set colorB(/** @type {THREE.Color} */ value) {
+		this.uniforms.colorB = { value };
+	}
+
+	/** @returns {FFLModulateMode|null} The modulateMode value, or null if it is unset. */
 	get modulateMode() {
 		return this.uniforms.modulateMode ? this.uniforms.modulateMode.value : null;
 	}

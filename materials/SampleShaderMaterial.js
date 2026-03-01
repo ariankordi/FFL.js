@@ -24,11 +24,12 @@ import * as THREE from 'three';
  * @typedef {Object} SampleShaderMaterialParameters
  * @property {FFLModulateMode} [modulateMode] - Modulate mode.
  * @property {FFLModulateType} [modulateType] - Modulate type.
- * @property {THREE.Color|Array<THREE.Color>} [color] -
- * Constant color assigned to constColor1/2/3 depending on single or array.
+ * @property {THREE.Color|null} [color] - Constant color.
+ * @property {THREE.Color} [colorG]
+ * @property {THREE.Color} [colorB]
  * @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
  * @property {THREE.Vector3} [lightDirection] - Light direction.
- * @property {THREE.Texture} [map] - Texture map.
+ * @property {THREE.Texture|null} [map] - Texture map.
  * @property {SampleShaderMaterialColorInfo} [colorInfo] -
  * Info needed to resolve shader uniforms. This is required
  * or else lighting will not be applied. It can come from
@@ -128,9 +129,10 @@ VARYING_QUALIFIER float v_specularMix;
     uniform int  gammaType;
     uniform int  drawType;
     uniform bool lightEnable; // custom
-    uniform vec4 constColor1;
-    uniform vec4 constColor2;
-    uniform vec4 constColor3;
+    uniform float opacity; // custom
+    uniform vec3 constColor1;
+    uniform vec3 constColor2;
+    uniform vec3 constColor3;
     uniform vec4 lightDirInView;
     // Modified to be vec3:
     uniform vec3 lightColor;
@@ -191,34 +193,33 @@ vec4 GetAlbedo()
     switch(modulateType)
     {
     case MODULATE_TYPE_CONSTANT:
-        //albedo = vec4(constColor1.rgb,1.0);
-        albedo = constColor1;
+        albedo = vec4(constColor1.rgb, opacity);
         break;
     // modified to handle constColor1 alpha:
     case MODULATE_TYPE_TEXTRUE:
         //albedo = texel;
-        albedo = vec4(texel.rgb, constColor1.a * texel.a);
+        albedo = vec4(texel.rgb, opacity * texel.a);
         break;
     case MODULATE_TYPE_LAYERED:
         albedo = vec4(constColor1.rgb * texel.r
             + constColor2.rgb * texel.g
             + constColor3.rgb * texel.b
-            , constColor1.a * texel.a);
+            , opacity * texel.a);
         break;
     case MODULATE_TYPE_ALPHA:
-        albedo = vec4(constColor1.rgb, constColor1.a * texel.r);
+        albedo = vec4(constColor1.rgb, opacity * texel.r);
         break;
     case MODULATE_TYPE_ALPHA_OPA:
-        albedo = vec4(constColor1.rgb * texel.r, constColor1.a);
+        albedo = vec4(constColor1.rgb * texel.r, opacity);
         break;
     case MODULATE_TYPE_GLASS:
         // NOTE: glass background color on switch is R but here it's G
         albedo = vec4(constColor1.rgb * texel.g,
-          constColor1.a * texel.r);//pow(texel.r, constColor2.g));
+          opacity * texel.r);//pow(texel.r, constColor2.g));
           // Not sure why it has pow? without it looks better...
         break;
     case MODULATE_TYPE_ICONBODY:
-        albedo = vec4(constColor1.rgb, constColor1.a);
+        albedo = vec4(constColor1.rgb, opacity);
         break;
     default:
         albedo = vec4(0.0);
@@ -932,8 +933,6 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	static defaultLightDirection = this.defaultLightDir;
 
-	/** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
-
 	/**
 	 * Constructs an SampleShaderMaterial instance.
 	 * @param {THREE.ShaderMaterialParameters & SampleShaderMaterialParameters} [options] -
@@ -962,6 +961,9 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		});
 
 		// Initialize default values.
+		this.color = /* @__PURE__ */ new THREE.Color();
+		this.colorG = /* @__PURE__ */ new THREE.Color();
+		this.colorB = /* @__PURE__ */ new THREE.Color();
 		/**
 		 * @type {FFLModulateType}
 		 * @private
@@ -978,71 +980,31 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		this.setValues(options);
 	}
 
-	/**
-	 * Gets the constant color (constColor1) uniform as THREE.Color.
-	 * @returns {THREE.Color|null} The constant color, or null if it is not set.
-	 */
+	/** @returns {THREE.Color|undefined} */
 	get color() {
-		if (!this.uniforms.constColor1) {
-			// If color is not set, return null.
-			return null;
-		} else if (this._color3) {
-			// Use cached THREE.Color instance if it is set.
-			return this._color3;
-		}
-		// Get THREE.Color from constColor1 (Vector4).
-		const color4 = /** @type {IUniformVector4} */ (this.uniforms.constColor1).value;
-		const color3 = new THREE.Color(color4.x, color4.y, color4.z);
-		/**
-		 * @type {THREE.Color}
-		 * @private
-		 */
-		this._color3 = color3; // Cache the THREE.Color instance.
-		return color3;
+		return this.uniforms.constColor1 ? this.uniforms.constColor1.value : undefined;
 	}
 
-	/**
-	 * Sets the constant color uniforms from THREE.Color.
-	 * @param {THREE.Color|Array<THREE.Color>} value - The
-	 * constant color (constColor1), or multiple (constColor1/2/3) to set the uniforms for.
-	 */
-	set color(value) {
-		/**
-		 * @param {THREE.Color} color - THREE.Color instance.
-		 * @param {number} opacity - Opacity mapped to .a.
-		 * @returns {THREE.Vector4} Vector4 containing color and opacity.
-		 */
-		function toColor4(color, opacity = 1) {
-			return new THREE.Vector4(color.r, color.g, color.b, opacity);
-		}
-		// Set an array of colors, assumed to have 3 elements.
-		if (Array.isArray(value)) {
-			// Assign multiple color instances to constColor1/2/3.
-			/** @type {IUniformVector4} */ (this.uniforms.constColor1) =
-				{ value: toColor4(value[0]) };
-			/** @type {IUniformVector4} */ (this.uniforms.constColor2) =
-				{ value: toColor4(value[1]) };
-			/** @type {IUniformVector4} */ (this.uniforms.constColor3) =
-				{ value: toColor4(value[2]) };
-			return;
-		}
-		// Set single color as THREE.Color, defaulting to white.
-		const color3 = value || new THREE.Color(1, 1, 1);
-		/** @type {THREE.Color} */
-		this._color3 = color3;
-		// Assign single color with white as a placeholder.
-		const opacity = this.opacity;
-		if (this._opacity) {
-			// if _opacity is set then the above returned it, delete when done
-			delete this._opacity;
-		}
-		/** @type {IUniformVector4} */ (this.uniforms.constColor1) =
-			{ value: toColor4(color3, opacity) };
+	set color(/** @type {THREE.Color} */ value) {
+		this.uniforms.constColor1 = { value: value };
+	}
 
-		// Check if a constant color is being set for faceline.
-		if (value && this._modulateType === 0) { // SHAPE_FACELINE
-			this.uniforms.drawType = { value: 0 }; // DRAW_TYPE_NORMAL
-		}
+	/** @returns {THREE.Color|undefined} */
+	get colorG() {
+		return this.uniforms.constColor2 ? this.uniforms.constColor2.value : undefined;
+	}
+
+	set colorG(/** @type {THREE.Color} */ value) {
+		this.uniforms.constColor2 = { value };
+	}
+
+	/** @returns {THREE.Color|undefined} */
+	get colorB() {
+		return this.uniforms.constColor3 ? this.uniforms.constColor3.value : undefined;
+	}
+
+	set colorB(/** @type {THREE.Color} */ value) {
+		this.uniforms.constColor3 = { value };
 	}
 
 	/**
@@ -1051,12 +1013,12 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	// @ts-ignore - Already defined on parent class.
 	get opacity() {
-		if (!this.uniforms.constColor1) {
-			// Get from _opacity if it is set before constant color.
-			return this._opacity || 1;
+		if (this._opacity !== undefined) {
+			const ret = this._opacity;
+			delete this._opacity;
+			return ret;
 		}
-		// Return w (alpha) of the constant color uniform.
-		return /** @type {IUniformVector4} */ (this.uniforms.constColor1).value.w;
+		return this.uniforms.opacity ? this.uniforms.opacity.value : 1;
 	}
 
 	/**
@@ -1067,13 +1029,13 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	// @ts-ignore - Already defined on parent class.
 	set opacity(value) {
-		if (!this.uniforms || !this.uniforms.constColor1) {
+		if (this.uniforms) {
+			this.uniforms.opacity = { value };
+		} else {
 			// Store here for later when color is set.
 			/** @private */
-			this._opacity = 1;
-			return;
+			this._opacity = value;
 		}
-		/** @type {IUniformVector4} */ (this.uniforms.constColor1).value.w = value;
 	}
 
 	/**
@@ -1146,7 +1108,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 		// Set drawType uniform.
 		/** Default = DRAW_TYPE_NORMAL */
 		let drawType = 0;
-		if (value === 0) { // SHAPE_FACELINE
+		if (value === 0 && this.modulateMode === 1) { // SHAPE_FACELINE + Texture
 			drawType = 1; // DRAW_TYPE_FACELINE
 		} else if (value === 4) { // SHAPE_HAIR
 			drawType = 2; // DRAW_TYPE_HAIR

@@ -353,6 +353,8 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 function getTextureMaterial(mat) {
 	return matSupportsFFL(mat)
 		? mat
+		// This will either be the real FFLShaderMaterial,
+		// or the WebGPU compatible version.
 		: materials.FFLShaderMaterial;
 }
 
@@ -468,7 +470,7 @@ function updateLightDirection(normalize = true) {
 	for (const mesh of /** @type {Array<THREE.Mesh>} */ (currentCharModel.meshes.children)) {
 		// Make sure this mesh is non-null and has a compatible ShaderMaterial.
 		if ('lightDirection' in mesh.material) {
-			// mesh.material.opacity = 0.1; // Test materials updating
+			// mesh.material.transparent = mesh.material.opacity = 0.3; // Test materials updating
 			// Set the lightDirection on the material.
 			mesh.material.lightDirection = newDir.clone();
 		}
@@ -571,10 +573,7 @@ function onShaderMaterialChange() {
 
 	for (const mesh of /** @type {Array<THREE.Mesh>} */ (currentCharModel.meshes.children)) {
 		// Recreate material with same parameters but using the new shader class.
-		// TODO: Have to resolve some mismatched types in materials.
-		// For now, the material will simply be any.
-		// const oldMat = /** @type {LUTShaderMaterial} */ (mesh.material);
-		const oldMat = /** @type {any} */ (mesh.material);
+		const oldMat = /** @type {LUTShaderMaterial} */ (mesh.material);
 		/** Get modulateMode/Type */
 		const userData = mesh.geometry.userData;
 
