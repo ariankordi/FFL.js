@@ -8,7 +8,6 @@
 
 import * as fs from 'node:fs/promises';
 import * as THREE from 'three/webgpu';
-import { GPUTextureFormat } from 'three/src/renderers/webgpu/utils/WebGPUConstants.js';
 import { addWebGPUExtensions, createThreeRenderer, encodeBmpImage } from '../helpers/HeadlessWebGPU.js';
 // Standard non-Node dependencies:
 import { FFL, CharModel, ModelIcon } from '../ffl.js';

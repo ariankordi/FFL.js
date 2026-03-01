@@ -735,16 +735,16 @@ function updateCharModelInfo() {
 		return;
 	}
 
-	// Update name from CharInfo.
-	let name = currentCharModel.charInfo.name;
+	// Update name from CharInfo, stripping null characters.
+	let name = currentCharModel.charInfo.name.split('\0')[0];
 	// Sometimes the name is actually null, in which
 	// case it still has length? Let's check for char 0 = null
-	if (!name.length || !name.charCodeAt(0)) {
+	if (name.length) {
+		charModelNameElement.style.fontWeight = '';
+	} else {
 		// Make font bold when name is empty.
 		charModelNameElement.style.fontWeight = 'bold';
 		name = '(No Name)';
-	} else {
-		charModelNameElement.style.fontWeight = '';
 	}
 	charModelNameElement.textContent = name;
 

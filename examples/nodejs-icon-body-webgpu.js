@@ -15,7 +15,6 @@ import { parseArgs } from 'node:util';
 import * as THREE from 'three/webgpu'; // THREE.*, WebGPURenderer
 // Dependencies for body scaling.
 import { GLTFLoader, SkeletonUtils } from 'three/examples/jsm/Addons.js';
-import { GPUTextureFormat } from 'three/src/renderers/webgpu/utils/WebGPUConstants.js';
 import { addSkeletonScalingExtensions } from '../helpers/SkeletonScalingExtensions.js';
 import { detectModelDesc } from '../helpers/ModelScaleDesc.js';
 // FFL.js imports.
