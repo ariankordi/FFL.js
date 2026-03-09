@@ -597,8 +597,7 @@ class TextureManager {
 		// THREE.RGFormat did not work for me on Three.js r136/older.
 		const useOldFormats = Number(THREE.REVISION) <= 136 || TextureManager.isWebGL1;
 		const r8 = useOldFormats
-			// eslint-disable-next-line import-x/namespace -- deprecated, maybe deleted
-			? THREE.LuminanceFormat
+			? /** @type {THREE.PixelFormat} */ (1024) // THREE.LuminanceFormat
 			: THREE.RedFormat;
 		const r8g8 = useOldFormats
 		// NOTE: Using THREE.LuminanceAlphaFormat before it
@@ -606,8 +605,7 @@ class TextureManager {
 		// to be converted to RGBA resulting in two issues.
 		//     - There is a black outline around glasses
 		//     - For glasses that have an inner color, the color is wrongly applied to the frames as well.
-			// eslint-disable-next-line import-x/namespace -- deprecated, maybe deleted
-			? THREE.LuminanceAlphaFormat
+			? /** @type {THREE.PixelFormat} */ (1025) // THREE.LuminanceAlphaFormat
 			: THREE.RGFormat;
 
 		const textureFormatToThreeFormat = [
@@ -1021,7 +1019,7 @@ class FFL {
 
 			// Load the resource (Uint8Array/fetch Response) into heap.
 			const { pointer: heapPtr, size: heapSize } =
-				await this._loadDataIntoHeap(resource, module);
+				await FFL._loadDataIntoHeap(resource, module);
 			// console.debug(`FFL.initWithResource: Resource loaded into heap. Pointer: ${heapPtr}, Size: ${heapSize}`);
 
 			// Initialize and pack FFLResourceDesc.
@@ -1029,7 +1027,7 @@ class FFL {
 			desc.pData[FFL.singleResourceType] = heapPtr;
 			desc.size[FFL.singleResourceType] = heapSize;
 
-			const resourceDescData = this._packFFLResourceDesc(desc);
+			const resourceDescData = FFL._packFFLResourceDesc(desc);
 			resourceDescPtr = module._malloc(this.FFLResourceDesc_size);
 			module.HEAPU8.set(resourceDescData, resourceDescPtr);
 
@@ -1053,7 +1051,7 @@ class FFL {
 			// I don't think ^^ will work because the shaders need sRGB
 		} catch (error) {
 			// Cleanup on error.
-			this._freeResource(desc, module);
+			FFL._freeResource(desc, module);
 			resourceDescPtr && module._free(resourceDescPtr);
 			console.error('FFL.initWithResource failed:', error);
 			throw error;
@@ -1129,7 +1127,7 @@ class FFL {
 				if (!contentLength) {
 					// Cannot stream the response. Read as ArrayBuffer and re-invoke function.
 					console.debug('_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.');
-					return this._loadDataIntoHeap(await resource.arrayBuffer(), module);
+					return FFL._loadDataIntoHeap(await resource.arrayBuffer(), module);
 				}
 
 				// Allocate into heap using the Content-Length.
@@ -1556,7 +1554,7 @@ class CharModel {
 		}
 
 		/** The new or updated CharModelDesc with the new expression specified. */
-		const newModelDesc = this._descOrExpFlagToModelDesc(descOrExpFlag, charModel._modelDesc);
+		const newModelDesc = CharModel._descOrExpFlagToModelDesc(descOrExpFlag, charModel._modelDesc);
 
 		if (texOnly) {
 			// Updating textures only. Set respective flag.
@@ -2677,17 +2675,18 @@ class DrawParam {
 		geometry.setIndex(new THREE.Uint16BufferAttribute(indices, 1));
 
 		// Assign short names to each attribute buffer.
-		const pos = attributes[this.FFLAttributeBufferType.POSITION];
+		const bt = DrawParam.FFLAttributeBufferType;
+		const pos = attributes[bt.POSITION];
 		console.assert(pos.size, '_bindDrawParamGeometry: Position buffer must not be empty.');
 		/** Whether or not attributes are using float16 format. */
 		const isHalfFloat = pos.stride < 16;
 		// NOTE: The float16 format used has 3 components, which
 		// is not actually a supported configuration for WebGPU. Whoops!
 
-		const txc = attributes[this.FFLAttributeBufferType.TEXCOORD];
-		const nrm = attributes[this.FFLAttributeBufferType.NORMAL];
-		const tan = attributes[this.FFLAttributeBufferType.TANGENT];
-		const col = attributes[this.FFLAttributeBufferType.COLOR];
+		const txc = attributes[bt.TEXCOORD];
+		const nrm = attributes[bt.NORMAL];
+		const tan = attributes[bt.TANGENT];
+		const col = attributes[bt.COLOR];
 
 		// Position: 3 floats with last 4 bytes unused.
 		const posEnd = pos.ptr + pos.size;
@@ -2884,7 +2883,7 @@ class DrawParam {
 			depthWrite: !transparent,
 
 			// Apply blending options (for mask/faceline) based on modulateType.
-			...this._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
+			...DrawParam._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
 		});
 
 		modulateParam.pColorG && (param.colorG = _getFFLColor(f32, modulateParam.pColorG));
@@ -2947,7 +2946,7 @@ const CharModelTextures = {
 		const pRawMaskDrawParam = charModel.getMaskDrawParamPtrs();
 
 		// Draw faceline texture if applicable.
-		const faceTarget = this._drawFacelineTexture(charModel, renderer,
+		const faceTarget = CharModelTextures._drawFacelineTexture(charModel, renderer,
 			module, texMgr, faceColor, matTexClass);
 		// (faceTarget) && this._setFaceline(charModel, faceTarget); // Apply texture to mesh.
 
@@ -2956,7 +2955,7 @@ const CharModelTextures = {
 		(clearAlpha !== 0) && renderer.setClearAlpha(0); // Override clearAlpha to 0.
 
 		// Draw mask textures for all expressions.
-		this._drawMaskTextures(charModel, pRawMaskDrawParam, maskTargets,
+		CharModelTextures._drawMaskTextures(charModel, pRawMaskDrawParam, maskTargets,
 			renderer, module, texMgr, matTexClass);
 		// (CharModel can be finalized after this.)
 
@@ -3021,8 +3020,8 @@ const CharModelTextures = {
 		const facelineTempObjectPtr = charModel.getFacelineTempObjectPtr();
 		module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
 
-		const params = this._unpackDrawParamArray(
-			module.HEAPU8, facelineTempObjectPtr, this.FacelinePartCount);
+		const params = CharModelTextures._unpackDrawParamArray(
+			module.HEAPU8, facelineTempObjectPtr, CharModelTextures.FacelinePartCount);
 		// Gather the drawParams that make up the faceline texture.
 		const drawParams = params.filter(dp => dp && dp.modulateParam.pTexture2D !== 0);
 		// Note that for faceline DrawParams to not be empty,
@@ -3101,12 +3100,12 @@ const CharModelTextures = {
 				continue;
 			}
 			const maskParamPtr = maskParams[i];
-			const rawMaskDrawParam = this._unpackDrawParamArray(
-				module.HEAPU8, maskParamPtr, this.MaskPartCount);
+			const rawMaskDrawParam = CharModelTextures._unpackDrawParamArray(
+				module.HEAPU8, maskParamPtr, CharModelTextures.MaskPartCount);
 			module._FFLiInvalidateRawMask(maskParamPtr);
 
 			const res = charModel.getResolution();
-			const { target, scene } = this._drawMaskTexture(res,
+			const { target, scene } = CharModelTextures._drawMaskTexture(res,
 				rawMaskDrawParam, renderer, module, texMgr, materialClass);
 			// console.debug(`Creating target ${target.texture.id} for mask ${i}`);
 			targets[i] = target;
@@ -3291,7 +3290,7 @@ const ModelTexturesConverter = {
 	 */
 	async convModelTargetsToDataTex(charModel, renderer) {
 		for (const mesh of /** @type {Array<MeshWithTexture>} */ (charModel.meshes.children)) {
-			const tex = mesh.material.map;
+			const tex = /** @type {THREE.Texture|null} */ (mesh.material.map);
 			if (!tex) {
 				continue;
 			}
