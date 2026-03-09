@@ -1226,7 +1226,7 @@ class FFL {
 	 */
 	setRenderer(renderer) {
 		console.assert(renderer && this.module, `setRendererState: The renderer and module must both be valid.`);
-		if ('capabilities' in renderer &&
+		if (renderer.capabilities &&
 			!(/** @type {THREE.WebGLCapabilities} */ (renderer.capabilities).isWebGL2)) {
 			TextureManager.isWebGL1 = true;
 		} else if (_isWebGPU(renderer)) {
@@ -1931,7 +1931,7 @@ class CharModel {
 		/** @type {import('./materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo|null} */
 		let colorInfo = null;
 		// Prepare colorInfo from CharModel if it is needed on the mesh's material.
-		if ('colorInfo' in this._materialClass.prototype) {
+		if (this._materialClass.prototype.colorInfo !== undefined) {
 			colorInfo = this.getColorInfo();
 		}
 
@@ -1952,7 +1952,7 @@ class CharModel {
 			// renderOrder = 0 is sometimes unexpected, so let's make this one-indexed.
 
 			// Assign colorInfo from the CharModel.
-			if ('colorInfo' in mesh.material) {
+			if (mesh.material.colorInfo !== undefined) {
 				mesh.material.colorInfo = colorInfo;
 			}
 
@@ -2483,7 +2483,7 @@ function checkExpressionChangesShapes(i, warn = false) {
  * @returns {boolean} Whether or not the material class supports FFL swizzled (modulateMode) textures.
  * @public
  */
-const matSupportsFFL = material => 'modulateMode' in material.prototype;
+const matSupportsFFL = material => material.prototype.supportsFaceLibrary;
 
 /**
  * Interprets and converts FFLDrawParam, which

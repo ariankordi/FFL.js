@@ -405,6 +405,8 @@ void main()
  * @augments {THREE.ShaderMaterial}
  */
 class FFLShaderMaterial extends THREE.ShaderMaterial {
+	get supportsFaceLibrary() { return true; }
+
 	// Default light and rim light uniforms.
 
 	/**
@@ -555,18 +557,18 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		// Set default uniforms.
 		/** @type {Object<string, THREE.IUniform>} */
 		const uniforms = {
-			u_light_ambient: {
+			/** @export */ u_light_ambient: {
 				value: FFLShaderMaterial.defaultLightAmbient
 			},
-			u_light_diffuse: {
+			/** @export */ u_light_diffuse: {
 				value: FFLShaderMaterial.defaultLightDiffuse
 			},
-			u_light_specular: {
+			/** @export */ u_light_specular: {
 				value: FFLShaderMaterial.defaultLightSpecular
 			},
-			u_light_dir: { value: FFLShaderMaterial.defaultLightDir.clone() },
-			u_light_enable: { value: true }, // Default to true.
-			u_rim_power: { value: FFLShaderMaterial.defaultRimPower }
+			/** @export */ u_light_dir: { value: FFLShaderMaterial.defaultLightDir.clone() },
+			/** @export */ u_light_enable: { value: true }, // Default to true.
+			/** @export */ u_rim_power: { value: FFLShaderMaterial.defaultRimPower }
 		};
 
 		// Construct the ShaderMaterial using the shader source.
@@ -602,7 +604,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	}
 
 	set color(/** @type {THREE.Color} */ value) {
-		this.uniforms.u_const1 = { value: value };
+		/** @export */ this.uniforms.u_const1 = { value: value };
 	}
 
 	/** @returns {THREE.Color|undefined} colorG color if defined. */
@@ -611,7 +613,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	}
 
 	set colorG(/** @type {THREE.Color} */ value) {
-		this.uniforms.u_const2 = { value };
+		/** @export */ this.uniforms.u_const2 = { value };
 	}
 
 	/** @returns {THREE.Color|undefined} colorB color if defined. */
@@ -620,7 +622,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	}
 
 	set colorB(/** @type {THREE.Color} */ value) {
-		this.uniforms.u_const3 = { value };
+		/** @export */ this.uniforms.u_const3 = { value };
 	}
 
 	/**
@@ -646,7 +648,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	// @ts-ignore - Already defined on parent class.
 	set opacity(value) {
 		if (this.uniforms) {
-			this.uniforms.u_opacity = { value };
+			/** @export */ this.uniforms.u_opacity = { value };
 			delete this._opacity;
 		} else {
 			// Store here for later when color is set.
@@ -668,7 +670,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {FFLModulateMode} value - The new modulateMode value.
 	 */
 	set modulateMode(value) {
-		this.uniforms.u_mode = { value: value };
+		/** @export */ this.uniforms.u_mode = { value: value };
 	}
 
 	/**
@@ -732,18 +734,18 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 		this._modulateType = value;
 
 		// Set material uniforms from matParam object.
-		this.uniforms.u_material_ambient = { value: matParam.ambient };
-		this.uniforms.u_material_diffuse = { value: matParam.diffuse };
-		this.uniforms.u_material_specular = { value: matParam.specular };
-		this.uniforms.u_material_specular_mode = {
+		/** @export */ this.uniforms.u_material_ambient = { value: matParam.ambient };
+		/** @export */ this.uniforms.u_material_diffuse = { value: matParam.diffuse };
+		/** @export */ this.uniforms.u_material_specular = { value: matParam.specular };
+		/** @export */ this.uniforms.u_material_specular_mode = {
 			// Force value of 0 if useSpecularModeBlinn is set.
 			value: this._useSpecularModeBlinn ? 0 : matParam.specularMode
 		};
-		this.uniforms.u_material_specular_power = { value: matParam.specularPower };
+		/** @export */ this.uniforms.u_material_specular_power = { value: matParam.specularPower };
 		const rimColor = value > 8
 			? FFLShaderMaterial.defaultRimColorBody
 			: FFLShaderMaterial.defaultRimColor;
-		this.uniforms.u_rim_color = { value: rimColor };
+		/** @export */ this.uniforms.u_rim_color = { value: rimColor };
 	}
 
 	/**
@@ -759,7 +761,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {THREE.Texture} value - The new texture map.
 	 */
 	set map(value) {
-		this.uniforms.s_texture = { value: value };
+		/** @export */ this.uniforms.s_texture = { value: value };
 	}
 
 	/**
