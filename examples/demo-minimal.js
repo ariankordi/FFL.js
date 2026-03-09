@@ -7,7 +7,7 @@ import ResourceLoadHelper from '../helpers/ResourceLoadHelper.js';
 
 // Assumes that the Emscripten module is already imported from elsewhere.
 /** @type {import('../ffl-emscripten.cjs')} */
-const ModuleFFL = /** @type {*} */ (globalThis).ModuleFFL;
+const ModuleFFL = /** @type {*} */ (globalThis)['ModuleFFL'];
 
 // Snippets to help with decoding to bytes.
 
@@ -150,7 +150,7 @@ function updateCharModelInScene(data, modelDesc) {
 
 	// Add CharModel meshes to scene.
 	scene.add(currentCharModel.meshes);
-	updateBoxHelper(currentCharModel); // Update boxHelper.
+	// updateBoxHelper(currentCharModel); // Update boxHelper.
 }
 
 // // ---------------------------------------------------------------------

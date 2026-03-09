@@ -419,13 +419,13 @@ function verifyCharInfo(data, ffl, verifyName = false) {
 		// Assume everything else means Uint8Array. TODO: untested
 		charInfoAllocated = true;
 		// Allocate and copy CharInfo.
-		charInfoPtr = mod._malloc(FFLiCharInfo_size);
-		mod.HEAPU8.set(data, charInfoPtr);
+		charInfoPtr = mod['_malloc'](FFLiCharInfo_size);
+		mod['HEAPU8'].set(data, charInfoPtr);
 	}
-	const result = mod._FFLiVerifyCharInfoWithReason(charInfoPtr, verifyName);
+	const result = mod['_FFLiVerifyCharInfoWithReason'](charInfoPtr, verifyName);
 	// Free CharInfo as soon as the function returns.
 	if (charInfoAllocated) {
-		mod._free(charInfoPtr);
+		mod['_free'](charInfoPtr);
 	}
 
 	if (result !== 0) {
@@ -444,10 +444,10 @@ function verifyCharInfo(data, ffl, verifyName = false) {
  */
 function getRandomCharInfo(ffl, gender = FFLGender.ALL, age = FFLAge.ALL, race = FFLRace.ALL) {
 	const mod = ffl.module;
-	const ptr = mod._malloc(FFLiCharInfo_size);
-	mod._FFLiGetRandomCharInfo(ptr, gender, age, race);
-	const result = mod.HEAPU8.slice(ptr, ptr + FFLiCharInfo_size);
-	mod._free(ptr);
+	const ptr = mod['_malloc'](FFLiCharInfo_size);
+	mod['_FFLiGetRandomCharInfo'](ptr, gender, age, race);
+	const result = mod['HEAPU8'].slice(ptr, ptr + FFLiCharInfo_size);
+	mod['_free'](ptr);
 	return result;
 }
 
@@ -518,7 +518,7 @@ class TextureManager {
 		this._setTextureCallback();
 		if (setToFFLGlobal) {
 			// Set texture callback globally within FFL if chosen.
-			module._FFLSetTextureCallback(this.callbackPtr);
+			module['_FFLSetTextureCallback'](this.callbackPtr);
 		}
 	}
 
@@ -564,8 +564,8 @@ class TextureManager {
 		const view = new DataView(u8.buffer);
 		view.setUint32(8, createCallback, true); // pCreateFunc
 		view.setUint32(12, deleteCallback, true); // pDeleteFunc
-		const ptr = module._malloc(FFLTextureCallback_size);
-		module.HEAPU8.set(u8, ptr);
+		const ptr = module['_malloc'](FFLTextureCallback_size);
+		module['HEAPU8'].set(u8, ptr);
 		return ptr;
 	}
 
@@ -577,7 +577,7 @@ class TextureManager {
 		const mod = this._module;
 		// Bind the callbacks to this instance.
 		/** @private */
-		this._createCallback = mod.addFunction(this._textureCreateFunc.bind(this), 'vppp');
+		this._createCallback = mod['addFunction'](this._textureCreateFunc.bind(this), 'vppp');
 
 		this.callbackPtr = TextureManager._allocateTextureCallback(mod,
 			this._createCallback, this._deleteCallback || 0);
@@ -628,7 +628,7 @@ class TextureManager {
 	 */
 	_textureCreateFunc(_, textureInfoPtr, texturePtrPtr) {
 		const textureInfo = TextureManager._unpackFFLTextureInfo(
-			this._module.HEAPU8, textureInfoPtr);
+			this._module['HEAPU8'], textureInfoPtr);
 		// console.debug(`_textureCreateFunc: width=${textureInfo.width}, ` +
 		// `height=${textureInfo.height}, format=${textureInfo.format}, ` +
 		// `imageSize=${textureInfo.imageSize}, mipCount=${textureInfo.mipCount}`);
@@ -636,7 +636,7 @@ class TextureManager {
 		/** Resolve THREE.PixelFormat. */
 		const format = TextureManager._getTextureFormat(textureInfo.format);
 		// Copy image data from HEAPU8 via slice. This is base level/mip level 0.
-		const imageData = this._module.HEAPU8.slice(textureInfo.imagePtr,
+		const imageData = this._module['HEAPU8'].slice(textureInfo.imagePtr,
 			textureInfo.imagePtr + textureInfo.imageSize);
 
 		/**
@@ -675,7 +675,7 @@ class TextureManager {
 
 		texture.needsUpdate = true;
 		this.set(texture.id, texture);
-		this._module.HEAPU32[texturePtrPtr / 4] = texture.id;
+		this._module['HEAPU32'][texturePtrPtr / 4] = texture.id;
 	}
 
 	/**
@@ -702,7 +702,7 @@ class TextureManager {
 
 			// Copy the data from the heap.
 			const start = textureInfo.mipPtr + mipOffset;
-			const mipData = this._module.HEAPU8.slice(start, end);
+			const mipData = this._module['HEAPU8'].slice(start, end);
 
 			// console.debug(`  - Mip ${mipLevel}: ${mipWidth}x${mipHeight}, `
 			// + `offset=${mipOffset}, range=${start}-${end}`);
@@ -770,16 +770,16 @@ class TextureManager {
 		// 	return;
 		// }
 		if (this.callbackPtr) {
-			this._module._free(this.callbackPtr);
+			this._module['_free'](this.callbackPtr);
 			this.callbackPtr = 0;
 		}
 		if (this._deleteCallback) {
-			this._module.removeFunction(this._deleteCallback);
+			this._module['removeFunction'](this._deleteCallback);
 			this._deleteCallback = 0;
 		}
 		// should always exist?:
 		if (this._createCallback) {
-			this._module.removeFunction(this._createCallback);
+			this._module['removeFunction'](this._createCallback);
 			this._createCallback = 0;
 		}
 		// this._module = null;
@@ -992,11 +992,11 @@ class FFL {
 			: module = moduleOrPromise;
 
 		// Wait for the Emscripten runtime to be ready if it isn't already.
-		if (!module.calledRun && !module.onRuntimeInitialized) {
+		if (!module['calledRun'] && !module['onRuntimeInitialized']) {
 			// calledRun is not defined. Set onRuntimeInitialized and wait for it in a new promise.
 			await new Promise((resolve) => {
 				/** If onRuntimeInitialized is not defined on module, add it. */
-				module.onRuntimeInitialized = () => {
+				module['onRuntimeInitialized'] = () => {
 					// console.debug('FFL.initWithResource: Emscripten runtime initialized, resolving.');
 					resolve(null);
 				};
@@ -1028,11 +1028,11 @@ class FFL {
 			desc.size[FFL.singleResourceType] = heapSize;
 
 			const resourceDescData = FFL._packFFLResourceDesc(desc);
-			resourceDescPtr = module._malloc(this.FFLResourceDesc_size);
-			module.HEAPU8.set(resourceDescData, resourceDescPtr);
+			resourceDescPtr = module['_malloc'](this.FFLResourceDesc_size);
+			module['HEAPU8'].set(resourceDescData, resourceDescPtr);
 
 			// Call FFL initialization using: FFL_FONT_REGION_JP_US_EU = 0
-			const result = module._FFLInitRes(0, resourceDescPtr);
+			const result = module['_FFLInitRes'](0, resourceDescPtr);
 
 			// Handle failed result.
 			if (result === FFLResult.FILE_INVALID) { // FFL_RESULT_BROKEN
@@ -1041,9 +1041,9 @@ class FFL {
 			FFLResultException.handleResult(result, 'FFLInitRes');
 
 			// Set required globals in FFL.
-			module._FFLInitResGPUStep(); // CanInitCharModel will fail if not called.
-			module._FFLSetNormalIsSnorm8_8_8_8(true); // Set normal format to FFLiSnorm8_8_8_8.
-			module._FFLSetTextureFlipY(true); // Set textures to be flipped for OpenGL.
+			module['_FFLInitResGPUStep'](); // CanInitCharModel will fail if not called.
+			module['_FFLSetNormalIsSnorm8_8_8_8'](true); // Set normal format to FFLiSnorm8_8_8_8.
+			module['_FFLSetTextureFlipY'](true); // Set textures to be flipped for OpenGL.
 
 			// Requires refactoring:
 			// module._FFLSetScale(0.1); // Sets model scale back to 1.0.
@@ -1052,12 +1052,12 @@ class FFL {
 		} catch (error) {
 			// Cleanup on error.
 			FFL._freeResource(desc, module);
-			resourceDescPtr && module._free(resourceDescPtr);
+			resourceDescPtr && module['_free'](resourceDescPtr);
 			console.error('FFL.initWithResource failed:', error);
 			throw error;
 		} finally {
 			// Always free the FFLResourceDesc struct itself.
-			resourceDescPtr && module._free(resourceDescPtr);
+			resourceDescPtr && module['_free'](resourceDescPtr);
 		}
 
 		// Return final Emscripten module and FFLResourceDesc object.
@@ -1109,10 +1109,10 @@ class FFL {
 			if (resource instanceof Uint8Array) {
 				// Comes in as Uint8Array, allocate and set it.
 				heapSize = resource.length;
-				heapPtr = module._malloc(heapSize);
+				heapPtr = module['_malloc'](heapSize);
 				// console.debug(`_loadDataIntoHeap: Loading from buffer. Size: ${heapSize}, Pointer: ${heapPtr}`);
 				// Allocate and set this area in the heap as the passed buffer.
-				module.HEAPU8.set(resource, heapPtr);
+				module['HEAPU8'].set(resource, heapPtr);
 			} else if (resource instanceof Response) {
 				// Handle as fetch response.
 				if (!resource.ok) {
@@ -1132,7 +1132,7 @@ class FFL {
 
 				// Allocate into heap using the Content-Length.
 				heapSize = Number.parseInt(contentLength, 10);
-				heapPtr = module._malloc(heapSize);
+				heapPtr = module['_malloc'](heapSize);
 
 				// console.debug(`loadDataIntoHeap: Streaming from fetch response. ` +
 				// 	`Size: ${heapSize}, pointer: ${heapPtr}, URL: ${resource.url}`);
@@ -1146,7 +1146,7 @@ class FFL {
 						break;
 					}
 					// Copy value directly into HEAPU8 with offset.
-					module.HEAPU8.set(value, offset);
+					module['HEAPU8'].set(value, offset);
 					offset += value.length;
 				}
 			} else {
@@ -1157,7 +1157,7 @@ class FFL {
 		} catch (error) {
 			// Free memory upon exception, if allocated.
 			if (heapPtr) {
-				module._free(heapPtr);
+				module['_free'](heapPtr);
 			}
 			throw error;
 		}
@@ -1178,7 +1178,7 @@ class FFL {
 		for (let i = 0; i < 2/* FFLResourceType.MAX */; i++) {
 			const p = desc.pData[i];
 			if (p) {
-				module._free(p); // Free pData and set to 0.
+				module['_free'](p); // Free pData and set to 0.
 				desc.pData[i] = 0;
 			}
 		}
@@ -1204,7 +1204,7 @@ class FFL {
 		// console.debug('FFL.dispose called, resourceDesc:', resourceDesc);
 
 		// All CharModels must be deleted before this point.
-		const result = this.module._FFLExit();
+		const result = this.module['_FFLExit']();
 		FFLResultException.handleResult(result, 'FFLExit');
 
 		// Free resources in heap after FFLExit().
@@ -1230,7 +1230,7 @@ class FFL {
 			!(/** @type {THREE.WebGLCapabilities} */ (renderer.capabilities).isWebGL2)) {
 			TextureManager.isWebGL1 = true;
 		} else if (_isWebGPU(renderer)) {
-			this.module._FFLSetTextureFlipY(false);
+			this.module['_FFLSetTextureFlipY'](false);
 		}
 	}
 
@@ -1290,7 +1290,7 @@ class CharModel {
 	 */
 	constructor(ffl, data, descOrExpFlag, materialClass, renderer, verify = true) {
 		// Verify arguments.
-		if (!ffl || !ffl.module || !ffl.module._malloc) {
+		if (!ffl || !ffl.module || !ffl.module['_malloc']) {
 			throw new Error('CharModel: Invalid `ffl` parameter passed in.');
 		}
 		if (!data) {
@@ -1315,13 +1315,13 @@ class CharModel {
 
 		// Initialize FFLCharModel.
 
-		const modelSourcePtr = this._module._malloc(FFLCharModelSource_size);
-		const modelDescPtr = this._module._malloc(CharModel.FFLCharModelDesc_size);
+		const modelSourcePtr = this._module['_malloc'](FFLCharModelSource_size);
+		const modelDescPtr = this._module['_malloc'](CharModel.FFLCharModelDesc_size);
 		/**
 		 * Pointer to the FFLiCharModel in memory, set to null when deleted.
 		 * @private
 		 */
-		this._ptr = this._module._malloc(CharModel.FFLiCharModel_size);
+		this._ptr = this._module['_malloc'](CharModel.FFLiCharModel_size);
 
 		// this._data = getRandomCharInfo(ffl, FFLGender.ALL, FFLAge.ALL, FFLRace.ALL);
 		// console.debug('getRandomCharInfo result:', FFLiCharInfo.unpack(data));
@@ -1330,7 +1330,7 @@ class CharModel {
 		/** Get pBuffer to free it later. */
 		const charInfoPtr = modelSource.pBuffer;
 		const modelSourceBuffer = CharModel._packFFLCharModelSource(modelSource);
-		this._module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
+		this._module['HEAPU8'].set(modelSourceBuffer, modelSourcePtr);
 
 		/** @private */
 		this._modelDesc = CharModel._descOrExpFlagToModelDesc(descOrExpFlag);
@@ -1338,7 +1338,7 @@ class CharModel {
 		this._modelDesc.modelFlag |= FFLModelFlag.NEW_EXPRESSIONS;
 
 		const modelDescBuffer = CharModel._packFFLCharModelDesc(this._modelDesc);
-		this._module.HEAPU8.set(modelDescBuffer, modelDescPtr);
+		this._module['HEAPU8'].set(modelDescBuffer, modelDescPtr);
 
 		// At this point, CharModelSource/CharModelDesc are allocated. Create FFLCharModel.
 		try {
@@ -1354,19 +1354,19 @@ class CharModel {
 			this._textureManager = new TextureManager(this._module, false);
 
 			// Call FFLInitCharModelCPUStep and check the result.
-			const result = this._module._FFLInitCharModelCPUStepWithCallback(this._ptr,
+			const result = this._module['_FFLInitCharModelCPUStepWithCallback'](this._ptr,
 				modelSourcePtr, modelDescPtr, this._textureManager.callbackPtr);
 			FFLResultException.handleResult(result, 'FFLInitCharModelCPUStep');
 		} catch (error) {
 			(this._textureManager) && this._textureManager.dispose();
 			// Free CharModel prematurely.
-			this._module._free(this._ptr);
+			this._module['_free'](this._ptr);
 			throw error;
 		} finally {
 			// Free temporary allocations.
-			this._module._free(modelSourcePtr);
-			this._module._free(modelDescPtr);
-			this._module._free(charInfoPtr);
+			this._module['_free'](modelSourcePtr);
+			this._module['_free'](modelDescPtr);
+			this._module['_free'](charInfoPtr);
 			// Callback itself is longer read by FFL.
 			(this._textureManager) && this._textureManager.disposeCallback();
 		}
@@ -1376,7 +1376,7 @@ class CharModel {
 
 		// End initialization of FFLCharModel. Further construct the CharModel class.
 
-		// this._model = CharModel._unpackFFLiCharModel(module.HEAPU8, this._ptr);
+		// this._model = CharModel._unpackFFLiCharModel(module['HEAPU8'], this._ptr);
 		/**
 		 * Representation of the underlying FFLCharModel instance.
 		 * @private
@@ -1442,14 +1442,14 @@ class CharModel {
 		this._addCharModelMeshes(this._module);
 
 		// Populate facelineColor from FFLAdditionalInfo.
-		const infoPtr = this._module._malloc(FFLAdditionalInfo_size);
-		// this._module._FFLGetFacelineColor(colorPtr, this._model.getCharInfo().faceColor);
-		if (this._module._FFLGetAdditionalInfo(infoPtr,
+		const infoPtr = this._module['_malloc'](FFLAdditionalInfo_size);
+		// this._module['_FFLGetFacelineColor'](colorPtr, this._model.getCharInfo().faceColor);
+		if (this._module['_FFLGetAdditionalInfo'](infoPtr,
 			/* dataSource = DIRECT_POINTER */ 6, this._ptr, 0, false) === FFLResult.OK) {
-			this.facelineColor.fromArray(this._module.HEAPF32,
+			this.facelineColor.fromArray(this._module['HEAPF32'],
 				(infoPtr + 0x38) / 4 /* = offsetof(FFLAdditionalInfo.skinColor) */);
 		}
-		this._module._free(infoPtr);
+		this._module['_free'](infoPtr);
 
 		/**
 		 * Favorite color, also used for hats and body.
@@ -1778,16 +1778,16 @@ class CharModel {
 
 		const mod = this._module;
 		// Allocate function arguments.
-		const charInfoInPtr = mod._malloc(FFLiCharInfo_size);
-		const storeDataOutPtr = mod._malloc(FFLStoreData_size);
-		mod.HEAPU8.set(charInfoData, charInfoInPtr);
+		const charInfoInPtr = mod['_malloc'](FFLiCharInfo_size);
+		const storeDataOutPtr = mod['_malloc'](FFLStoreData_size);
+		mod['HEAPU8'].set(charInfoData, charInfoInPtr);
 
 		// Call conversion function.
-		const result = mod._FFLpGetStoreDataFromCharInfo(storeDataOutPtr, charInfoInPtr);
+		const result = mod['_FFLpGetStoreDataFromCharInfo'](storeDataOutPtr, charInfoInPtr);
 		// Free and return data.
-		const storeData = mod.HEAPU8.slice(storeDataOutPtr, storeDataOutPtr + FFLStoreData_size);
-		mod._free(charInfoInPtr);
-		mod._free(storeDataOutPtr);
+		const storeData = mod['HEAPU8'].slice(storeDataOutPtr, storeDataOutPtr + FFLStoreData_size);
+		mod['_free'](charInfoInPtr);
+		mod['_free'](storeDataOutPtr);
 
 		if (!result) {
 			// call to FFLpGetStoreDataFromCharInfo returned false, CharInfo verification probably failed
@@ -1939,7 +1939,7 @@ class CharModel {
 		for (let shapeType = 0; shapeType < CharModel.FFLiShapeType.MAX; shapeType++) {
 			// Iterate through all DrawParams and convert to THREE.Mesh.
 			const ptr = this._model.getDrawParamPtr(shapeType);
-			const drawParam = new DrawParam(module.HEAPU8, ptr);
+			const drawParam = new DrawParam(module['HEAPU8'], ptr);
 
 			// Skip shape if it's not empty.
 			if (!drawParam.primitiveParam.indexCount) {
@@ -2006,10 +2006,10 @@ class CharModel {
 		const mod = this._module;
 		const favoriteColor = this.charInfo.favoriteColor;
 		/** Allocate return pointer. */
-		const colorPtr = mod._malloc(FFLColor_size);
-		mod._FFLGetFavoriteColor(colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
-		const color = _getFFLColor(mod.HEAPF32, colorPtr);
-		mod._free(colorPtr);
+		const colorPtr = mod['_malloc'](FFLColor_size);
+		mod['_FFLGetFavoriteColor'](colorPtr, favoriteColor); // Get favoriteColor from CharInfo.
+		const color = _getFFLColor(mod['HEAPF32'], colorPtr);
+		mod['_free'](colorPtr);
 		return color;
 	}
 
@@ -2020,8 +2020,8 @@ class CharModel {
 	 */
 	_finalizeCharModel() {
 		if (this._ptr) {
-			this._module._FFLDeleteCharModel(this._ptr);
-			this._module._free(this._ptr);
+			this._module['_FFLDeleteCharModel'](this._ptr);
+			this._module['_free'](this._ptr);
 			this._ptr = 0;
 		}
 		// @ts-expect-error - null not assignable. Always non-null except disposed.
@@ -2094,7 +2094,7 @@ class CharModelAccessor {
 		/** @private */
 		this._module = module;
 		/** @private */
-		this._dv = new DataView(module.HEAPU8.buffer, ptr);
+		this._dv = new DataView(module['HEAPU8'].buffer, ptr);
 		/** @public */
 		this.ptr = ptr;
 		/** @public */
@@ -2104,7 +2104,7 @@ class CharModelAccessor {
 	// charInfo
 
 	getCharInfo() {
-		return _unpackFFLiCharInfo(this._module.HEAPU8, this.ptr/* charInfo = offset 0 */);
+		return _unpackFFLiCharInfo(this._module['HEAPU8'], this.ptr/* charInfo = offset 0 */);
 	}
 
 	// charModelDesc (resolution, expression, modelFlag), expression
@@ -2173,7 +2173,7 @@ class CharModelAccessor {
 		/** offset = maskTextures (0)->pRawMaskDrawParam */
 		const ptr = this.getTempObjectPtr() + 0x154;
 		// pRawMaskDrawParam = void*[FFL_EXPRESSION_MAX]
-		return new Uint32Array(this._module.HEAPU8.buffer, ptr, FFLExpression.MAX);
+		return new Uint32Array(this._module['HEAPU8'].buffer, ptr, FFLExpression.MAX);
 	}
 
 	// drawParam
@@ -2222,7 +2222,7 @@ class CharModelAccessor {
 	 * @public
 	 */
 	getPartsTransform() {
-		const array = new Float32Array(this._module.HEAPU8.buffer, this.ptr + 0x7a8);
+		const array = new Float32Array(this._module['HEAPU8'].buffer, this.ptr + 0x7a8);
 		const getVec3 = (/** @type {number} */ offset) =>
 			new THREE.Vector3().fromArray(array, offset);
 		return {
@@ -2274,7 +2274,7 @@ const FFLCharModelSource_size = 10;
  */
 function _allocateModelSource(data, module) {
 	/** Allocate maximum size. */
-	const bufferPtr = module._malloc(FFLiCharInfo_size);
+	const bufferPtr = module['_malloc'](FFLiCharInfo_size);
 
 	// Create modelSource.
 	const modelSource = {
@@ -2298,7 +2298,7 @@ function _allocateModelSource(data, module) {
 			// Deserialize to Uint8Array.
 			data = FFLiCharInfo.pack(data);
 		} catch (e) {
-			module._free(bufferPtr);
+			module['_free'](bufferPtr);
 			throw e;
 		}
 	}
@@ -2308,7 +2308,7 @@ function _allocateModelSource(data, module) {
 	function setStudioData(src) {
 		// studio raw, decode it to charinfo
 		const charInfoData = _studioToFFLiCharInfo(src);
-		module.HEAPU8.set(charInfoData, bufferPtr);
+		module['HEAPU8'].set(charInfoData, bufferPtr);
 	}
 
 	/**
@@ -2320,13 +2320,13 @@ function _allocateModelSource(data, module) {
 	 * @private
 	 */
 	function callGetCharInfoFunc(data, size, funcName) {
-		const dataPtr = module._malloc(size);
-		module.HEAPU8.set(data, dataPtr);
+		const dataPtr = module['_malloc'](size);
+		module['HEAPU8'].set(data, dataPtr);
 		// @ts-ignore - Module cannot be indexed by string. NOTE: The function MUST exist.
 		const result = module[funcName](bufferPtr, dataPtr);
-		module._free(dataPtr);
+		module['_free'](dataPtr);
 		if (!result) {
-			module._free(bufferPtr);
+			module['_free'](bufferPtr);
 			throw new Error(`_allocateModelSource: call to ${funcName} returned false, CharInfo verification probably failed`);
 		}
 	}
@@ -2348,7 +2348,7 @@ function _allocateModelSource(data, module) {
 		}
 		case FFLiCharInfo_size:
 			// modelSource.dataSource = FFLDataSource.BUFFER; // Default option.
-			module.HEAPU8.set(data, bufferPtr); // Copy data into heap.
+			module['HEAPU8'].set(data, bufferPtr); // Copy data into heap.
 			break;
 		case 46 + 1: {
 			// studio data obfuscated
@@ -2364,7 +2364,7 @@ function _allocateModelSource(data, module) {
 		// Unsupported types.
 		case 88:
 			throw new Error('_allocateModelSource: NX CharInfo is not supported.');
-			// module.HEAPU8.set(_nxCharInfoToFFLiCharInfo(data), bufferPtr);
+			// module['HEAPU8'].set(_nxCharInfoToFFLiCharInfo(data), bufferPtr);
 			// break;
 		case 48:
 		case 68:
@@ -2373,7 +2373,7 @@ function _allocateModelSource(data, module) {
 		case 72:
 			throw new Error('_allocateModelSource: Input needs to be padded to 96 bytes with checksum (FFLStoreData).');
 		default: {
-			module._free(bufferPtr);
+			module['_free'](bufferPtr);
 			throw new Error(`_allocateModelSource: Unknown length for character data: ${data.length}`);
 		}
 	}
@@ -2636,7 +2636,7 @@ class DrawParam {
 		// Apply pAdjustMatrix transformations if it is not null.
 		const pMtx = this.primitiveParam.pAdjustMatrix;
 		if (pMtx !== 0) {
-			DrawParam._applyAdjustMatrixToMesh(pMtx, mesh, module.HEAPF32);
+			DrawParam._applyAdjustMatrixToMesh(pMtx, mesh, module['HEAPF32']);
 		}
 
 		// Set properties that can be used to reconstruct the material in userData.
@@ -2670,7 +2670,7 @@ class DrawParam {
 		geometry = new THREE.BufferGeometry()) {
 		// Bind indices.
 		const indexPtr = primitiveParam.pIndexBuffer / 2;
-		const indices = module.HEAPU16.slice(
+		const indices = module['HEAPU16'].slice(
 			indexPtr, indexPtr + primitiveParam.indexCount);
 		geometry.setIndex(new THREE.Uint16BufferAttribute(indices, 1));
 
@@ -2692,10 +2692,10 @@ class DrawParam {
 		const posEnd = pos.ptr + pos.size;
 		const posAttribute = isHalfFloat
 			? new THREE.Float16BufferAttribute(
-				module.HEAPU16.slice(pos.ptr / 2, posEnd / 2), 3)
+				module['HEAPU16'].slice(pos.ptr / 2, posEnd / 2), 3)
 			: new THREE.InterleavedBufferAttribute(
 				new THREE.InterleavedBuffer(
-					module.HEAPF32.slice(pos.ptr / 4, posEnd / 4), 4), 3, 0);
+					module['HEAPF32'].slice(pos.ptr / 4, posEnd / 4), 4), 3, 0);
 		// Only works on Three.js r109 and above (previously used addAttribute which can be remapped)
 		geometry.setAttribute('position', posAttribute);
 
@@ -2704,9 +2704,9 @@ class DrawParam {
 			const end = txc.ptr + txc.size;
 			const attr = isHalfFloat
 				? new THREE.Float16BufferAttribute(
-					module.HEAPU16.slice(txc.ptr / 2, end / 2), 2)
+					module['HEAPU16'].slice(txc.ptr / 2, end / 2), 2)
 				: new THREE.Float32BufferAttribute(
-					module.HEAPF32.slice(txc.ptr / 4, end / 4), 2);
+					module['HEAPF32'].slice(txc.ptr / 4, end / 4), 2);
 			geometry.setAttribute('uv', attr);
 		}
 
@@ -2715,14 +2715,14 @@ class DrawParam {
 		// using THREE.GLBufferAttribute on WebGL 2.
 		if (nrm.size) {
 			geometry.setAttribute('normal', new THREE.Int8BufferAttribute(
-				module.HEAP8.slice(nrm.ptr, nrm.ptr + nrm.size),
+				module['HEAP8'].slice(nrm.ptr, nrm.ptr + nrm.size),
 				nrm.stride, true));
 		}
 
 		// Tangent: R8_G8_B8_A8_SNORM.
 		if (tan.size) {
 			geometry.setAttribute('tangent', new THREE.Int8BufferAttribute(
-				module.HEAP8.slice(tan.ptr, tan.ptr + tan.size),
+				module['HEAP8'].slice(tan.ptr, tan.ptr + tan.size),
 				tan.stride, true));
 		}
 
@@ -2731,7 +2731,7 @@ class DrawParam {
 		if (col.size && col.stride > 0) {
 			// Use "_color" because NOTE this is what the FFL-Testing exports and existing shaders do
 			geometry.setAttribute('_color', new THREE.Uint8BufferAttribute(
-				module.HEAPU8.slice(col.ptr, col.ptr + col.size),
+				module['HEAPU8'].slice(col.ptr, col.ptr + col.size),
 				col.stride, true));
 			// Does not handle values for u_color other
 			// than the default 0/0/0/1 (custom u_parameter_mode).
@@ -2850,7 +2850,7 @@ class DrawParam {
 		/* eslint-enable jsdoc/require-returns-type -- Allow TS to predict return type. */
 		// Apply constant colors.
 
-		const f32 = module.HEAPF32;
+		const f32 = module['HEAPF32'];
 		const color = modulateParam.pColorR
 			? _getFFLColor(f32, modulateParam.pColorR)
 			: null;
@@ -3018,10 +3018,10 @@ const CharModelTextures = {
 	_drawFacelineTexture(charModel, renderer, module, texMgr, color, materialClass) {
 		// Invalidate faceline texture before drawing (ensures correctness)
 		const facelineTempObjectPtr = charModel.getFacelineTempObjectPtr();
-		module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
+		module['_FFLiInvalidateTempObjectFacelineTexture'](facelineTempObjectPtr);
 
 		const params = CharModelTextures._unpackDrawParamArray(
-			module.HEAPU8, facelineTempObjectPtr, CharModelTextures.FacelinePartCount);
+			module['HEAPU8'], facelineTempObjectPtr, CharModelTextures.FacelinePartCount);
 		// Gather the drawParams that make up the faceline texture.
 		const drawParams = params.filter(dp => dp && dp.modulateParam.pTexture2D !== 0);
 		// Note that for faceline DrawParams to not be empty,
@@ -3067,7 +3067,7 @@ const CharModelTextures = {
 		// console.debug(`Creating target ${target.texture.id} for faceline`);
 
 		// Delete temp faceline object to free resources.
-		module._FFLiDeleteTempObjectFacelineTexture(facelineTempObjectPtr,
+		module['_FFLiDeleteTempObjectFacelineTexture'](facelineTempObjectPtr,
 			charModel.ptr, FFL.singleResourceType); // charModel.modelDesc.resourceType);
 		_disposeMany(offscreenScene); // Dispose meshes in scene.
 		return target;
@@ -3101,8 +3101,8 @@ const CharModelTextures = {
 			}
 			const maskParamPtr = maskParams[i];
 			const rawMaskDrawParam = CharModelTextures._unpackDrawParamArray(
-				module.HEAPU8, maskParamPtr, CharModelTextures.MaskPartCount);
-			module._FFLiInvalidateRawMask(maskParamPtr);
+				module['HEAPU8'], maskParamPtr, CharModelTextures.MaskPartCount);
+			module['_FFLiInvalidateRawMask'](maskParamPtr);
 
 			const res = charModel.getResolution();
 			const { target, scene } = CharModelTextures._drawMaskTexture(res,
@@ -3120,9 +3120,9 @@ const CharModelTextures = {
 			_disposeMany(scene);
 		}
 
-		module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr,
+		module['_FFLiDeleteTempObjectMaskTextures'](maskTempObjectPtr,
 			expressionFlagPtr, FFL.singleResourceType); // charModel.modelDesc.resourceType);
-		module._FFLiDeleteTextureTempObject(charModel.ptr);
+		module['_FFLiDeleteTextureTempObject'](charModel.ptr);
 	},
 
 	/**
