@@ -314,7 +314,7 @@ Example:
 	/** @type {FFL|null} */ let ffl = null;
 	// TODO: Why doesn't this type show up properly?
 	const matClass = /** @type {MaterialConstructor} */
-		(/** @type {*} */ (FFLShaderNodeMaterial));
+		(/** @type {unknown} */ (FFLShaderNodeMaterial));
 
 	try {
 		// Initialize FFL, which loads resource into memory.

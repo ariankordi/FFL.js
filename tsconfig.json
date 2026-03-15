@@ -3,16 +3,21 @@
   "compilerOptions": {
     "allowJs": true,
     //"checkJs": true, // Assumed from @ts-check.
-    "target": "es2015", // but materials use ES2020 "??"
+    "target": "ES2015", // but materials use ES2020 "??"
+    "lib": ["ES2015", "DOM", "DOM.Iterable"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
 
+    // Strict typing.
     "strict": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": false,
+    // Additional rigidity.
+    "exactOptionalPropertyTypes": true,
+    //"noUncheckedIndexedAccess": true,
 
     "skipLibCheck": true,
     "declaration": true, // Generate only declarations.

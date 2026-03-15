@@ -1118,7 +1118,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	get opacity() {
 		if (this._opacity !== undefined) {
 			const ret = this._opacity;
-			delete this._opacity;
+			this._opacity = undefined;
 			return ret;
 		}
 		return this.uniforms.uOpacity ? this.uniforms.uOpacity.value : 1;
@@ -1134,10 +1134,10 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (this.uniforms) {
 			this.uniforms.uOpacity = { value };
-			delete this._opacity;
+			this._opacity = undefined;
 		} else {
 			// Store here for later when color is set.
-			/** @private */
+			/** @type {number|undefined} @private */
 			this._opacity = value;
 		}
 	}

@@ -56,7 +56,7 @@ import * as THREE from 'three';
  * @param {typeof THREE.Skeleton} Skeleton - The THREE.Skeleton class.
  */
 function addSkeletonScalingExtensions(Skeleton) {
-	if (/** @type {*} */ (Skeleton.prototype)._attachments) {
+	if (/** @type {SkeletonWithAttachments} */ (Skeleton.prototype)._attachments) {
 		console.warn('addSkeletonScalingExtensions: Already run, skipping.');
 		return; // Already run, skip this.
 	}
@@ -112,7 +112,7 @@ function addSkeletonScalingExtensions(Skeleton) {
 
 		/**
 		 * @param {Array<SkeletonAttachment>} attachments - The attachment array.
-		 * @param {typeof THREE.Skeleton.prototype.boneMatrices} boneMatrices -
+		 * @param {Parameters<typeof THREE.Matrix4.prototype.fromArray>[0]} boneMatrices -
 		 * The raw matrices array to update the attachment with.
 		 */
 		function updateAttachments(attachments, boneMatrices) {
@@ -152,6 +152,9 @@ function addSkeletonScalingExtensions(Skeleton) {
 		 * @this {SkeletonWithAttachments}
 		 */
 		return function update() {
+			console.assert(this.boneMatrices instanceof Float32Array); // Enforce non-null.
+			const boneMatrices = /** @type {Float32Array} */ (this.boneMatrices);
+
 			// For each bone, calculate the matrixWorld and then apply custom per-bone scaling.
 			for (let i = 0; i < this.bones.length; i++) { // Flatten bone matrices to array.
 				const bone = /** @type {BoneWithScaling|undefined} */ (this.bones[i]);
@@ -178,12 +181,12 @@ function addSkeletonScalingExtensions(Skeleton) {
 
 				// Update boneMatrices[] (like the original update function)
 				_offsetMatrix.multiplyMatrices(matrixWorld, this.boneInverses[i]);
-				_offsetMatrix.toArray(this.boneMatrices, i * 16);
+				_offsetMatrix.toArray(boneMatrices, i * 16);
 			}
 
 			// Update all registered attachments after bones are updated.
 			if (this._attachments) {
-				updateAttachments(this._attachments, this.boneMatrices);
+				updateAttachments(this._attachments, boneMatrices);
 			}
 
 			// Finally, update boneTexture (like the original update function)

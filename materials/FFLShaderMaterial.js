@@ -631,7 +631,7 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	get opacity() {
 		if (this._opacity !== undefined) {
 			const ret = this._opacity;
-			delete this._opacity;
+			this._opacity = undefined;
 			return ret;
 		}
 		return this.uniforms.u_opacity ? this.uniforms.u_opacity.value : 1;
@@ -647,10 +647,10 @@ class FFLShaderMaterial extends THREE.ShaderMaterial {
 	set opacity(value) {
 		if (this.uniforms) {
 			this.uniforms.u_opacity = { value };
-			delete this._opacity;
+			this._opacity = undefined;
 		} else {
 			// Store here for later when color is set.
-			/** @private */
+			/** @type {number|undefined} @private */
 			this._opacity = value;
 		}
 	}

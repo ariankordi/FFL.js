@@ -586,21 +586,25 @@ function onShaderMaterialChange() {
 			: {};
 
 		/**
-		 * Parameters for the shader material. Using SampleShaderMaterialParameters
-		 * as a lowest common denominator, but others can also be used.
-		 * @type {THREE.MeshBasicMaterialParameters
-		 * & import('../materials/SampleShaderMaterial.js').SampleShaderMaterialParameters}
+		 * Parameters for the new shader material, transferring properties from the old one.
+		 * MeshBasicMaterialParameters is used as it contains map.
+		 * @type {THREE.MeshBasicMaterialParameters}
 		 */
 		const params = {
 			// _side = original side from LUTShaderMaterial, must be set first
 			side: (oldMat._side === undefined) ? oldMat.side : oldMat._side,
-			...modulateModeType,
-			color: oldMat.color, // should be after modulateType
+			...modulateModeType, // Set modulateMode/modulateType after.
+			// The color getter from the old material may be undefined.
+			// Only set this key when it has a value.
+			...(oldMat.color === undefined ? {} : { color: oldMat.color }),
+
 			map: oldMat.map,
 			transparent: oldMat.transparent
 		};
+		// Set colorInfo property for SampleShaderMaterialParameters.
 		if (isSampleMaterial(newMatClass.prototype) && currentCharModel) {
-			params.colorInfo = currentCharModel.getColorInfo();
+			/** @type {import('../materials/SampleShaderMaterial.js').SampleShaderMaterialParameters} */
+			(params).colorInfo = currentCharModel.getColorInfo();
 		}
 
 		mesh.material = new (materials[activeMaterialClassName])(params);
