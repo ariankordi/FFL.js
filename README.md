@@ -5,11 +5,11 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 
 * Rendering
   - Full rendering of Mii head models from the [FFL decomp by aboood40091](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).
-  - Accurate shaders from Wii U, Miitomo, and Switch (`FFLShaderMaterial`, `LUTShaderMaterial`, `SampleShaderMaterial`).
-    * For THREE.WebGPURenderer, only the Wii U shader is ported (`FFLShaderNodeMaterial`).
+  - Accurate shaders to reproduce lighting from [Wii U](materials/FFLShaderMaterial.js), [Miitomo](materials/LUTShaderMaterial.js), [Switch](materials/SampleShaderMaterial.js), [3DS](materials/CTRShaderMaterial.js), [Wii](materials/NigaoeShaderMaterial.js)
+    * Including a [port of the Wii U shader](materials/FFLShaderNodeMaterial.js) for THREE.WebGPURenderer.
     * The shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
   - Linear color support from FFL, enabled with `ffl.module._FFLSetLinearGammaMode(1)`. Useful for built-in Three.js materials.
-  - Misc: Multiple expressions, texture mipmaps, bounding box, head-only icon creation, `CharModel.partsTransform` and `FFLModelFlag` for headwear
+  - Misc: Multiple expressions, texture mipmaps, bounding box, basic icon creation, headwear coordinates/hair variants
 * Data
   - 3DS/Wii U Mii Data (`FFLStoreData`)
   - Mii Studio data (raw "codes" or obfuscated URL "data")
@@ -22,8 +22,8 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
     * Base library is 140 KB minified.
     <!-- 140 = ffl.browser.min.js = 38.5 + ffl-emscripten.js = 12.5 + ffl-emscripten.wasm = 86.4 -->
     <!-- (ffl-emscripten built with em_inflate without checksum) -->
-  - Tested from Three.js r144 up to r182 (latest as of writing), WebGL 1/2 and WebGPU.
-    * For WebGPU, use `FFLShaderNodeMaterial`. For r152 and later, opt out of sRGB by following the link above.
+  - Tested from Three.js r144 up to r183 (latest as of writing), WebGL 1/2 and WebGPU.
+    * For WebGPU, use [`FFLShaderNodeMaterial`](materials/FFLShaderNodeMaterial.js). For r152 and later, opt out of sRGB by following the link above.
 
 There are currently two demos within `examples`: `demo-basic.html` and `demo-minimal.html`, both of which just show spinning Mii heads.
 
@@ -43,7 +43,7 @@ For more help, you can either examine the `ffl.js` source, or, generate document
 
 ### Importing as module
 
-This isn't on npmjs.com as of writing, so you'll need to install it from the repo: `npm install https://github.com/ariankordi/FFL.js#v2.1.1` (replacing v2.1.1 with whatever is latest)
+This package isn't on npmjs.com, so install it from the repo instead: `npm install https://github.com/ariankordi/FFL.js#v2.2.0` (replacing v2.2.0 with whatever is latest)
 
 For the browser, you have to use `<script type="module">`, as well as adding import maps.
 
@@ -60,8 +60,8 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 			"imports": {
 				"three": "https://esm.sh/three@0.177.0",
 				"three/": "https://esm.sh/three@0.177.0/",
-				"FFL.js": "https://esm.sh/*gh/ariankordi/FFL.js@v2.1.1",
-				"FFL.js/": "https://esm.sh/*gh/ariankordi/FFL.js@v2.1.1/"
+				"FFL.js": "https://esm.sh/*gh/ariankordi/FFL.js@v2.2.0",
+				"FFL.js/": "https://esm.sh/*gh/ariankordi/FFL.js@v2.2.0/"
 			}
 		}
 	</script>
@@ -85,10 +85,10 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 			const renderer = new THREE.WebGLRenderer({ alpha: true });
 			renderer.setSize(300, 300);
 			document.body.append(renderer.domElement);
-			// You need to get AFLResHigh_2_3.dat from somewhere.
+			// NOTE: You need to get AFLResHigh_2_3.dat from somewhere.
 			const ffl = await FFL.initWithResource(fetch('../AFLResHigh_2_3.dat'),
 				// If not using a CDN like esm.sh, then pass just "ModuleFFL" to CharModel directly.
-				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js@v2.1.1/ffl-emscripten.wasm'}));
+				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js@v2.2.0/ffl-emscripten.wasm'}));
 			/** Mii data from NNID: JasmineChlora */
 			const data = Uint8Array.fromHex('000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1');
 			const model = new CharModel(ffl, data, FFLCharModelDescDefault,
@@ -108,7 +108,7 @@ There are builds that don't need ES modules/"import" available in `dist/`, for e
 
 Shaders are available in global namespace (`window.FFLShaderMaterial`), but FFL.js itself is dropped in the `FFLjs` namespace. Example: `await FFLjs.FFL.initWithResource(fetch('../AFLResHigh_2_3.dat'), ModuleFFL)`
 
-For these, you'll need to use a UMD build of Three.js, which are no longer supported. The last one is r160: `https://unpkg.com/three@0.160.0/build/three.min.js`
+To actually use this, you'll need to use a UMD build of Three.js. They stopped supporting UMD, so the last one is r160: `https://unpkg.com/three@0.160.0/build/three.min.js`
 
 You can adapt the previous example to fit all of these, but this is left as an exercise to the reader :)
 
@@ -178,18 +178,20 @@ Additionally use `npm run-script check-types` to validate types, and `npm run-sc
   - Can be split into non-rendering, WebGL 1.0, and WebGPU.
   - There can be tests for each branch/expected feature, and material class.
   - Tests for matching renders - icon images or model exports would be fantastic.
+<!--
 * Consider a "minimal" WASM binary (<70K?) w/o ninTexUtils, FFLiDatabaseRandom, maybe using DecompressionStream from JS
 * Potentially split code into files. This has already been planned, search: `// TODO PATH:`
   - But since the library is just 4000 lines and relatively thin (40 KB as of writing), there's a risk of overcomplication.
 * Make this easier to use as time goes on. This includes: solving ambiguities, maybe adding JSDoc @example tags... (Like all projects.)
+-->
 
 ## Future
 
-This project was only meant to be a simple port to use FFL in Three.js, like an "adapter". The goals are for it to be light, and reuse as much code from FFL as possible. This is so that we'd have to avoid rewriting the entire library just to use it in JS.
+This project was only meant to be a simple port to use FFL in Three.js, like an "adapter". The goals were to be light and reuse as much code from FFL as possible. This would avoid a tedious rewrite and keep to one C++ codebase.
 
-But, I've realized that this isn't the best solution forever, and I'm aware of how obtuse it may be to call into a native library, deal with WASM, not be able to extend its internals as easily... etc.
+Since then I've realized that this approach has flaws, including how obtuse it can be to deal with a native library and structs, with WASM and its heap, not being able to extend its internals as easily, etc.
 
-So, I'm not planning to work on this library as much, in the hopes that I can make a successor. Along with rendering, it could also manage Mii data in a cleaner way. The plans for this are TBD, but this is a repo I'm toying around with: https://github.com/ariankordi/mii-fusion-experiments
+My focus has instead been on making a successor that handles Mii data thoroughly as well as being better for rendering and even more flexible. I've written about some of my plans in [a post on my blog](https://ariankordi.net/posts/2026-mii-fusion).
 
 # Acknowledgements
 * [aboood40091/AboodXD](https://github.com/aboood40091) for the [FFL decompilation and port to RIO](https://github.com/aboood40091/ffl/tree/nsmbu-win-port).
