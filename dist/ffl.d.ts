@@ -900,8 +900,9 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
      * @typedef {Object} TextureShaderMaterialParameters
      * @property {FFLModulateMode} [modulateMode] - Modulate mode.
      * @property {FFLModulateType} [modulateType] - Modulate type.
-     * @property {THREE.Color|Array<THREE.Color>} [color] -
-     * Constant color assigned to u_const1/2/3 depending on single or array.
+     * @property {THREE.Color|null} [color] - Constant color.
+     * @property {THREE.Color} [colorG]
+     * @property {THREE.Color} [colorB]
      */
     /**
      * The material constructor.
@@ -912,38 +913,32 @@ export class TextureShaderMaterial extends THREE.ShaderMaterial {
         /**
          * - Modulate mode.
          */
-        modulateMode?: number | undefined;
+        modulateMode?: FFLModulateMode;
         /**
          * - Modulate type.
          */
-        modulateType?: number | undefined;
+        modulateType?: FFLModulateType;
         /**
-         * -
-         * Constant color assigned to u_const1/2/3 depending on single or array.
+         * - Constant color.
          */
-        color?: THREE.Color | THREE.Color[] | undefined;
+        color?: THREE.Color | null;
+        colorG?: THREE.Color;
+        colorB?: THREE.Color;
     });
+    set color(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} The color. */
+    get color(): THREE.Color | undefined;
+    set colorG(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} colorG color if defined. */
+    get colorG(): THREE.Color | undefined;
+    set colorB(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} colorB color if defined. */
+    get colorB(): THREE.Color | undefined;
     lightEnable: boolean;
     modulateType: number;
-    /**
-     * Sets the constant color uniforms from THREE.Color.
-     * @param {THREE.Color|Array<THREE.Color>} value -
-     * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
-     */
-    set color(value: THREE.Color | Array<THREE.Color>);
-    /**
-     * Gets the constant color (diffuse) uniform as THREE.Color.
-     * @returns {THREE.Color|null} The constant color, or null if it is not set.
-     */
-    get color(): THREE.Color | null;
-    /**
-     * @type {THREE.Color}
-     * @private
-     */
-    private _color3;
     /** @param {FFLModulateMode} value - The new modulateMode value. */
     set modulateMode(value: FFLModulateMode);
-    /** @returns {FFLModulateMode|null}The modulateMode value, or null if it is unset. */
+    /** @returns {FFLModulateMode|null} The modulateMode value, or null if it is unset. */
     get modulateMode(): FFLModulateMode | null;
     /** @param {THREE.Texture} value - The new texture map. */
     set map(value: THREE.Texture);

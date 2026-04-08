@@ -6,23 +6,16 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
     /**
      * Constructs an FFLShaderNodeMaterial instance.
      * @param {import('three').MeshBasicMaterialParameters
-     * & {color?: Color|Array<Color>}} [options] - Parameters for the material.
+     * & {colorG?: Color, colorB?: Color}} [options] - Parameters for the material.
      */
     constructor(options?: import("three").MeshBasicMaterialParameters & {
-        color?: Color | Array<Color>;
+        colorG?: Color;
+        colorB?: Color;
     });
     map: import("three").Texture | null | undefined;
-    /**
-     * Sets the constant color uniforms from THREE.Color.
-     * @param {Color|Array<Color>} value -
-     * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
-     */
-    set color(value: Color | Array<Color>);
-    /**
-     * Gets the constant color (diffuse) uniform as THREE.Color.
-     * @returns {Color|undefined} The constant color if set.
-     */
-    get color(): Color | undefined;
+    color: import("three").ColorRepresentation;
+    colorG: Color;
+    colorB: Color;
     /** @param {import('../ffl.js').FFLModulateMode} value - The new modulateMode value. */
     set modulateMode(value: import("../ffl.js").FFLModulateMode);
     /** @returns {import('../ffl.js').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */
@@ -44,9 +37,6 @@ export default class FFLShaderNodeMaterial extends NodeMaterial {
     uLightDir: import("three/tsl").ShaderNodeObject<import("three/webgpu").UniformNode<import("three").Vector3>>;
     uRimPower: import("three/tsl").ShaderNodeObject<import("three/webgpu").UniformNode<number>>;
     fragmentNode: import("three/tsl").ShaderNodeObject<import("three/src/nodes/TSL.js").ShaderCallNodeInternal>;
-    diffuse: Color | undefined;
-    color1: Color | undefined;
-    color2: Color | undefined;
     /** @private */
     private _modulateMode;
     /** @private */

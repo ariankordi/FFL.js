@@ -512,8 +512,8 @@ three = __toESM(three);
 		static _getTextureFormat(format) {
 			const useOldFormats = Number(three.REVISION) <= 136 || TextureManager.isWebGL1;
 			const dataFormat = [
-				useOldFormats ? three.LuminanceFormat : three.RedFormat,
-				useOldFormats ? three.LuminanceAlphaFormat : three.RGFormat,
+				useOldFormats ? 1024 : three.RedFormat,
+				useOldFormats ? 1025 : three.RGFormat,
 				three.RGBAFormat
 			][format];
 			console.assert(dataFormat !== void 0, `_textureCreateFunc: Unexpected FFLTextureFormat value: ${format}`);
@@ -799,14 +799,14 @@ three = __toESM(three);
 			let desc = null;
 			try {
 				if (resource instanceof Promise) resource = await resource;
-				const { pointer: heapPtr, size: heapSize } = await this._loadDataIntoHeap(resource, module);
+				const { pointer: heapPtr, size: heapSize } = await FFL._loadDataIntoHeap(resource, module);
 				desc = {
 					pData: [0, 0],
 					size: [0, 0]
 				};
 				desc.pData[FFL.singleResourceType] = heapPtr;
 				desc.size[FFL.singleResourceType] = heapSize;
-				const resourceDescData = this._packFFLResourceDesc(desc);
+				const resourceDescData = FFL._packFFLResourceDesc(desc);
 				resourceDescPtr = module._malloc(this.FFLResourceDesc_size);
 				module.HEAPU8.set(resourceDescData, resourceDescPtr);
 				const result = module._FFLInitRes(0, resourceDescPtr);
@@ -816,7 +816,7 @@ three = __toESM(three);
 				module._FFLSetNormalIsSnorm8_8_8_8(true);
 				module._FFLSetTextureFlipY(true);
 			} catch (error) {
-				this._freeResource(desc, module);
+				FFL._freeResource(desc, module);
 				resourceDescPtr && module._free(resourceDescPtr);
 				console.error("FFL.initWithResource failed:", error);
 				throw error;
@@ -872,7 +872,7 @@ three = __toESM(three);
 					const contentLength = resource.headers.get("Content-Length");
 					if (!contentLength) {
 						console.debug("_loadDataIntoHeap: Fetch response is missing Content-Length, falling back to reading as ArrayBuffer.");
-						return this._loadDataIntoHeap(await resource.arrayBuffer(), module);
+						return FFL._loadDataIntoHeap(await resource.arrayBuffer(), module);
 					}
 					heapSize = Number.parseInt(contentLength, 10);
 					heapPtr = module._malloc(heapSize);
@@ -1149,7 +1149,7 @@ three = __toESM(three);
 			newData = newData || charModel._data;
 			if (!newData) throw new Error("updateCharModel: newData is null.");
 			/** The new or updated CharModelDesc with the new expression specified. */
-			const newModelDesc = this._descOrExpFlagToModelDesc(descOrExpFlag, charModel._modelDesc);
+			const newModelDesc = CharModel._descOrExpFlagToModelDesc(descOrExpFlag, charModel._modelDesc);
 			if (texOnly) newModelDesc.modelFlag |= FFLModelFlag.NEW_MASK_ONLY;
 			else charModel.dispose();
 			const newCharModel = new CharModel({ module: charModel._module }, newData, newModelDesc, charModel._materialClass, void 0, verify);
@@ -1931,14 +1931,15 @@ three = __toESM(three);
 			const indexPtr = primitiveParam.pIndexBuffer / 2;
 			const indices = module.HEAPU16.slice(indexPtr, indexPtr + primitiveParam.indexCount);
 			geometry.setIndex(new three.Uint16BufferAttribute(indices, 1));
-			const pos = attributes[this.FFLAttributeBufferType.POSITION];
+			const bt = DrawParam.FFLAttributeBufferType;
+			const pos = attributes[bt.POSITION];
 			console.assert(pos.size, "_bindDrawParamGeometry: Position buffer must not be empty.");
 			/** Whether or not attributes are using float16 format. */
 			const isHalfFloat = pos.stride < 16;
-			const txc = attributes[this.FFLAttributeBufferType.TEXCOORD];
-			const nrm = attributes[this.FFLAttributeBufferType.NORMAL];
-			const tan = attributes[this.FFLAttributeBufferType.TANGENT];
-			const col = attributes[this.FFLAttributeBufferType.COLOR];
+			const txc = attributes[bt.TEXCOORD];
+			const nrm = attributes[bt.NORMAL];
+			const tan = attributes[bt.TANGENT];
+			const col = attributes[bt.COLOR];
 			const posEnd = pos.ptr + pos.size;
 			const posAttribute = isHalfFloat ? new three.Float16BufferAttribute(module.HEAPU16.slice(pos.ptr / 2, posEnd / 2), 3) : new three.InterleavedBufferAttribute(new three.InterleavedBuffer(module.HEAPF32.slice(pos.ptr / 4, posEnd / 4), 4), 3, 0);
 			geometry.setAttribute("position", posAttribute);
@@ -2014,16 +2015,8 @@ three = __toESM(three);
 		* @private
 		*/
 		static _applyModulateParam(modulateParam, module, forFFLMaterial = true) {
-			/** @type {THREE.Color|Array<THREE.Color>|null} */
-			let color = null;
 			const f32 = module.HEAPF32;
-			if (modulateParam.pColorG !== 0 && modulateParam.pColorB !== 0) color = [
-				_getFFLColor(f32, modulateParam.pColorR),
-				_getFFLColor(f32, modulateParam.pColorG),
-				_getFFLColor(f32, modulateParam.pColorB)
-			];
-			else if (modulateParam.pColorR !== 0) color = _getFFLColor(f32, modulateParam.pColorR);
-			const opacity = modulateParam.type === FFLModulateType.FILL ? 0 : 1;
+			const color = modulateParam.pColorR ? _getFFLColor(f32, modulateParam.pColorR) : null;
 			const transparent = modulateParam.type >= FFLModulateType.SHAPE_MASK;
 			const lightEnable = !(modulateParam.type >= FFLModulateType.SHAPE_MAX && modulateParam.mode !== FFLModulateMode.CONSTANT);
 			/** Do not include the parameters if forFFLMaterial is false. */
@@ -2031,13 +2024,15 @@ three = __toESM(three);
 				modulateMode: modulateParam.mode,
 				modulateType: modulateParam.type
 			} : {};
+			/** @type {TextureShaderMaterialParameters} */
 			const param = Object.assign(modulateModeType, {
 				color,
-				opacity,
 				transparent,
 				depthWrite: !transparent,
-				...this._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
+				...DrawParam._getBlendOptionsFromModulateType(modulateParam.type, modulateParam.mode)
 			});
+			modulateParam.pColorG && (param.colorG = _getFFLColor(f32, modulateParam.pColorG));
+			modulateParam.pColorB && (param.colorB = _getFFLColor(f32, modulateParam.pColorB));
 			if (!lightEnable)
  /** @type {Object<string, *>} */ param.lightEnable = lightEnable;
 			return param;
@@ -2060,10 +2055,10 @@ three = __toESM(three);
 		initialize(charModel, renderer, module, texMgr, matTexClass, maskTargets, faceColor) {
 			console.assert(renderer.render !== void 0, "CharModelTextures: renderer is an unexpected type (cannot find .render).");
 			const pRawMaskDrawParam = charModel.getMaskDrawParamPtrs();
-			const faceTarget = this._drawFacelineTexture(charModel, renderer, module, texMgr, faceColor, matTexClass);
+			const faceTarget = CharModelTextures._drawFacelineTexture(charModel, renderer, module, texMgr, faceColor, matTexClass);
 			const clearAlpha = renderer.getClearAlpha();
 			clearAlpha !== 0 && renderer.setClearAlpha(0);
-			this._drawMaskTextures(charModel, pRawMaskDrawParam, maskTargets, renderer, module, texMgr, matTexClass);
+			CharModelTextures._drawMaskTextures(charModel, pRawMaskDrawParam, maskTargets, renderer, module, texMgr, matTexClass);
 			clearAlpha !== 0 && renderer.setClearAlpha(clearAlpha);
 			return faceTarget;
 		},
@@ -2077,7 +2072,7 @@ three = __toESM(three);
 		_drawFacelineTexture(charModel, renderer, module, texMgr, color, materialClass) {
 			const facelineTempObjectPtr = charModel.getFacelineTempObjectPtr();
 			module._FFLiInvalidateTempObjectFacelineTexture(facelineTempObjectPtr);
-			const drawParams = this._unpackDrawParamArray(module.HEAPU8, facelineTempObjectPtr, this.FacelinePartCount).filter((dp) => dp && dp.modulateParam.pTexture2D !== 0);
+			const drawParams = CharModelTextures._unpackDrawParamArray(module.HEAPU8, facelineTempObjectPtr, CharModelTextures.FacelinePartCount).filter((dp) => dp && dp.modulateParam.pTexture2D !== 0);
 			if (drawParams.length === 0) return null;
 			const offscreenScene = new three.Scene();
 			offscreenScene.background = color;
@@ -2108,10 +2103,10 @@ three = __toESM(three);
 			for (let i = 0; i < maskParams.length; i++) {
 				if (maskParams[i] === 0) continue;
 				const maskParamPtr = maskParams[i];
-				const rawMaskDrawParam = this._unpackDrawParamArray(module.HEAPU8, maskParamPtr, this.MaskPartCount);
+				const rawMaskDrawParam = CharModelTextures._unpackDrawParamArray(module.HEAPU8, maskParamPtr, CharModelTextures.MaskPartCount);
 				module._FFLiInvalidateRawMask(maskParamPtr);
 				const res = charModel.getResolution();
-				const { target, scene } = this._drawMaskTexture(res, rawMaskDrawParam, renderer, module, texMgr, materialClass);
+				const { target, scene } = CharModelTextures._drawMaskTexture(res, rawMaskDrawParam, renderer, module, texMgr, materialClass);
 				targets[i] = target;
 				scenes.push(scene);
 			}
@@ -2231,8 +2226,9 @@ three = __toESM(three);
 		* @typedef {Object} TextureShaderMaterialParameters
 		* @property {FFLModulateMode} [modulateMode] - Modulate mode.
 		* @property {FFLModulateType} [modulateType] - Modulate type.
-		* @property {THREE.Color|Array<THREE.Color>} [color] -
-		* Constant color assigned to u_const1/2/3 depending on single or array.
+		* @property {THREE.Color|null} [color] - Constant color.
+		* @property {THREE.Color} [colorG]
+		* @property {THREE.Color} [colorB]
 		*/
 		/**
 		* The material constructor.
@@ -2262,82 +2258,66 @@ three = __toESM(three);
 				uniform vec3 diffuse;
 				uniform float opacity;
 				uniform int modulateMode;
-				uniform vec3 color1;
-				uniform vec3 color2;
+				uniform vec3 colorG;
+				uniform vec3 colorB;
 
 				void main() {
 					vec4 diffuseColor = vec4( diffuse, opacity );
 
 					#include <map_fragment>
 					#include <alphamap_fragment>
-				#ifdef USE_MAP
-					if (modulateMode == 2) { // FFL_MODULATE_MODE_RGB_LAYERED
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.r +
-				      color1.rgb * sampledDiffuseColor.g +
-				      color2.rgb * sampledDiffuseColor.b,
-				      sampledDiffuseColor.a
-				    );
-				  } else if (modulateMode == 3) { // FFL_MODULATE_MODE_ALPHA
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.r,
-				      sampledDiffuseColor.r
-				    );
-				  } else if (modulateMode == 4) { // FFL_MODULATE_MODE_LUMINANCE_ALPHA
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.g,
-				      sampledDiffuseColor.r
-				    );
-				  } else if (modulateMode == 5) { // FFL_MODULATE_MODE_ALPHA_OPA
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.r,
-				      1.0
-				    );
-				  }
-				#endif
+#ifdef USE_MAP
+					if (modulateMode == 2) { // RGB_LAYERED
+						vec3 rgb = diffuse.rgb * pixel.r +
+									colorG.rgb * pixel.g +
+									colorB.rgb * pixel.b;
+						color = vec4(rgb, pixel.a);
+					} else if (modulateMode == 3) { // ALPHA
+						color = vec4(diffuse.rgb * pixel.r, pixel.r);
+					} else if (modulateMode == 4) { // LUMINANCE_ALPHA (glass)
+						color = vec4(diffuse.rgb * pixel.g, pixel.r);
+					} else if (modulateMode == 5) { // ALPHA_OPA (cap)
+						color = vec4(diffuse.rgb * pixel.r, 1.0);
+					}
 
-				  // avoids little outline around mask elements
-				  if (modulateMode != 0 && diffuseColor.a == 0.0) { // FFL_MODULATE_MODE_CONSTANT
-				      discard;
-				  }
-
+					if (modulateMode != 0 && color.a == 0.0) { // != CONSTANT
+						discard; // Alpha discard for mask texture.
+					}
+#endif
 					gl_FragColor = diffuseColor;
 					//#include <colorspace_fragment>
 				}`,
 				uniforms
 			});
+			this.color = /* @__PURE__ */ new three.Color();
+			this.colorG = /* @__PURE__ */ new three.Color();
+			this.colorB = /* @__PURE__ */ new three.Color();
 			this.lightEnable = false;
 			this.modulateType = 0;
 			this.setValues(options);
 		}
-		/**
-		* Gets the constant color (diffuse) uniform as THREE.Color.
-		* @returns {THREE.Color|null} The constant color, or null if it is not set.
-		*/
+		/** @returns {THREE.Color|undefined} The color. */
 		get color() {
-			return this.uniforms.diffuse ? this.uniforms.diffuse.value : null;
+			return this.uniforms.diffuse ? this.uniforms.diffuse.value : void 0;
 		}
-		/**
-		* Sets the constant color uniforms from THREE.Color.
-		* @param {THREE.Color|Array<THREE.Color>} value -
-		* The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
-		*/
 		set color(value) {
-			if (Array.isArray(value)) {
-				this.uniforms.diffuse = { value: value[0] };
-				this.uniforms.color1 = { value: value[1] };
-				this.uniforms.color2 = { value: value[2] };
-				return;
-			}
-			const color3 = value || new three.Color(1, 1, 1);
-			/**
-			* @type {THREE.Color}
-			* @private
-			*/
-			this._color3 = color3;
-			this.uniforms.diffuse = { value: color3 };
+			this.uniforms.diffuse = { value };
 		}
-		/** @returns {FFLModulateMode|null}The modulateMode value, or null if it is unset. */
+		/** @returns {THREE.Color|undefined} colorG color if defined. */
+		get colorG() {
+			return this.uniforms.colorG ? this.uniforms.colorG.value : void 0;
+		}
+		set colorG(value) {
+			this.uniforms.colorG = { value };
+		}
+		/** @returns {THREE.Color|undefined} colorB color if defined. */
+		get colorB() {
+			return this.uniforms.colorB ? this.uniforms.colorB.value : void 0;
+		}
+		set colorB(value) {
+			this.uniforms.colorB = { value };
+		}
+		/** @returns {FFLModulateMode|null} The modulateMode value, or null if it is unset. */
 		get modulateMode() {
 			return this.uniforms.modulateMode ? this.uniforms.modulateMode.value : null;
 		}

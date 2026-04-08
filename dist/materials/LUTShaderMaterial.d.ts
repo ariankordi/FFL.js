@@ -5,28 +5,29 @@ export type LUTShaderMaterialParameters = {
     /**
      * - Modulate mode.
      */
-    modulateMode?: number | undefined;
+    modulateMode?: FFLModulateMode;
     /**
      * - Modulate type.
      */
-    modulateType?: number | undefined;
+    modulateType?: FFLModulateType;
     /**
-     * -
-     * Constant color assigned to uColor0/1/2 depending on single or array.
+     * - Constant color.
      */
-    color?: THREE.Color | THREE.Color[] | undefined;
+    color?: THREE.Color | null;
+    colorG?: THREE.Color;
+    colorB?: THREE.Color;
     /**
      * - Light direction.
      */
-    lightDirection?: THREE.Vector3 | undefined;
+    lightDirection?: THREE.Vector3;
     /**
      * - Enable lighting. Needs to be off when drawing faceline/mask textures.
      */
-    lightEnable?: boolean | undefined;
+    lightEnable?: boolean;
     /**
      * - Texture map.
      */
-    map?: THREE.Texture | undefined;
+    map?: THREE.Texture | null;
 };
 /**
  * Custom THREE.ShaderMaterial using the LUT shader from Miitomo.
@@ -57,9 +58,9 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      */
     private static _lutDefinitions;
     /** @type {Object<FFLModulateType, LUTSpecularTextureType>} */
-    static modulateTypeToLUTSpecular: any;
+    static lutSpecularTypes: any;
     /** @type {Object<FFLModulateType, LUTFresnelTextureType>} */
-    static modulateTypeToLUTFresnel: any;
+    static lutFresnelTypes: any;
     /**
      * Cached LUT textures to avoid redundant generation.
      * @typedef {Object} LUTTextures
@@ -112,47 +113,27 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      */
     static defaultLightDirection: THREE.Vector4;
     /**
-     * Multiplies beard and hair colors by a factor seen
-     * in libcocos2dcpp.so in order to match its rendering style.
-     * Refer to: https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/src/ShaderMiitomo.cpp#L587
-     * @param {THREE.Color} color - The original color.
-     * @param {FFLModulateType} modulateType - The modulate type, or type of shape.
-     * @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
-     * @returns {THREE.Color} The final color.
-     * @private
-     */
-    private static _multiplyColorIfNeeded;
-    /** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
-    /**
      * Constructs a LUTShaderMaterial instance.
      * NOTE: Pass parameters in this order: side, modulateType, color
      * @param {THREE.ShaderMaterialParameters & LUTShaderMaterialParameters} [options] -
      * Parameters for the material.
      */
     constructor(options?: THREE.ShaderMaterialParameters & LUTShaderMaterialParameters);
+    set color(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} The color. */
+    get color(): THREE.Color | undefined;
+    set colorG(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} colorG color if defined. */
+    get colorG(): THREE.Color | undefined;
+    set colorB(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} colorB color if defined. */
+    get colorB(): THREE.Color | undefined;
     /**
      * @type {FFLModulateType}
      * @private
      */
     private _modulateType;
-    /**
-     * Sets the constant color uniforms from THREE.Color.
-     * @param {THREE.Color|Array<THREE.Color>} value - The
-     * constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
-     */
-    set color(value: THREE.Color | Array<THREE.Color>);
-    /**
-     * Gets the constant color (uColor0) uniform as THREE.Color.
-     * @returns {THREE.Color|null} The constant color, or null if it is not set.
-     */
-    get color(): THREE.Color | null;
-    /**
-     * @type {THREE.Color}
-     * @private
-     */
-    private _color3;
-    /** @private */
-    private _opacity;
+    _opacity: number | undefined;
     /**
      * Sets the value of the modulateMode uniform.
      * @param {FFLModulateMode} value - The new modulateMode value.
@@ -184,10 +165,10 @@ declare class LUTShaderMaterial extends THREE.ShaderMaterial {
      */
     get modulateType(): FFLModulateType | undefined;
     /**
-     * @type {number|undefined}
+     * @type {THREE.Side|undefined}
      * @package
      */
-    _side: number | undefined;
+    _side: THREE.Side | undefined;
     /**
      * Sets the texture map.
      * @param {THREE.Texture} value - The new texture map.

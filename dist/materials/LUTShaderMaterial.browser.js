@@ -43,11 +43,12 @@ three = __toESM(three);
 	* @typedef {Object} LUTShaderMaterialParameters
 	* @property {FFLModulateMode} [modulateMode] - Modulate mode.
 	* @property {FFLModulateType} [modulateType] - Modulate type.
-	* @property {THREE.Color|Array<THREE.Color>} [color] -
-	* Constant color assigned to uColor0/1/2 depending on single or array.
+	* @property {THREE.Color|null} [color] - Constant color.
+	* @property {THREE.Color} [colorG]
+	* @property {THREE.Color} [colorB]
 	* @property {THREE.Vector3} [lightDirection] - Light direction.
 	* @property {boolean} [lightEnable] - Enable lighting. Needs to be off when drawing faceline/mask textures.
-	* @property {THREE.Texture} [map] - Texture map.
+	* @property {THREE.Texture|null} [map] - Texture map.
 	*/
 	const _LUTShader_vert = `
 #define AGX_FEATURE_ALBEDO_TEXTURE
@@ -474,12 +475,15 @@ precision mediump float;
 uniform int   uMode;   ///< 描画モード
 uniform bool uAlphaTest;
 uniform bool uLightEnable;
-uniform mediump vec4    uColor0;            //!< 入力:[ 1 : 1 ] カラー0 (OR 肌カラー)
-uniform mediump vec4    uColor1;            //!< 入力:[ 1 : 2 ] カラー1 (OR 髪カラー)
-uniform mediump vec4    uColor2;            //!< 入力:[ 1 : 3 ] カラー2 (OR フェードアウトカラー)
+uniform mediump float uOpacity; // custom
+uniform mediump vec3    uColor0;            //!< 入力:[ 1 : 1 ] カラー0 (OR 肌カラー)
+uniform mediump vec3    uColor1;            //!< 入力:[ 1 : 2 ] カラー1 (OR 髪カラー)
+uniform mediump vec3    uColor2;            //!< 入力:[ 1 : 3 ] カラー2 (OR フェードアウトカラー)
 //#if !defined(AGX_FEATURE_DISABLE_LIGHT)
 uniform mediump vec3    uLightColor;        //!< 入力:[ 1 : 4 ] ライトの色
 //#endif
+
+uniform mediump float uColor0Multiply; // custom (only applied in "Mii" block)
 
 #if defined(AGX_FEATURE_ALBEDO_TEXTURE)
 uniform sampler2D       uAlbedoTexture;     //!< 入力: テクスチャー
@@ -541,7 +545,7 @@ void main()
    //#if defined(AGX_FEATURE_MII_CONSTANT)
     if(uMode == FFL_MODULATE_MODE_CONSTANT)
     {
-        albedoColor = uColor0;
+        albedoColor = vec4(uColor0.rgb * uColor0Multiply, uOpacity);
     }
     //#elif defined(AGX_FEATURE_MII_TEXTURE_DIRECT)
     else if(uMode == FFL_MODULATE_MODE_TEXTURE_DIRECT)
@@ -553,25 +557,25 @@ void main()
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
         albedoColor = vec4(albedoColor.r * uColor0.rgb + albedoColor.g * uColor1.rgb + albedoColor.b * uColor2.rgb,
-                           uColor0.a * albedoColor.a);
+                           uOpacity * albedoColor.a);
     }
     //#elif defined(AGX_FEATURE_MII_ALPHA)
     else if(uMode == FFL_MODULATE_MODE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(uColor0.rgb, uColor0.a * albedoColor.r);
+        albedoColor = vec4(uColor0.rgb * uColor0Multiply, uOpacity * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_LUMINANCE_ALPHA)
     else if(uMode == FFL_MODULATE_MODE_LUMINANCE_ALPHA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.g * uColor0.rgb, uColor0.a * albedoColor.r);
+        albedoColor = vec4(albedoColor.g * uColor0.rgb * uColor0Multiply, uOpacity * albedoColor.r);
     }
     //#elif defined(AGX_FEATURE_MII_ALPHA_OPA)
     else if(uMode == FFL_MODULATE_MODE_ALPHA_OPA)
     {
         albedoColor = texture2D(uAlbedoTexture, vTexcoord0);
-        albedoColor = vec4(albedoColor.r * uColor0.rgb, uColor0.a);
+        albedoColor = vec4(albedoColor.r * uColor0.rgb * uColor0Multiply, uOpacity);
     }
 //#endif
 
@@ -595,7 +599,7 @@ void main()
     // Deprecated
 #if defined(AGX_FEATURE_ALPHA_COLOR_FILTER)
     // 一部の場所にColor0を反映する
-    albedoColor.rgb = (albedoColor.rgb * albedoColor.a + uColor0.rgb * (1.0 - albedoColor.a));
+    albedoColor.rgb = (albedoColor.rgb * albedoColor.a + (uColor0.rgb * uColor0Multiply) * (1.0 - albedoColor.a));
     albedoColor.a = 1.0;
 #elif defined(AGX_FEATURE_MASK_TEXTURE)
     lowp vec3  maskTextureColor = texture2D(uMaskTexture, vTexcoord0).rgb;
@@ -603,12 +607,12 @@ void main()
 #   if defined(AGX_FEATURE_SKIN_MASK) && defined(AGX_FEATURE_HAIR_MASK)
     // 肌と髪両方マスクが存在する
     lowp float maskColorValue = maskTextureColor.g + maskTextureColor.b;
-    lowp vec3  maskColor      = maskTextureColor.g * uColor0.rgb + maskTextureColor.b * uColor1.rgb;
+    lowp vec3  maskColor      = maskTextureColor.g * (uColor0.rgb * uColor0Multiply) + maskTextureColor.b * uColor1.rgb;
     albedoColor.rgb = (albedoColor.rgb * (1.0 - maskColorValue) + maskColor);
 
 #   elif defined(AGX_FEATURE_SKIN_MASK)
     // 肌しかマスクが存在しない
-    albedoColor.rgb = (albedoColor.rgb * (1.0 - maskTextureColor.g) + maskTextureColor.g * uColor0.rgb);
+    albedoColor.rgb = (albedoColor.rgb * (1.0 - maskTextureColor.g) + maskTextureColor.g * (uColor0.rgb * uColor0Multiply));
 
 #   elif defined(AGX_FEATURE_HAIR_MASK)
     // 髪しかマスクが存在しない
@@ -927,7 +931,7 @@ else
 			}
 		};
 		/** @type {Object<FFLModulateType, LUTSpecularTextureType>} */
-		static modulateTypeToLUTSpecular = [
+		static lutSpecularTypes = [
 			LUTShaderMaterial.LUTSpecularTextureType.SKIN_01,
 			LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02,
 			LUTShaderMaterial.LUTSpecularTextureType.SKIN_01,
@@ -941,7 +945,7 @@ else
 			LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02
 		];
 		/** @type {Object<FFLModulateType, LUTFresnelTextureType>} */
-		static modulateTypeToLUTFresnel = [
+		static lutFresnelTypes = [
 			LUTShaderMaterial.LUTFresnelTextureType.SKIN_01,
 			LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02,
 			LUTShaderMaterial.LUTFresnelTextureType.SKIN_01,
@@ -979,7 +983,7 @@ else
 				specular: {},
 				fresnel: {}
 			};
-			const r8 = Number(three.REVISION) <= 136 ? three.LuminanceFormat : three.RedFormat;
+			const r8 = Number(three.REVISION) <= 136 ? 1024 : three.RedFormat;
 			/**
 			* Helper function to generate LUT textures.
 			* @param {Object<number, HermitianCurve>} lutType - The mapping for LUT type to {@link HermitanCurve}.
@@ -1021,26 +1025,6 @@ else
 		*/
 		static defaultLightDirection = this.defaultDirLightDirAndType0;
 		/**
-		* Multiplies beard and hair colors by a factor seen
-		* in libcocos2dcpp.so in order to match its rendering style.
-		* Refer to: https://github.com/ariankordi/FFL-Testing/blob/16dd44c8848e0820e03f8ccb0efa1f09f4bc2dca/src/ShaderMiitomo.cpp#L587
-		* @param {THREE.Color} color - The original color.
-		* @param {FFLModulateType} modulateType - The modulate type, or type of shape.
-		* @param {FFLModulateMode} modulateMode - The modulate mode, used to confirm custom body type.
-		* @returns {THREE.Color} The final color.
-		* @private
-		*/
-		static _multiplyColorIfNeeded(color, modulateType, modulateMode) {
-			if (modulateType === 1 || modulateType === 4 || modulateMode === 0 && modulateType === 9) {
-				const mul = .9019608;
-				color.r *= mul;
-				color.g *= mul;
-				color.b *= mul;
-			}
-			return color;
-		}
-		/** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
-		/**
 		* Constructs a LUTShaderMaterial instance.
 		* NOTE: Pass parameters in this order: side, modulateType, color
 		* @param {THREE.ShaderMaterialParameters & LUTShaderMaterialParameters} [options] -
@@ -1051,6 +1035,7 @@ else
 			const uniforms = {
 				uBoneCount: { value: 0 },
 				uAlpha: { value: 1 },
+				uColor0Multiply: { value: 1 },
 				uHSLightGroundColor: { value: LUTShaderMaterial.defaultHSLightGroundColor },
 				uHSLightSkyColor: { value: LUTShaderMaterial.defaultHSLightSkyColor },
 				uDirLightColor0: { value: LUTShaderMaterial.defaultDirLightColor0 },
@@ -1066,64 +1051,49 @@ else
 				fragmentShader: _LUTShader_frag,
 				uniforms
 			});
+			this.color = /* @__PURE__ */ new three.Color();
+			this.colorG = /* @__PURE__ */ new three.Color();
+			this.colorB = /* @__PURE__ */ new three.Color();
 			/**
 			* @type {FFLModulateType}
 			* @private
 			*/
 			this._modulateType = 0;
 			this.setValues(options);
+			this.opacity = this.opacity;
 		}
-		/**
-		* Gets the constant color (uColor0) uniform as THREE.Color.
-		* @returns {THREE.Color|null} The constant color, or null if it is not set.
-		*/
+		/** @returns {THREE.Color|undefined} The color. */
 		get color() {
-			if (!this.uniforms.uColor0) return null;
-			else if (this._color3) return this._color3;
-			const color4 = this.uniforms.uColor0.value;
-			const color3 = new three.Color(color4.x, color4.y, color4.z);
-			/**
-			* @type {THREE.Color}
-			* @private
-			*/
-			this._color3 = color3;
-			return color3;
+			return this.uniforms.uColor0 ? this.uniforms.uColor0.value : void 0;
 		}
-		/**
-		* Sets the constant color uniforms from THREE.Color.
-		* @param {THREE.Color|Array<THREE.Color>} value - The
-		* constant color (uColor0), or multiple (uColor0/1/2) to set the uniforms for.
-		*/
 		set color(value) {
-			/**
-			* @param {THREE.Color} color - THREE.Color instance.
-			* @param {number} opacity - Opacity mapped to .a.
-			* @returns {THREE.Vector4} Vector4 containing color and opacity.
-			*/
-			function toColor4(color, opacity = 1) {
-				return new three.Vector4(color.r, color.g, color.b, opacity);
-			}
-			if (Array.isArray(value)) {
-				/** @type {IUniformVector4} */ this.uniforms.uColor0 = { value: toColor4(value[0]) };
-				/** @type {IUniformVector4} */ this.uniforms.uColor1 = { value: toColor4(value[1]) };
-				/** @type {IUniformVector4} */ this.uniforms.uColor2 = { value: toColor4(value[2]) };
-				return;
-			}
-			const color3 = value || new three.Color(1, 1, 1);
-			/** @type {THREE.Color} */
-			this._color3 = color3.clone();
-			if (this.modulateType !== void 0 && typeof this.modulateMode === "number") LUTShaderMaterial._multiplyColorIfNeeded(color3, this.modulateType, this.modulateMode);
-			const opacity = this.opacity;
-			if (this._opacity) delete this._opacity;
-			/** @type {IUniformVector4} */ this.uniforms.uColor0 = { value: toColor4(color3, opacity) };
+			this.uniforms.uColor0 = { value };
+		}
+		/** @returns {THREE.Color|undefined} colorG color if defined. */
+		get colorG() {
+			return this.uniforms.uColor1 ? this.uniforms.uColor1.value : void 0;
+		}
+		set colorG(value) {
+			this.uniforms.uColor1 = { value };
+		}
+		/** @returns {THREE.Color|undefined} colorB color if defined. */
+		get colorB() {
+			return this.uniforms.uColor2 ? this.uniforms.uColor2.value : void 0;
+		}
+		set colorB(value) {
+			this.uniforms.uColor2 = { value };
 		}
 		/**
 		* Gets the opacity of the constant color.
 		* @returns {number} The opacity value.
 		*/
 		get opacity() {
-			if (!this.uniforms.uColor0) return this._opacity || 1;
-			return this.uniforms.uColor0.value.w;
+			if (this._opacity !== void 0) {
+				const ret = this._opacity;
+				this._opacity = void 0;
+				return ret;
+			}
+			return this.uniforms.uOpacity ? this.uniforms.uOpacity.value : 1;
 		}
 		/**
 		* Sets the opacity of the constant color.
@@ -1132,12 +1102,12 @@ else
 		* @param {number} value - The new opacity value.
 		*/
 		set opacity(value) {
-			if (!this.uniforms || !this.uniforms.uColor0) {
-				/** @private */
-				this._opacity = 1;
-				return;
-			}
-			/** @type {IUniformVector4} */ this.uniforms.uColor0.value.w = value;
+			if (this.uniforms) {
+				this.uniforms.uOpacity = { value };
+				this._opacity = void 0;
+			} else
+ /** @type {number|undefined} @private */
+			this._opacity = value;
 		}
 		/**
 		* Gets the value of the modulateMode uniform.
@@ -1179,22 +1149,24 @@ else
 		* @param {FFLModulateType} value - The new modulateType value.
 		*/
 		set modulateType(value) {
-			const lutTextures = LUTShaderMaterial.getLUTTextures();
-			const specular = LUTShaderMaterial.modulateTypeToLUTSpecular[value];
-			const fresnel = LUTShaderMaterial.modulateTypeToLUTFresnel[value];
-			if (specular === void 0 || fresnel === void 0) return;
 			/**
 			* @type {FFLModulateType}
 			* @private
 			*/
 			this._modulateType = value;
+			const needsColorDarken = value === 1 || value === 4 || this.modulateMode === 0 && value === 9;
+			this.uniforms.uColor0Multiply.value = needsColorDarken ? .902 : 1;
+			const lutTextures = LUTShaderMaterial.getLUTTextures();
+			const specular = LUTShaderMaterial.lutSpecularTypes[value];
+			const fresnel = LUTShaderMaterial.lutFresnelTypes[value];
+			if (specular === void 0 || fresnel === void 0) return;
 			const lutSpecTexture = lutTextures.specular[specular];
 			const lutFresTexture = lutTextures.fresnel[fresnel];
 			this.uniforms.uLUTSpecTexture = { value: lutSpecTexture };
 			this.uniforms.uLUTFresTexture = { value: lutFresTexture };
 			this.uniforms.uAlphaTest = { value: value >= 6 && value <= 8 };
 			/**
-			* @type {number|undefined}
+			* @type {THREE.Side|undefined}
 			* @package
 			*/
 			this._side = this.side;

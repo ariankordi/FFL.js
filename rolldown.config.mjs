@@ -22,6 +22,18 @@ const entries = [
 		name: 'SampleShaderMaterial',
 		outFile: 'dist/materials/SampleShaderMaterial.browser.js',
 		exports: 'default'
+	},
+	{
+		input: 'materials/CTRShaderMaterial.js',
+		name: 'CTRShaderMaterial',
+		outFile: 'dist/materials/CTRShaderMaterial.browser.js',
+		exports: 'default'
+	},
+	{
+		input: 'materials/NigaoeShaderMaterial.js',
+		name: 'NigaoeShaderMaterial',
+		outFile: 'dist/materials/NigaoeShaderMaterial.browser.js',
+		exports: 'default'
 	}
 	// No NodeMaterials for now as the WebGPURenderer is required.
 ];

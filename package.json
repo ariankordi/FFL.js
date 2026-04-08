@@ -1,5 +1,6 @@
 {
   "name": "ffl.js",
+  "version": "2.2.0",
   "main": "ffl.js",
   "type": "module",
   "scripts": {

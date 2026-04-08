@@ -7,8 +7,8 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
     /**
      * @typedef {Object} FragmentInputs
      * @property {ShaderNodeObject} diffuse - color
-     * @property {ShaderNodeObject} color1 - color
-     * @property {ShaderNodeObject} color2 - color
+     * @property {ShaderNodeObject} colorG - color
+     * @property {ShaderNodeObject} colorB - color
      * @property {ShaderNodeObject} opacity - float
      * @property {ShaderNodeObject} modulateMode - int
      * @property {ShaderNodeObject|null} texel - texture
@@ -22,11 +22,11 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
         /**
          * - color
          */
-        color1: ShaderNodeObject;
+        colorG: ShaderNodeObject;
         /**
          * - color
          */
-        color2: ShaderNodeObject;
+        colorB: ShaderNodeObject;
         /**
          * - float
          */
@@ -40,22 +40,15 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
          */
         texel: ShaderNodeObject | null;
     }]>;
-    /** @param {import('three').MeshBasicMaterialParameters & {color?: Color|Array<Color>}} [options] - Options */
+    /** @param {import('three').MeshBasicMaterialParameters & {colorG?: Color, colorB?: Color}} [options] - Options */
     constructor(options?: import("three").MeshBasicMaterialParameters & {
-        color?: Color | Array<Color>;
+        colorG?: Color;
+        colorB?: Color;
     });
     map: import("three").Texture | null | undefined;
-    /**
-     * Sets the constant color uniforms from THREE.Color.
-     * @param {import('three').Color|Array<import('three').Color>} value -
-     * The constant color (diffuse), or multiple (diffuse/color1/color2) to set the uniforms for.
-     */
-    set color(value: import("three").Color | Array<import("three").Color>);
-    /**
-     * Gets the constant color (diffuse) uniform as THREE.Color.
-     * @returns {import('three').Color|undefined} The constant color if set.
-     */
-    get color(): import("three").Color | undefined;
+    color: import("three").ColorRepresentation;
+    colorG: Color;
+    colorB: Color;
     /** @param {import('../ffl.js').FFLModulateMode} value - The new modulateMode value. */
     set modulateMode(value: import("../ffl.js").FFLModulateMode);
     /** @returns {import('../ffl.js').FFLModulateMode|undefined} The modulateMode value, or null if it is unset. */
@@ -63,9 +56,6 @@ export default class TextureShaderNodeMaterial extends NodeMaterial {
     modulateType: number;
     lightEnable: boolean;
     fragmentNode: import("three/tsl").ShaderNodeObject<import("three/src/nodes/tsl/TSLCore.js").ShaderCallNodeInternal>;
-    diffuse: Color | undefined;
-    color1: Color | undefined;
-    color2: Color | undefined;
     /** @private */
     private _modulateMode;
 }

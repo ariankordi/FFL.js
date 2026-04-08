@@ -15,35 +15,36 @@ export type SampleShaderMaterialParameters = {
     /**
      * - Modulate mode.
      */
-    modulateMode?: number | undefined;
+    modulateMode?: FFLModulateMode;
     /**
      * - Modulate type.
      */
-    modulateType?: number | undefined;
+    modulateType?: FFLModulateType;
     /**
-     * -
-     * Constant color assigned to constColor1/2/3 depending on single or array.
+     * - Constant color.
      */
-    color?: THREE.Color | THREE.Color[] | undefined;
+    color?: THREE.Color | null;
+    colorG?: THREE.Color;
+    colorB?: THREE.Color;
     /**
      * - Enable lighting. Needs to be off when drawing faceline/mask textures.
      */
-    lightEnable?: boolean | undefined;
+    lightEnable?: boolean;
     /**
      * - Light direction.
      */
-    lightDirection?: THREE.Vector3 | undefined;
+    lightDirection?: THREE.Vector3;
     /**
      * - Texture map.
      */
-    map?: THREE.Texture | undefined;
+    map?: THREE.Texture | null;
     /**
      * -
      * Info needed to resolve shader uniforms. This is required
      * or else lighting will not be applied. It can come from
      * CharModel.getColorInfo, or getColorInfoFromCharInfoB64 for glTFs.
      */
-    colorInfo?: SampleShaderMaterialColorInfo | undefined;
+    colorInfo?: SampleShaderMaterialColorInfo;
 };
 export type DrawParamMaterial = {
     halfLambertFactor: number;
@@ -99,13 +100,21 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
             type: number;
         };
     }, geometry: THREE.BufferGeometry): void;
-    /** @typedef {THREE.IUniform<THREE.Vector4>} IUniformVector4 */
     /**
      * Constructs an SampleShaderMaterial instance.
      * @param {THREE.ShaderMaterialParameters & SampleShaderMaterialParameters} [options] -
      * Parameters for the material.
      */
     constructor(options?: THREE.ShaderMaterialParameters & SampleShaderMaterialParameters);
+    set color(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} The color. */
+    get color(): THREE.Color | undefined;
+    set colorG(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} colorG color if defined. */
+    get colorG(): THREE.Color | undefined;
+    set colorB(value: THREE.Color);
+    /** @returns {THREE.Color|undefined} colorB color if defined. */
+    get colorB(): THREE.Color | undefined;
     /**
      * @type {FFLModulateType}
      * @private
@@ -115,24 +124,7 @@ declare class SampleShaderMaterial extends THREE.ShaderMaterial {
     private _sssColorTable;
     /** @private */
     private _specularColorTable;
-    /**
-     * Sets the constant color uniforms from THREE.Color.
-     * @param {THREE.Color|Array<THREE.Color>} value - The
-     * constant color (constColor1), or multiple (constColor1/2/3) to set the uniforms for.
-     */
-    set color(value: THREE.Color | Array<THREE.Color>);
-    /**
-     * Gets the constant color (constColor1) uniform as THREE.Color.
-     * @returns {THREE.Color|null} The constant color, or null if it is not set.
-     */
-    get color(): THREE.Color | null;
-    /**
-     * @type {THREE.Color}
-     * @private
-     */
-    private _color3;
-    /** @private */
-    private _opacity;
+    _opacity: number | undefined;
     /**
      * Sets the value of the modulateMode uniform.
      * @param {FFLModulateMode} value - The new modulateMode value.

@@ -1,0 +1,448 @@
+var NigaoeShaderMaterial = (function(three) {
+
+//#region rolldown:runtime
+	var __create = Object.create;
+	var __defProp = Object.defineProperty;
+	var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+	var __getOwnPropNames = Object.getOwnPropertyNames;
+	var __getProtoOf = Object.getPrototypeOf;
+	var __hasOwnProp = Object.prototype.hasOwnProperty;
+	var __copyProps = (to, from, except, desc) => {
+		if (from && typeof from === "object" || typeof from === "function") {
+			for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+				key = keys[i];
+				if (!__hasOwnProp.call(to, key) && key !== except) {
+					__defProp(to, key, {
+						get: ((k) => from[k]).bind(null, key),
+						enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+					});
+				}
+			}
+		}
+		return to;
+	};
+	var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
+		value: mod,
+		enumerable: true
+	}) : target, mod));
+
+//#endregion
+three = __toESM(three);
+
+//#region materials/NigaoeShaderMaterial.js
+/**
+	* @file NigaoeShaderMaterial.js
+	* Three.js shader material reproducing the lighting
+	* style seen in the Wii's Mii Channel title, aka
+	* Nigaoe Channel (from "drawLikeNigaoeChannel" SDK sample).
+	*
+	* It may be worth looking into remaking more lighting styles:
+	* - Mii icons (RFL_Icon.c in RFL decomp)
+	* - Wii series: Sports, Resort, Fit, Play, Play Motion
+	* - (They will have more custom combiner configurations.)
+	*
+	* NOTE: This will NOT produce accurate colors with FFL,
+	* due to colors from RFL (e.g. skin colors) all varying.
+	* @author Arian Kordi <https://github.com/ariankordi>
+	*/
+	const vertexShader = `
+#include <skinning_pars_vertex>
+
+#include <uv_pars_vertex>
+#include <normal_pars_vertex>
+
+varying vec2 vEnvUv;
+
+void main() {
+	#include <begin_vertex>
+	#include <beginnormal_vertex>
+	#include <skinbase_vertex>
+	#include <skinning_vertex>
+
+	#include <project_vertex>
+	#include <uv_vertex>
+
+	#include <skinnormal_vertex>
+	#include <defaultnormal_vertex>
+	#include <normal_vertex>
+
+	// To use OpenGL direction Y in UVs, remove the minus sign from Y.
+	vEnvUv.xy = (vec2(vNormal.x, -vNormal.y) * 0.5)
+		+ 0.5; // From Dolphin, cpostmtx = 0.5.
+}
+`;
+	const fragmentShader = `
+#include <map_pars_fragment>
+#include <uv_pars_fragment>
+#include <normal_pars_fragment>
+
+uniform vec3 diffuse;
+uniform float opacity;
+
+uniform sampler2D envMap;
+varying vec2 vEnvUv;
+
+void main() {
+	vec4 diffuseColor = vec4(diffuse, 1.0); // Color/texel from Three.js.
+	#include <map_fragment>
+	#include <alphamap_fragment>
+
+	// Get specular highlight from sphere map/env texture.
+	vec3 specular = texture(envMap, vEnvUv.xy).rrr; // Use red channel.
+	vec3 color = diffuseColor.rgb + (specular * specular); // env^2
+	gl_FragColor = vec4(color.rgb, diffuseColor.a * opacity);
+}
+`;
+	/**
+	* Texture used as the env/sphere map, extracted from the Mii Channel in RenderDoc.
+	* Converted from RGBA8 to R8 to save room, since only the single channel is used.
+	*/
+	const envTextureData = /* @__PURE__ */ new Uint8Array(new Int32Array([
+		1364283729,
+		1364283729,
+		1313952081,
+		1179142218,
+		1263028550,
+		1364283726,
+		1364283729,
+		1364283729,
+		1364283729,
+		1364283729,
+		1145523281,
+		976895296,
+		1094728763,
+		1380796485,
+		1364283729,
+		1364283729,
+		1364283729,
+		1246908753,
+		876035910,
+		825307442,
+		943076402,
+		1195523643,
+		1364283981,
+		1364283729,
+		1364283729,
+		1095323985,
+		774713401,
+		909324335,
+		1060912184,
+		1060845884,
+		1364347973,
+		1364283729,
+		1364283729,
+		859785040,
+		740961069,
+		1010250800,
+		1162232383,
+		994198342,
+		1363821629,
+		1364283729,
+		1364283729,
+		707737927,
+		774514473,
+		1178614323,
+		1381060426,
+		1179340883,
+		1229012028,
+		1364283730,
+		1230131537,
+		640298814,
+		892151846,
+		1347044157,
+		1650482262,
+		1347837281,
+		1128022345,
+		1364283979,
+		1112232273,
+		606414899,
+		1009986854,
+		1532251204,
+		1919904099,
+		1516596850,
+		1027688530,
+		1364282948,
+		927355217,
+		622994732,
+		1111110185,
+		1666929484,
+		-2055309971,
+		1752596870,
+		994464090,
+		1364346687,
+		792480593,
+		639705894,
+		1195324975,
+		1784764496,
+		-1752268426,
+		1988662683,
+		1112233572,
+		1364017211,
+		691422546,
+		673325092,
+		1279474224,
+		1869045590,
+		-1533572486,
+		-2137807702,
+		1146117229,
+		1380400445,
+		640696654,
+		723852834,
+		1346780468,
+		1953194585,
+		-1449357953,
+		-2070238546,
+		1179672688,
+		1329805887,
+		623721802,
+		757472800,
+		1346911797,
+		1953260892,
+		-1550283905,
+		-2104187994,
+		1179672431,
+		1262500415,
+		590035784,
+		791093023,
+		1397374775,
+		1970103387,
+		-1785690499,
+		2072679577,
+		1179671916,
+		1228749119,
+		556349255,
+		791158557,
+		1363754807,
+		1919640666,
+		-1987739527,
+		1937672074,
+		1112431206,
+		1178220860,
+		556283205,
+		791093020,
+		1363623735,
+		1885888601,
+		2105309557,
+		1769175421,
+		1078613344,
+		1111045691,
+		556283205,
+		757538589,
+		1296383284,
+		1801739606,
+		1936945521,
+		1651076721,
+		1011240793,
+		1110980152,
+		556349001,
+		740695837,
+		1245854260,
+		1700747601,
+		1802267240,
+		1499489897,
+		926894418,
+		1178154036,
+		556415561,
+		707009565,
+		1195324977,
+		1582912333,
+		1633968993,
+		1381522784,
+		876233290,
+		1211708209,
+		606944586,
+		656546590,
+		1094464557,
+		1448168775,
+		1499093336,
+		1229935703,
+		791886402,
+		1262236719,
+		623919438,
+		606018590,
+		1026961450,
+		1296713282,
+		1347572047,
+		1111903055,
+		757937209,
+		1329607470,
+		674514258,
+		555490337,
+		909192231,
+		1161969466,
+		1195919430,
+		960381509,
+		740961843,
+		1380136750,
+		758795089,
+		488316708,
+		808199971,
+		1010382644,
+		1027620671,
+		808859963,
+		724052011,
+		1363884592,
+		893604177,
+		471736873,
+		723984927,
+		875770157,
+		892745526,
+		707604531,
+		757671461,
+		1364279861,
+		1061966161,
+		471934512,
+		606149915,
+		741026342,
+		758000941,
+		606480683,
+		841623332,
+		1364282428,
+		1230131537,
+		556149819,
+		505158429,
+		656745249,
+		640100135,
+		589373988,
+		976169509,
+		1364283976,
+		1347506513,
+		657274949,
+		454893346,
+		522067227,
+		505356063,
+		623059231,
+		1144467242,
+		1364283729,
+		1364283729,
+		792347984,
+		505488425,
+		471670302,
+		522067485,
+		723919906,
+		1346648367,
+		1364283729,
+		1364283729,
+		1044992337,
+		623455285,
+		555819300,
+		606216481,
+		875374886,
+		1364347196,
+		1364283729,
+		1364283729,
+		1263685969,
+		808663876,
+		690563372,
+		741026089,
+		1111044913,
+		1364283980,
+		1364283729,
+		1364283729,
+		1364283729,
+		1044597585,
+		875836985,
+		959919412,
+		1363886910,
+		1364283729,
+		1364283729,
+		1364283729,
+		1364283729,
+		1330729297,
+		1111902284,
+		1279805250,
+		1364283727,
+		1364283729,
+		1364283729
+	]).buffer);
+	/**
+	* Custom THREE.ShaderMaterial styled after Mii rendering on the Mii Channel.
+	* @augments {THREE.ShaderMaterial}
+	*/
+	var NigaoeShaderMaterial = class NigaoeShaderMaterial extends three.ShaderMaterial {
+		/** @param {THREE.ShaderMaterialParameters} [options] - Parameters for the material. */
+		constructor(options = {}) {
+			/** @type {Object<string, THREE.IUniform>} */
+			const uniforms = { opacity: { value: 1 } };
+			const blankMatrix3 = { value: /* @__PURE__ */ new three.Matrix3() };
+			if (Number(three.REVISION) < 151) uniforms.uvTransform = blankMatrix3;
+			else uniforms.mapTransform = blankMatrix3;
+			super({
+				vertexShader,
+				fragmentShader,
+				uniforms
+			});
+			this.color = /* @__PURE__ */ new three.Color();
+			this.envMap = NigaoeShaderMaterial.getDefaultEnvTexture();
+			this.setValues(options);
+			this.opacity = this.opacity;
+		}
+		static getDefaultEnvTexture() {
+			const r8 = Number(three.REVISION) <= 136 ? 1024 : three.RedFormat;
+			const texture = /* @__PURE__ */ new three.DataTexture(envTextureData, 32, 32, r8, three.UnsignedByteType);
+			texture.minFilter = three.LinearFilter;
+			texture.magFilter = three.LinearFilter;
+			texture.needsUpdate = true;
+			return texture;
+		}
+		/** @returns {THREE.Color|undefined} The color. */
+		get color() {
+			return this.uniforms.diffuse ? this.uniforms.diffuse.value : void 0;
+		}
+		set color(value) {
+			this.uniforms.diffuse = { value };
+		}
+		/**
+		* Gets the opacity of the constant color.
+		* @returns {number} The opacity value.
+		*/
+		get opacity() {
+			if (this._opacity !== void 0) {
+				const ret = this._opacity;
+				this._opacity = void 0;
+				return ret;
+			}
+			return this.uniforms.opacity ? this.uniforms.opacity.value : 1;
+		}
+		/**
+		* Sets the opacity of the constant color.
+		* NOTE: that this is actually set in the constructor
+		* of Material, meaning it is the only one set BEFORE uniforms are
+		* @param {number} value - The new opacity value.
+		*/
+		set opacity(value) {
+			if (this.uniforms) {
+				this.uniforms.opacity = { value };
+				this._opacity = void 0;
+			} else
+ /** @type {number|undefined} @private */
+			this._opacity = value;
+		}
+		/**
+		* Gets the texture map if it is set.
+		* @returns {THREE.Texture|null} The texture map, or null if it is unset.
+		*/
+		get envMap() {
+			return this.uniforms.envMap ? this.uniforms.envMap.value : null;
+		}
+		/**
+		* Sets the texture map (envMap uniform).
+		* @param {THREE.Texture} value - The new texture map.
+		*/
+		set envMap(value) {
+			this.uniforms.envMap = { value };
+		}
+		/** @returns {THREE.Texture|null} The texture map, or null if it is unset. */
+		get map() {
+			return this.uniforms.map ? this.uniforms.map.value : null;
+		}
+		/** @param {THREE.Texture} value - The new texture map. */
+		set map(value) {
+			this.uniforms.map = { value };
+		}
+	};
+	var NigaoeShaderMaterial_default = NigaoeShaderMaterial;
+
+//#endregion
+return NigaoeShaderMaterial_default;
+})(THREE);
