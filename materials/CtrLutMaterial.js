@@ -10,8 +10,9 @@ const vertexShader = /* glsl */`
 #include <uv_pars_vertex>
 #include <normal_pars_vertex>
 
-varying vec4 fragNormquat;  // normquat encoding of view-space normal (matches vs_out_attr1)
-varying vec3 fragViewPos;   // negated view-space pos = Citra vs_out_attr2 = "view" in FS
+// Normquat encoding of view-space normal.
+varying vec4 vNormquat; // vs_out_attr1
+varying vec3 vViewPosition; // vs_out_attr2
 
 void main() {
 	#include <begin_vertex>
@@ -25,24 +26,19 @@ void main() {
 	#include <skinnormal_vertex>
 	#include <defaultnormal_vertex>
 	#include <normal_vertex>
-	fragViewPos = -mvPosition.xyz;
 
-	// Encode as normquat: rotation quaternion from (0,0,1) to N, w=0.
-	// Citra VS instructions 19-28: t=0.5*(1+Nz), q.xy=0.5*N.xy*rsq(t), q.z=sqrt(t), q.w=0
-	// quaternion_rotate(q, (0,0,1)) = N exactly.
-	float t = 0.5 * (1.0 + transformedNormal.z);
-	if (t > 0.0) {
-	    float rsqt = inversesqrt(t);
-	    fragNormquat = vec4(0.5 * transformedNormal.xy * rsqt, 1.0 / rsqt, 0.0);
-	} else {
-	    fragNormquat = vec4(0.0, 1.0, 0.0, 0.0);  // Nz=-1 edge case
-	}
+	vViewPosition = -mvPosition.xyz;
+
+	float t = 0.5 * (1.0 + vNormal.z);
+	float rsqt = inversesqrt(t);
+	vNormquat = vec4(0.5 * vNormal.xy * rsqt, 1.0 / rsqt, 0.0);
 }
 `;
 
 // // ---------------------------------------------------------------------
-// //  Fragment Shader
+// //  Fragment Shader - Derived from Citra's shader generator.
 // // ---------------------------------------------------------------------
+// Reference: https://github.com/azahar-emu/azahar/blob/106364e01eb3a51190593b99b45504c5fac29072/src/video_core/shader/generator/glsl_fs_shader_gen.cpp
 const fragmentShader = /* glsl */`
 #include <uv_pars_fragment>
 #include <map_pars_fragment>
@@ -52,52 +48,65 @@ uniform float opacity;
 
 uniform vec3 lightDirection;
 
-varying vec4 fragNormquat;  // normquat encoding of view-space normal (matches vs_out_attr1)
-varying vec3 fragViewPos;   // negated view-space pos = Citra vs_out_attr2 = "view" in FS
+varying vec4 vNormquat; // vs_out_attr1
+varying vec3 vViewPosition; // vs_out_attr2
 
+// These are usually uniforms, but for simplicity they are constants here.
 const vec3 shadowColor = vec3(0.07843, 0.09020, 0.10196);
 const vec3 specular0 = vec3(0.99608, 0.99608, 0.99608);
 
-vec3 quaternion_rotate(vec4 q, vec3 v) {
+vec3 quaternionRotate(vec4 q, vec3 v) { // glsl_fs_shader_gen.cpp:1315
 	return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
 }
 
-vec3 byteround(vec3 x) {
-	return floor(x * 255.0 + 0.5) / 255.0;
+float getSpecular(float pos) {
+	// Get from look-up table. (Citra: LookupLightingLUTUnsigned)
+	// int index = int(clamp(floor(pos * 256.0), 0.f, 255.f)); // clamp may not be needed
+	// return specLUT_R[index];
+
+	// Expression that approximates the look-up table. Not pixel exact.
+	// This results in lighting that looks "brighter" than it should.
+	return pow(max(pos, 0.0), 8.0) * 0.42; // set to 18 and kinda looks like wii
+
+	// A similar expression is probably used to generate the
+	// LUT table itself, but I haven't looked into this yet.
 }
+// The look-up table can be captured from Mii Maker in Citra,
+// however some games (such as niconico) contain a H3d BCH called
+// "Mii_Material.bch", and StreetPass Mii Plaza has this as a model.
 
 void main() {
-	vec4 diffuseColor = vec4(diffuse, 1.0);
+	vec4 diffuseColor = vec4(diffuse, 1.0); // Color/texel from Three.js.
 	#include <map_fragment>
 	#include <alphamap_fragment>
 
-	// Reconstruct normal from normquat (matches Citra FS exactly)
-	vec3 normal = quaternion_rotate(normalize(fragNormquat), vec3(0.0, 0.0, 1.0));
+	// Rotate the surface-local normal by the interpolated
+	// normal quaternion to convert it to eyespace.
+	// (glsl_fs_shader_gen.cpp:L555-L556)
+	vec4 normNormquat = normalize(vNormquat);
+	vec3 normal = quaternionRotate(normNormquat, vec3(0.0, 0.0, 1.0));
 
-	// Diffuse (TEV primary_fragment_color)
+	// The following produces Blinn-Phong specular lighting.
+
+	// Get diffuse color.
 	float d = max(dot(lightDirection, normal), 0.0);
-	vec3 primary = clamp(byteround(vec3(d * specular0)), 0.0, 1.0);
+	vec3 primary = vec3(d * specular0); // primary_fragment_color
 
-	// Specular via D0 LUT (Citra formula: R[idx] + G[idx]*delta, idx=floor(NdotH*256))
-	// fragViewPos = -viewSpacePos = Citra "view"; half_vector = normalize(view) + lightDirection
-	vec3 H = normalize(normalize(fragViewPos) + lightDirection);
+	// Defined in Citra as half_vector (glsl_fs_shader_gen.cpp:642)
+	vec3 H = normalize(normalize(vViewPosition) + lightDirection);
 	float NdotH = max(dot(normal, H), 0.0);
 
-	// float scaled = clamp(NdotH * 256.0, 0.0, 255.0);
-	// int lutIdx = int(floor(scaled));
-	// float specVal = specLUT_R[lutIdx];
+	// Multiply LUT and constant specular color.
+	vec3 secondary = getSpecular(NdotH) * specular0; // secondary_fragment_color
 
-	// Approximate — replaces the 256-entry table, not pixel-exact
-	float specVal = pow(max(NdotH, 0.0), 8.0) * 0.42; // set to 18 and kinda looks like wii
+	// Combiner stage 0.
+	vec3 fragColor = diffuseColor.rgb;
+	// Combiner stage 1.
+	fragColor.rgb = (1.0 - primary) * shadowColor;
+	// Combiner stage 2.
+	fragColor.rgb = (1.0 - fragColor.rgb) * diffuseColor.rgb + secondary;
 
-	vec3 secondary = clamp(specVal * specular0, 0.0, 1.0);
-
-	// TEV stages with byteround quantization after each stage
-	// vec3 tex0 = byteround(colDiffuse.rgb);
-	vec3 stage0 = byteround(clamp(diffuseColor.rgb, 0.0, 1.0));
-	vec3 stage1 = byteround(clamp((vec3(1.0) - primary) * shadowColor, 0.0, 1.0));
-	vec3 color = clamp((vec3(1.0) - stage1) * stage0 + secondary, 0.0, 1.0);
-	gl_FragColor = vec4(color.rgb, diffuseColor.a * opacity);
+	gl_FragColor = vec4(fragColor, diffuseColor.a * opacity);
 }
 `;
 
