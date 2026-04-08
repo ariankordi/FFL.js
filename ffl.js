@@ -603,8 +603,8 @@ class TextureManager {
 		// NOTE: Using THREE.LuminanceAlphaFormat before it
 		// was removed on WebGL 1.0/2.0 causes the texture
 		// to be converted to RGBA resulting in two issues.
-		//     - There is a black outline around glasses
-		//     - For glasses that have an inner color, the color is wrongly applied to the frames as well.
+		// 1. There is a black outline around glasses
+		// 2. For glasses that have an inner color, the color is wrongly applied to the frames as well.
 			? /** @type {THREE.PixelFormat} */ (1025) // THREE.LuminanceAlphaFormat
 			: THREE.RGFormat;
 
@@ -2712,7 +2712,7 @@ class DrawParam {
 		}
 
 		// Normal: Converted by FFL to R8_G8_B8_A8_SNORM.
-		// May be usable directly as GL_INT_2_10_10_10_REV /  0x8D9F
+		// May be usable directly as GL_INT_2_10_10_10_REV / 0x8D9F
 		// using THREE.GLBufferAttribute on WebGL 2.
 		if (nrm.size) {
 			geometry.setAttribute('normal', new THREE.Int8BufferAttribute(
@@ -3399,43 +3399,30 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 
 					#include <map_fragment>
 					#include <alphamap_fragment>
-				#ifdef USE_MAP
-					if (modulateMode == 2) { // FFL_MODULATE_MODE_RGB_LAYERED
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.r +
-				      colorG.rgb * sampledDiffuseColor.g +
-				      colorB.rgb * sampledDiffuseColor.b,
-				      sampledDiffuseColor.a
-				    );
-				  } else if (modulateMode == 3) { // FFL_MODULATE_MODE_ALPHA
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.r,
-				      sampledDiffuseColor.r
-				    );
-				  } else if (modulateMode == 4) { // FFL_MODULATE_MODE_LUMINANCE_ALPHA
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.g,
-				      sampledDiffuseColor.r
-				    );
-				  } else if (modulateMode == 5) { // FFL_MODULATE_MODE_ALPHA_OPA
-				    diffuseColor = vec4(
-				      diffuse.rgb * sampledDiffuseColor.r,
-				      1.0
-				    );
-				  }
-				#endif
+#ifdef USE_MAP
+					if (modulateMode == 2) { // RGB_LAYERED
+						vec3 rgb = diffuse.rgb * pixel.r +
+									colorG.rgb * pixel.g +
+									colorB.rgb * pixel.b;
+						color = vec4(rgb, pixel.a);
+					} else if (modulateMode == 3) { // ALPHA
+						color = vec4(diffuse.rgb * pixel.r, pixel.r);
+					} else if (modulateMode == 4) { // LUMINANCE_ALPHA (glass)
+						color = vec4(diffuse.rgb * pixel.g, pixel.r);
+					} else if (modulateMode == 5) { // ALPHA_OPA (cap)
+						color = vec4(diffuse.rgb * pixel.r, 1.0);
+					}
 
-				  // avoids little outline around mask elements
-				  if (modulateMode != 0 && diffuseColor.a == 0.0) { // FFL_MODULATE_MODE_CONSTANT
-				      discard;
-				  }
-
+					if (modulateMode != 0 && color.a == 0.0) { // != CONSTANT
+						discard; // Alpha discard for mask texture.
+					}
+#endif
 					gl_FragColor = diffuseColor;
 					//#include <colorspace_fragment>
 				}`,
 			uniforms: uniforms
 		});
-		// Set defaults so that they are valid parameters.
+		// Set defaults so that they are considered valid parameters.
 		this.color = /* @__PURE__ */ new THREE.Color();
 		this.colorG = /* @__PURE__ */ new THREE.Color();
 		this.colorB = /* @__PURE__ */ new THREE.Color();

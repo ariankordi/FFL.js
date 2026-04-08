@@ -14,6 +14,8 @@ import {
 import FFLShaderMaterial from '../materials/FFLShaderMaterial.js';
 import LUTShaderMaterial from '../materials/LUTShaderMaterial.js';
 import SampleShaderMaterial from '../materials/SampleShaderMaterial.js';
+import CTRShaderMaterial from '../materials/CTRShaderMaterial.js';
+import NigaoeShaderMaterial from '../materials/NigaoeShaderMaterial.js';
 // import FFLShaderNodeMaterial from '../materials/FFLShaderNodeMaterial.js'; // For WebGPURenderer only.
 // Helpers.
 import ResourceLoadHelper from '../helpers/ResourceLoadHelper.js';
@@ -101,6 +103,7 @@ const materials = {
 	// from ffl.js
 	FFLShaderMaterial, FFLShaderBlinnMaterial,
 	LUTShaderMaterial, SampleShaderMaterial,
+	CTRShaderMaterial, NigaoeShaderMaterial,
 	// Three.js default shader materials
 	MeshStandardMaterial: THREE.MeshStandardMaterial, // same as Standard/Lambert/Physical?
 	MeshBasicMaterial: THREE.MeshBasicMaterial, // no lighting
@@ -124,7 +127,7 @@ const expressionBlinking = [FFLExpression.NORMAL,
 	FFLExpression.BLINK, FFLExpression.LIKE_WINK_LEFT];
 
 // For debugging.
-let reinitModelEveryFrame = false;
+let reInitModelEveryFrame = false;
 /** @type {HTMLElement|null} */
 let displayRenderTexturesElement = null;
 // Global options.
@@ -268,7 +271,7 @@ function startAnimationLoop() {
 		controls && controls.update();
 
 		// Reinitialize CharModel every frame for debugging if enabled.
-		if (reinitModelEveryFrame) {
+		if (reInitModelEveryFrame) {
 			updateCharModelInScene(null, currentExpressionFlag);
 		}
 
@@ -337,9 +340,8 @@ function displayCharModelTexturesDebug(model, renderer, element) {
 	// for (let i = 0; i < FFLExpression.MAX; i++) {
 	for (const target of model._maskTargets) {
 		// const target = model.getMask(i);
-		// While _maskTargets is public, looking here
-		// makes sure that the RGBA textures added
-		// in convModelTexturesToRGBA are also included.
+		// While _maskTargets is public, using this array
+		// ensures converted RGBA textures are included.
 		target !== null && displayTarget(target);
 	}
 }
@@ -703,7 +705,7 @@ function toggleRenderTexturesDisplay() {
 
 /** Toggle the option to reinitialize the current CharModel every frame. */
 function toggleReInitModel() {
-	reinitModelEveryFrame = reInitModelElement.checked;
+	reInitModelEveryFrame = reInitModelElement.checked;
 	console.log(`Reinitialize CharModel every frame: ${reInitModelElement.checked}`);
 }
 

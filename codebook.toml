@@ -9,6 +9,7 @@ words = [
     ## Mii internal
     #"ffl",
     "ffli",
+    "ffljs",
     #"rfl",
     #"afl",
     #"rpx",
@@ -44,6 +45,7 @@ words = [
     "colorspace",
     "blinn",
     "phong",
+    "nigaoe",
     ## Code
     "emscripten",
     "vppp",
@@ -53,6 +55,7 @@ words = [
     "malloc",
     "srgb",
     "bgra",
+    "conv",
     ## HTML/JS
     #"cjs",
     "importmap",
