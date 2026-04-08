@@ -60,15 +60,49 @@ uniform float opacity;
 uniform sampler2D envMap;
 varying vec2 vEnvUv;
 
+uniform bool lightEnable;
+uniform int modulateMode;
+uniform vec3 colorG;
+uniform vec3 colorB;
+
+vec4 getModulatedColor(vec4 pixel) {
+	vec4 color;
+	if (modulateMode == 0) { // CONSTANT
+		color = vec4(diffuse, 1.0);
+	} else if (modulateMode == 1) { // TEXTURE_DIRECT
+		color = pixel;
+	} else if (modulateMode == 2) { // RGB_LAYERED
+		vec3 rgb = diffuse.rgb * pixel.r +
+					colorG.rgb * pixel.g +
+					colorB.rgb * pixel.b;
+		color = vec4(rgb, pixel.a);
+	} else if (modulateMode == 3) { // ALPHA
+		color = vec4(diffuse.rgb * pixel.r, pixel.r);
+	} else if (modulateMode == 4) { // LUMINANCE_ALPHA (glass)
+		color = vec4(diffuse.rgb * pixel.g, pixel.r);
+	} else if (modulateMode == 5) { // ALPHA_OPA (cap)
+		color = vec4(diffuse.rgb * pixel.r, 1.0);
+	}
+
+	if (modulateMode != 0 && color.a == 0.0) { // != CONSTANT
+		discard; // Alpha discard for mask texture.
+	}
+	return color;
+}
+
 void main() {
-	vec4 diffuseColor = vec4(diffuse, 1.0); // Color/texel from Three.js.
+	vec4 diffuseColor = vec4(1.0); // Will be set to texture color.
 	#include <map_fragment>
 	#include <alphamap_fragment>
 
-	// Get specular highlight from sphere map/env texture.
-	vec3 specular = texture(envMap, vEnvUv.xy).rrr; // Use red channel.
-	vec3 color = diffuseColor.rgb + (specular * specular); // env^2
-	gl_FragColor = vec4(color.rgb, diffuseColor.a * opacity);
+	diffuseColor = getModulatedColor(diffuseColor);
+
+	if (lightEnable) {
+		// Get specular highlight from sphere map/env texture.
+		vec3 specular = texture(envMap, vEnvUv.xy).rrr; // Use red channel.
+		diffuseColor.rgb += (specular * specular); // env^2
+	}
+	gl_FragColor = vec4(diffuseColor.rgb, diffuseColor.a * opacity);
 }
 `;
 
@@ -108,6 +142,13 @@ class NigaoeShaderMaterial extends THREE.ShaderMaterial {
 		// Initialize default values.
 		this.color = /* @__PURE__ */ new THREE.Color();
 		this.envMap = NigaoeShaderMaterial.getDefaultEnvTexture();
+
+		// Set defaults so that they are considered valid parameters.
+		this.color = /* @__PURE__ */ new THREE.Color();
+		this.colorG = /* @__PURE__ */ new THREE.Color();
+		this.colorB = /* @__PURE__ */ new THREE.Color();
+		this.lightEnable = true;
+		this.modulateType = 0;
 
 		// Use the setters to set the rest of the uniforms.
 		this.setValues(options);
@@ -193,6 +234,52 @@ class NigaoeShaderMaterial extends THREE.ShaderMaterial {
 	/** @param {THREE.Texture} value - The new texture map. */
 	set map(value) {
 		this.uniforms.map = { value: value };
+	}
+
+	// For modulate:
+
+	/** @returns {THREE.Color|undefined} colorG color if defined. */
+	get colorG() {
+		return this.uniforms.colorG ? this.uniforms.colorG.value : undefined;
+	}
+
+	set colorG(/** @type {THREE.Color} */ value) {
+		this.uniforms.colorG = { value };
+	}
+
+	/** @returns {THREE.Color|undefined} colorB color if defined. */
+	get colorB() {
+		return this.uniforms.colorB ? this.uniforms.colorB.value : undefined;
+	}
+
+	set colorB(/** @type {THREE.Color} */ value) {
+		this.uniforms.colorB = { value };
+	}
+
+	/** @returns {number|null} The modulateMode value, or null if it is unset. */
+	get modulateMode() {
+		return this.uniforms.modulateMode ? this.uniforms.modulateMode.value : null;
+	}
+
+	/** @param {number} value - The new modulateMode value. */
+	set modulateMode(value) {
+		this.uniforms.modulateMode = { value: value };
+	}
+
+	/**
+	 * Sets the value determining whether lighting is enabled or not.
+	 * @returns {boolean|null} The lightEnable value, or null if it is unset.
+	 */
+	get lightEnable() {
+		return this.uniforms.lightEnable ? this.uniforms.lightEnable.value : null;
+	}
+
+	/**
+	 * Sets the value determining whether lighting is enabled or not.
+	 * @param {boolean} value - The lightEnable value.
+	 */
+	set lightEnable(value) {
+		this.uniforms.lightEnable = { value };
 	}
 }
 

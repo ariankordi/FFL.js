@@ -3394,13 +3394,13 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 				uniform vec3 colorG;
 				uniform vec3 colorB;
 
-				void main() {
-					vec4 diffuseColor = vec4( diffuse, opacity );
-
-					#include <map_fragment>
-					#include <alphamap_fragment>
-#ifdef USE_MAP
-					if (modulateMode == 2) { // RGB_LAYERED
+				vec4 getModulatedColor(vec4 pixel) {
+					vec4 color;
+					if (modulateMode == 0) { // CONSTANT
+						color = vec4(diffuse, 1.0);
+					} else if (modulateMode == 1) { // TEXTURE_DIRECT
+						color = pixel;
+					} else if (modulateMode == 2) { // RGB_LAYERED
 						vec3 rgb = diffuse.rgb * pixel.r +
 									colorG.rgb * pixel.g +
 									colorB.rgb * pixel.b;
@@ -3416,8 +3416,15 @@ class TextureShaderMaterial extends THREE.ShaderMaterial {
 					if (modulateMode != 0 && color.a == 0.0) { // != CONSTANT
 						discard; // Alpha discard for mask texture.
 					}
-#endif
-					gl_FragColor = diffuseColor;
+					return color;
+				}
+
+				void main() {
+					vec4 diffuseColor = vec4(1.0); // Will be set to texture color.
+					#include <map_fragment>
+					#include <alphamap_fragment>
+
+					gl_FragColor = getModulatedColor(diffuseColor);
 					//#include <colorspace_fragment>
 				}`,
 			uniforms: uniforms
