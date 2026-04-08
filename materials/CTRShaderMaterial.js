@@ -1,3 +1,10 @@
+/**
+ * @file NigaoeShaderMaterial.js
+ * Three.js shader material reproducing the Blinn-Phong
+ * lighting seen in the 3DS's Mii Maker title.
+ * Partially derived from Citra's shader generator.
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 // @ts-check
 import * as THREE from 'three';
 
@@ -114,7 +121,7 @@ void main() {
  * Custom THREE.ShaderMaterial styled after 3DS Mii rendering.
  * @augments {THREE.ShaderMaterial}
  */
-class CtrLutMaterial extends THREE.ShaderMaterial {
+class CTRShaderMaterial extends THREE.ShaderMaterial {
 	static defaultLightDir = /* @__PURE__ */ new THREE.Vector3(-0.53906, 0.53906, 0.64697);
 
 	/**
@@ -127,7 +134,7 @@ class CtrLutMaterial extends THREE.ShaderMaterial {
 		/** @type {Object<string, THREE.IUniform>} */
 		const uniforms = {
 			opacity: { value: 1 },
-			lightDirection: { value: CtrLutMaterial.defaultLightDir.clone() }
+			lightDirection: { value: CTRShaderMaterial.defaultLightDir.clone() }
 		};
 		const blankMatrix3 = { value: /* @__PURE__ */ new THREE.Matrix3() };
 		if (Number(THREE.REVISION) < 151) {
@@ -221,4 +228,4 @@ class CtrLutMaterial extends THREE.ShaderMaterial {
 	}
 }
 
-export default CtrLutMaterial;
+export default CTRShaderMaterial;

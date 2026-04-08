@@ -1,17 +1,20 @@
+/**
+ * @file NigaoeShaderMaterial.js
+ * Three.js shader material reproducing the lighting
+ * style seen in the Wii's Mii Channel title, aka
+ * Nigaoe Channel (from "drawLikeNigaoeChannel" SDK sample).
+ *
+ * It may be worth looking into remaking more lighting styles:
+ * - Mii icons (RFL_Icon.c in RFL decomp)
+ * - Wii series: Sports, Resort, Fit, Play, Play Motion
+ * - (They will have more custom combiner configurations.)
+ *
+ * NOTE: This will NOT produce accurate colors with FFL,
+ * due to colors from RFL (e.g. skin colors) all varying.
+ * @author Arian Kordi <https://github.com/ariankordi>
+ */
 // @ts-check
 import * as THREE from 'three';
-
-// TODO TODO TODO
-// - should it be called this
-//   * WiiShaderMaterial? (yuck!)
-//   * NigaoeTEVMaterial? - probably better
-//   * TEVShaderMaterial? - too generic
-//   * ChannelTEVMaterial - what?
-// - more styles?
-//   * RFLMakeIcon: https://github.com/SMGCommunity/Petari/blob/b358298b1d3e4a2c7d7f8e70b0fb6a4e4f24034b/src/RVLFaceLib/RFL_Icon.c#L104-L115
-//   * Sports? Resort? Fit? Play? Play Motion?
-// - needs modulate support
-// - should we have a warning somewhere saying this is the most inaccurate because rfl colors are so radically different and we cant really replace them at this specific moment without mii fusion/mii.fu/MiiSystem or whatever tf i want to call it where i did in fact extract the rfl colors
 
 // // ---------------------------------------------------------------------
 // //  Vertex Shader
@@ -80,7 +83,7 @@ const envTextureData = /* @__PURE__ */ new Uint8Array(/* @__PURE__ */ new Int32A
  * Custom THREE.ShaderMaterial styled after Mii rendering on the Mii Channel.
  * @augments {THREE.ShaderMaterial}
  */
-class NigaoeTevMaterial extends THREE.ShaderMaterial {
+class NigaoeShaderMaterial extends THREE.ShaderMaterial {
 	/** @param {THREE.ShaderMaterialParameters} [options] - Parameters for the material. */
 	constructor(options = {}) {
 		// Set default uniforms.
@@ -104,7 +107,7 @@ class NigaoeTevMaterial extends THREE.ShaderMaterial {
 
 		// Initialize default values.
 		this.color = /* @__PURE__ */ new THREE.Color();
-		this.envMap = NigaoeTevMaterial.getDefaultEnvTexture();
+		this.envMap = NigaoeShaderMaterial.getDefaultEnvTexture();
 
 		// Use the setters to set the rest of the uniforms.
 		this.setValues(options);
@@ -193,4 +196,4 @@ class NigaoeTevMaterial extends THREE.ShaderMaterial {
 	}
 }
 
-export default NigaoeTevMaterial;
+export default NigaoeShaderMaterial;
