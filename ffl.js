@@ -662,11 +662,13 @@ class TextureManager {
 
 		if (useMipmaps) {
 			// Add base texture.
-			texture.mipmaps = [{
+			texture.mipmaps = /** @type {Array<THREE.CompressedTextureMipmap>} */
+				(Array.from({ length: textureInfo.mipCount }));
+			texture.mipmaps[0] = {
 				data: imageData,
 				width: textureInfo.width,
 				height: textureInfo.height
-			}];
+			};
 			// Enable filtering option for mipmap and add levels.
 			texture.minFilter = THREE.LinearMipmapLinearFilter;
 			texture.generateMipmaps = false;
@@ -710,11 +712,11 @@ class TextureManager {
 
 			// Push this mip level data into the texture's mipmaps array.
 			// @ts-ignore - data = "CompressedTextureMipmap & CubeTexture & HTMLCanvasElement"
-			texture.mipmaps.push({
+			texture.mipmaps[mipLevel] = {
 				data: mipData, // Should still accept Uint8Array.
 				width: mipWidth,
 				height: mipHeight
-			});
+			};
 		}
 	}
 
@@ -3092,7 +3094,7 @@ const CharModelTextures = {
 
 		// Collect all scenes and only dispose them at the end.
 		/** @type {Array<THREE.Scene>} */
-		const scenes = [];
+		const scenes = Array.from({ length: maskParams.length });
 
 		// Iterate to find out which masks are needed.
 		for (let i = 0; i < maskParams.length; i++) {
@@ -3111,14 +3113,14 @@ const CharModelTextures = {
 			// console.debug(`Creating target ${target.texture.id} for mask ${i}`);
 			targets[i] = target;
 
-			scenes.push(scene);
+			scenes[i] = scene;
 		}
 
 		// Some textures are shared which is why this
 		// needs to be done given that disposeMeshes
 		// unconditionally deletes textures.
 		for (const scene of scenes) {
-			_disposeMany(scene);
+			scene && _disposeMany(scene);
 		}
 
 		module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr,
