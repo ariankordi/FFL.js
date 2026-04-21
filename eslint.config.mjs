@@ -6,6 +6,7 @@ import importPlugin from 'eslint-plugin-import-x';
 import jsdoc from 'eslint-plugin-jsdoc';
 // import sortClassMembers from 'eslint-plugin-sort-class-members';
 import eslintPluginUnicorn from 'eslint-plugin-unicorn';
+import cdkLabsPlugin from '@cdklabs/eslint-plugin';
 
 const stylisticConfig = stylisticPlugin.configs.customize({
 	indent: 'tab',
@@ -142,6 +143,25 @@ export default [
 			'unicorn/prefer-code-point': 'off', // Nullability does not match
 			// This is, in fact, only called in CLIs.
 			'unicorn/no-process-exit': 'off'
+		}
+	},
+
+	// https://github.com/cdklabs/eslint-rules
+	// Pretty much only actively using this for "no-this-in-static".
+	{
+		plugins: {
+			// ... other plugins
+			'@cdklabs': cdkLabsPlugin
+		},
+		rules: {
+			'@cdklabs/no-core-construct': ['error'],
+			'@cdklabs/invalid-cfn-imports': ['error'],
+			'@cdklabs/no-literal-partition': ['error'],
+			'@cdklabs/no-invalid-path': ['error'],
+			// '@cdklabs/no-throw-default-error': ['error'],
+			'@cdklabs/promiseall-no-unbounded-parallelism': ['error'],
+			'@cdklabs/no-this-in-static': ['error'],
+			'@cdklabs/no-unconditional-token-allocation': ['error']
 		}
 	},
 

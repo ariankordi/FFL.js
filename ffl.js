@@ -1028,7 +1028,7 @@ class FFL {
 			desc.size[FFL.singleResourceType] = heapSize;
 
 			const resourceDescData = FFL._packFFLResourceDesc(desc);
-			resourceDescPtr = module._malloc(this.FFLResourceDesc_size);
+			resourceDescPtr = module._malloc(FFL.FFLResourceDesc_size);
 			module.HEAPU8.set(resourceDescData, resourceDescPtr);
 
 			// Call FFL initialization using: FFL_FONT_REGION_JP_US_EU = 0
@@ -1078,7 +1078,7 @@ class FFL {
 	 * @private
 	 */
 	static _packFFLResourceDesc(obj) {
-		const u8 = new Uint8Array(this.FFLResourceDesc_size);
+		const u8 = new Uint8Array(FFL.FFLResourceDesc_size);
 		const view = new DataView(u8.buffer);
 		view.setUint32(0, obj.pData[0], true);
 		view.setUint32(4, obj.pData[1], true);
@@ -1853,7 +1853,7 @@ class CharModel {
 	 * @private
 	 */
 	static _packFFLCharModelDesc(obj) {
-		const u8 = new Uint8Array(this.FFLCharModelDesc_size);
+		const u8 = new Uint8Array(CharModel.FFLCharModelDesc_size);
 		const view = new DataView(u8.buffer);
 		view.setUint32(0, obj.resolution, true);
 		const flag = obj.allExpressionFlag;

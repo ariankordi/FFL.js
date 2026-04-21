@@ -36,6 +36,7 @@
     "three": ">= 0.144.0"
   },
   "devDependencies": {
+    "@cdklabs/eslint-plugin": "^2.0.2",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.4.1",
     "@eslint/js": "^9.37.0",
     "@stylistic/eslint-plugin": "^3.1.0",
