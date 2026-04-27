@@ -1740,10 +1740,7 @@ class CharModel {
 	 * @returns {THREE.Vector3Like} Scale vector for the body model.
 	 * @public
 	 */
-	getBodyScale() {
-		const build = this.charInfo.build;
-		const height = this.charInfo.height;
-
+	getBodyScale(build = this.charInfo.build, height = this.charInfo.height) {
 		// calculated here in mii_VariableIconBodyImpl.cpp:
 		// void nn::mii::detail::`anonymous namespace'::GetBodyScale(struct nn::util::Float3 *, int, int)
 		// also in Mii Maker USA (0x000500101004A100 v50 ffl_app.rpx): FUN_020737b8

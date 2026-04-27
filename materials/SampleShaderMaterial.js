@@ -1307,7 +1307,7 @@ class SampleShaderMaterial extends THREE.ShaderMaterial {
 	 */
 	static modifyBufferGeometry(drawParam, geometry) {
 		if (drawParam.modulateParam.type === 8) { // SHAPE_GLASS
-			this.assignNormalsForGlass(geometry);
+			SampleShaderMaterial.assignNormalsForGlass(geometry);
 		}
 	}
 }

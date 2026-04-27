@@ -370,5 +370,6 @@ export {
 	disposeModel,
 	getFaceCamera,
 	getWholeBodyCamera,
+	findSkinnedMeshWithBone,
 	adjustCameraForBodyHead
 };
