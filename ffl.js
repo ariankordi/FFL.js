@@ -1430,6 +1430,14 @@ class CharModel {
 		 */
 		this.charInfo = this._model.getCharInfo();
 		/**
+		 * Raw FFLiCharInfo bytes, captured at construction time.
+		 * Use this to initialize a mutable edit buffer (e.g. in MiiEditController).
+		 * @type {Uint8Array}
+		 * @readonly
+		 * @public
+		 */
+		this.charInfoBytes = this._module.HEAPU8.slice(this._ptr, this._ptr + FFLiCharInfo_size);
+		/**
 		 * Group of THREE.Mesh objects representing the CharModel.
 		 * @type {THREE.Group}
 		 * @readonly

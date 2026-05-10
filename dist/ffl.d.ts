@@ -613,6 +613,13 @@ export class CharModel {
         authorID: Uint8Array<ArrayBufferLike>;
     };
     /**
+     * Raw FFLiCharInfo bytes, captured at construction time.
+     * Use this to initialize a mutable edit buffer (e.g. in MiiEditController).
+     * @readonly
+     * @public
+     */
+    public readonly charInfoBytes: Uint8Array;
+    /**
      * Group of THREE.Mesh objects representing the CharModel.
      * @type {THREE.Group}
      * @readonly
