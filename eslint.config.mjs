@@ -1,4 +1,6 @@
+import { fileURLToPath } from 'node:url';
 import eslint from '@eslint/js';
+import { defineConfig, globalIgnores, includeIgnoreFile } from '@eslint/config-helpers';
 import eslintCommentPlugin from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import stylisticPlugin from '@stylistic/eslint-plugin';
 import globals from 'globals';
@@ -7,6 +9,9 @@ import jsdoc from 'eslint-plugin-jsdoc';
 // import sortClassMembers from 'eslint-plugin-sort-class-members';
 import eslintPluginUnicorn from 'eslint-plugin-unicorn';
 import cdkLabsPlugin from '@cdklabs/eslint-plugin';
+
+// TODO TODO TODO:
+// - USE typescript eslint PLUGIN!!!!!
 
 const stylisticConfig = stylisticPlugin.configs.customize({
 	indent: 'tab',
@@ -18,7 +23,10 @@ const stylisticConfig = stylisticPlugin.configs.customize({
 
 const ecmaVersion = 2022;
 
-export default [
+const gitignorePath = fileURLToPath(new URL('.gitignore', import.meta.url));
+const gitExcludePath = fileURLToPath(new URL('.git/info/exclude', import.meta.url));
+
+export default defineConfig([
 	// https://eslint.org/docs/rules/
 	eslint.configs.recommended,
 	{
@@ -200,15 +208,14 @@ export default [
 		}
 	},
 
-	{
-		ignores: [
-			'**/ffl-emscripten*', // Do not lint Emscripten-emitted code.
-			'docs/**/*', // TypeDoc output
-			'three-r*.js',
+	globalIgnores([
+		'**/ffl-emscripten*', // Do not lint Emscripten-emitted code.
+		'docs/**/*', // TypeDoc output
 
-			// Defaults
-			'**/dist/', // Common build output directory
-			'**/*.min.js' // Minified JavaScript files
-		]
-	}
-];
+		// Defaults
+		'**/dist/', // Common build output directory
+		'**/*.min.js' // Minified JavaScript files
+	]),
+	includeIgnoreFile(gitignorePath),
+	includeIgnoreFile(gitExcludePath)
+]);
