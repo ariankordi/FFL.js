@@ -711,21 +711,21 @@ else
 `;
 
 // // ---------------------------------------------------------------------
-// //  Helper: HermitianCurve for LUT generation
+// //  LUT curve utilities (private)
 // // ---------------------------------------------------------------------
-/**
- * Represents a Hermitian curve interpolation for LUT generation.
- * @private
- */
-class HermitianCurve {
-	/**
-	 * Constructs a HermitianCurve with given control points (keys).
-	 * @param {Array<{x: number, y: number, dx: number, dy: number}>} keys - Control points defining the curve.
-	 */
-	constructor(keys) {
-		this.keys = keys.sort((a, b) => a.x - b.x);
-	}
 
+// const DEFAULT_LUT_SIZE = 64;
+const DEFAULT_LUT_SIZE = 512;
+
+/**
+ * Generates a Lookup Table (LUT) based on the Hermitian curve.
+ * Keys must be pre-sorted in ascending x order.
+ * Each key is [x, y, tangent] — dx and dy are always equal in practice so one value suffices.
+ * @param {Array<[number, number, number]>} keys - Control points as [x, y, tangent].
+ * @param {number} [lutSize] - Size of the LUT.
+ * @returns {Uint8Array} The generated LUT.
+ */
+function generateLUT(keys, lutSize = DEFAULT_LUT_SIZE) {
 	/**
 	 * Performs Hermite interpolation between two points.
 	 * @param {number} t - Interpolation factor (0 to 1).
@@ -735,54 +735,83 @@ class HermitianCurve {
 	 * @param {number} m1 - Tangent at end point.
 	 * @returns {number} Interpolated value.
 	 */
-	static interpolate(t, p0, p1, m0, m1) {
-		const h00 = 2 * t * t * t - 3 * t * t + 1;
-		const h10 = t * t * t - 2 * t * t + t;
-		const h01 = -2 * t * t * t + 3 * t * t;
-		const h11 = t * t * t - t * t;
-		return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1;
-	}
+	const interpolate = (t, p0, p1, m0, m1) =>
+		(2 * t * t * t - 3 * t * t + 1) * p0 +
+		(t * t * t - 2 * t * t + t) * m0 +
+		(-2 * t * t * t + 3 * t * t) * p1 +
+		(t * t * t - t * t) * m1;
 
-	/**
-	 * Clamps a value between a minimum and maximum.
-	 * @param {number} value - Value to clamp.
-	 * @param {number} min - Minimum allowed value.
-	 * @param {number} max - Maximum allowed value.
-	 * @returns {number} Clamped value.
-	 */
-	static clamp(value, min, max) {
-		return Math.min(Math.max(value, min), max);
-	}
-
-	/**
-	 * Generates a Lookup Table (LUT) based on the Hermitian curve.
-	 * @param {number} [lutSize] - Size of the LUT.
-	 * @returns {Uint8Array} The generated LUT.
-	 */
-	generateLUT(lutSize = 512) {
-		const lut = new Uint8Array(lutSize);
-		let keyIdx = 0;
-		for (let i = 0; i < lutSize; i++) {
-			const pos = i / (lutSize - 1);
-			while (keyIdx < this.keys.length - 2 && pos > this.keys[keyIdx + 1].x) {
-				keyIdx++;
-			}
-			const p0 = this.keys[keyIdx];
-			const p1 = this.keys[keyIdx + 1];
-			let t = (pos - p0.x) / (p1.x - p0.x);
-			t = Number.isNaN(t) ? 0 : t;
-			const y = HermitianCurve.interpolate(
-				t,
-				p0.y,
-				p1.y,
-				p0.dx * (p1.x - p0.x),
-				p1.dx * (p1.x - p0.x)
-			);
-			lut[i] = Math.round(HermitianCurve.clamp(y, 0, 1) * 255);
+	const lut = new Uint8Array(lutSize);
+	let keyIdx = 0;
+	for (let i = 0; i < lutSize; i++) {
+		const pos = i / (lutSize - 1);
+		while (keyIdx < keys.length - 2 && pos > keys[keyIdx + 1][0]) {
+			keyIdx++;
 		}
-		return lut;
+		const p0 = keys[keyIdx];
+		const p1 = keys[keyIdx + 1];
+		let t = (pos - p0[0]) / (p1[0] - p0[0]);
+		t = Number.isNaN(t) ? 0 : t;
+		const y = interpolate(
+			t, p0[1], p1[1],
+			p0[2] * (p1[0] - p0[0]),
+			p1[2] * (p1[0] - p0[0])
+		);
+		const clamped = Math.min(Math.max(y, 0), 1);
+		lut[i] = Math.round(clamped * 255);
 	}
+	return lut;
 }
+
+/**
+ * Enumeration for specular and fresnel LUT types.
+ * @enum {number}
+ */
+const LUTTextureType = {
+	NONE: 0,
+	DEFAULT_02: 1,
+	SKIN_01: 2,
+	COUNT: 3
+};
+
+// The following LUT definitions are converted from
+// the HermitanCurve XML files in /assets/env/lut/.
+
+/** @type {Array<Array<[number, number, number]>>} */ const lutCurveSpecular = [
+	[ // NONE
+		[0, 0, 0],
+		[1, 0, 0]
+	],
+	[ // DEFAULT_02
+		[0, 0, 0],
+		[0.05, 0, 0],
+		[0.8, 0.038, 0.1578947],
+		[1, 0.11, 0]
+	],
+	[ // SKIN_01
+		[0, 0.03, -0.1052632],
+		[1, 0, 0]
+	]
+];
+
+/** @type {Array<Array<[number, number, number]>>} */ const lutCurveFresnel = [
+	[ // NONE
+		[0, 0, 0],
+		[1, 0, 0]
+	],
+	[ // DEFAULT_02
+		[0, 0.3, -0.1052632],
+		[0.175, 0.23, -0.6263158],
+		[0.6, 0.05, -0.2105263],
+		[1, 0, -0.1052632]
+	],
+	[ // SKIN_01
+		[0.005, 0.35, -0.1052632],
+		[0.173, 0.319, -0.2052632],
+		[0.552, 0.051, -0.2105263],
+		[1, 0.001, 0]
+	]
+];
 
 // // ---------------------------------------------------------------------
 // //  LUTShaderMaterial Class
@@ -792,159 +821,29 @@ class HermitianCurve {
  * @augments {THREE.ShaderMaterial}
  */
 class LUTShaderMaterial extends THREE.ShaderMaterial {
-	// Enumerations for LUT types.
-
-	/** @enum {number} */
-	static LUTSpecularTextureType = {
-		NONE: 0,
-		DEFAULT_02: 1,
-		SKIN_01: 2,
-		MAX: 3
-	};
-
-	/** @enum {number} */
-	static LUTFresnelTextureType = {
-		NONE: 0,
-		DEFAULT_02: 1,
-		SKIN_01: 2,
-		MAX: 3
-	};
-
-	/* eslint-disable jsdoc/no-undefined-types -- LUTSpecularTextureType, LUTFresnelTextureType, HermitanCurve  */
-	/**
-	 * LUT definitions for materials used in the original shader.
-	 * Taken from XMLs in the same folder as the original TGAs..
-	 * @typedef {Object<LUTSpecularTextureType, HermitianCurve>} SpecularLUT
-	 * @typedef {Object<LUTFresnelTextureType, HermitianCurve>} FresnelLUT
-	 * @type {{ specular: SpecularLUT, fresnel: FresnelLUT }}
-	 * @private
-	 */
-	static _lutDefinitions = {
-		specular: {
-			[LUTShaderMaterial.LUTSpecularTextureType.NONE]: new HermitianCurve([
-				{ x: 0, y: 0, dx: 0, dy: 0 },
-				{ x: 1, y: 0, dx: 0, dy: 0 }
-			]),
-			[LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02]: new HermitianCurve([
-				{ x: 0, y: 0, dx: 0, dy: 0 },
-				{ x: 0.05, y: 0, dx: 0, dy: 0 },
-				{
-					x: 0.8,
-					y: 0.038,
-					dx: 0.157894736842105,
-					dy: 0.157894736842105
-				},
-				{ x: 1, y: 0.11, dx: 0, dy: 0 }
-			]),
-			[LUTShaderMaterial.LUTSpecularTextureType.SKIN_01]: new HermitianCurve([
-				{
-					x: 0,
-					y: 0.03,
-					dx: -0.105263157894737,
-					dy: -0.105263157894737
-				},
-				{ x: 1, y: 0, dx: 0, dy: 0 }
-			])
-		},
-		fresnel: {
-			[LUTShaderMaterial.LUTFresnelTextureType.NONE]: new HermitianCurve([
-				{ x: 0, y: 0, dx: 0, dy: 0 },
-				{ x: 1, y: 0, dx: 0, dy: 0 }
-			]),
-			[LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02]: new HermitianCurve([
-				{
-					x: 0,
-					y: 0.3,
-					dx: -0.105263157894734,
-					dy: -0.105263157894734
-				},
-				{
-					x: 0.175,
-					y: 0.23,
-					dx: -0.626315789473681,
-					dy: -0.626315789473681
-				},
-				{
-					x: 0.6,
-					y: 0.05,
-					dx: -0.210526315789474,
-					dy: -0.210526315789474
-				},
-				{
-					x: 1,
-					y: 0,
-					dx: -0.105263157894737,
-					dy: -0.105263157894737
-				}
-			]),
-			[LUTShaderMaterial.LUTFresnelTextureType.SKIN_01]: new HermitianCurve([
-				{
-					x: 0.005,
-					y: 0.35,
-					dx: -0.105263157894734,
-					dy: -0.105263157894734
-				},
-				{
-					x: 0.173,
-					y: 0.319,
-					dx: -0.205263157894734,
-					dy: -0.205263157894734
-				},
-				{
-					x: 0.552,
-					y: 0.051,
-					dx: -0.210526315789474,
-					dy: -0.210526315789474
-				},
-				{ x: 1, y: 0.001, dx: 0, dy: 0 }
-			])
-		}
-	};
-
-	// Tables mapping modulate type to LUT type.
-	/** @type {Object<FFLModulateType, LUTSpecularTextureType>} */
-	static lutSpecularTypes = [
-		LUTShaderMaterial.LUTSpecularTextureType.SKIN_01, // 0: FACELINE
-		LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 1: BEARD
-		LUTShaderMaterial.LUTSpecularTextureType.SKIN_01, // 2: NOSE
-		LUTShaderMaterial.LUTSpecularTextureType.SKIN_01, // 3: FOREHEAD
-		LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 4: HAIR
-		LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 5: CAP
-		LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 6: MASK
-		LUTShaderMaterial.LUTSpecularTextureType.NONE, // 7: NOSELINE
-		LUTShaderMaterial.LUTSpecularTextureType.NONE, // 8: GLASS
-		LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02, // 9: CUSTOM (BODY)
-		LUTShaderMaterial.LUTSpecularTextureType.DEFAULT_02 // 10: CUSTOM (PANTS)
-	];
-
-	/** @type {Object<FFLModulateType, LUTFresnelTextureType>} */
-	static lutFresnelTypes = [
-		LUTShaderMaterial.LUTFresnelTextureType.SKIN_01, // 0: FACELINE
-		LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 1: BEARD
-		LUTShaderMaterial.LUTFresnelTextureType.SKIN_01, // 2: NOSE
-		LUTShaderMaterial.LUTFresnelTextureType.SKIN_01, // 3: FOREHEAD
-		LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 4: HAIR
-		LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 5: CAP
-		LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 6: MASK
-		LUTShaderMaterial.LUTFresnelTextureType.NONE, // 7: NOSELINE
-		LUTShaderMaterial.LUTFresnelTextureType.NONE, // 8: GLASS
-		LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02, // 9: CUSTOM (BODY)
-		LUTShaderMaterial.LUTFresnelTextureType.DEFAULT_02 // 10: CUSTOM (PANTS)
+	/** Table mapping modulate type to LUT type (specular and fresnel use the same mapping). */
+	static lutTypes = [
+		LUTTextureType.SKIN_01, // 0: FACELINE
+		LUTTextureType.DEFAULT_02, // 1: BEARD
+		LUTTextureType.SKIN_01, // 2: NOSE
+		LUTTextureType.SKIN_01, // 3: FOREHEAD
+		LUTTextureType.DEFAULT_02, // 4: HAIR
+		LUTTextureType.DEFAULT_02, // 5: CAP
+		LUTTextureType.DEFAULT_02, // 6: MASK
+		LUTTextureType.NONE, // 7: NOSELINE
+		LUTTextureType.NONE, // 8: GLASS
+		LUTTextureType.DEFAULT_02, // 9: CUSTOM (BODY)
+		LUTTextureType.DEFAULT_02 // 10: CUSTOM (PANTS)
 	];
 
 	/**
 	 * Cached LUT textures to avoid redundant generation.
 	 * @typedef {Object} LUTTextures
-	 * @property {Object<LUTSpecularTextureType, THREE.DataTexture>} specular -
-	 * Specular LUT textures indexed by LUT type.
-	 * @property {Object<LUTSpecularTextureType, THREE.DataTexture>} fresnel -
-	 * Fresnel LUT textures indexed by LUT type.
+	 * @property {Array<THREE.DataTexture>} specular - Specular LUT textures indexed by {@link LUTTextureType}.
+	 * @property {Array<THREE.DataTexture>} fresnel - Fresnel LUT textures indexed by {@link LUTTextureType}.
 	 */
-	/**
-	 * @type {LUTTextures|null}
-	 * @private
-	 */
-	static _lutTextures = null;
+
+	/** @type {LUTTextures|null} @private */ static _lutTextures = null;
 
 	/**
 	 * Generates and return LUT textures.
@@ -952,11 +851,16 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @returns {LUTTextures} Specular and fresnel LUT textures.
 	 * @public
 	 */
-	static getLUTTextures(lutSize = 512) {
+	static getLUTTextures(lutSize = DEFAULT_LUT_SIZE) {
 		if (LUTShaderMaterial._lutTextures) {
 			return LUTShaderMaterial._lutTextures;
 		}
-		const textures = /** @type {LUTTextures} */ ({ specular: {}, fresnel: {} });
+
+		const length = LUTTextureType.COUNT;
+		LUTShaderMaterial._lutTextures = {
+			specular: Array.from({ length }),
+			fresnel: Array.from({ length })
+		};
 		// Get the texture format dynamically based on Three.js version.
 		const r8 = Number(THREE.REVISION) <= 136
 			? /** @type {THREE.PixelFormat} */ (1024) // THREE.LuminanceFormat
@@ -964,39 +868,28 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 		/**
 		 * Helper function to generate LUT textures.
-		 * @param {Object<number, HermitianCurve>} lutType - The mapping for LUT type to {@link HermitanCurve}.
-		 * @param {Object<number, THREE.DataTexture>} target -
-		 * The {@link LUTTextures} type instance to emit textures to.
+		 * @param {Array<[number, number, number][]>} curveMap - Mapping from {@link LUTTextureType} to curve.
+		 * @param {Array<THREE.DataTexture>} target - Output map to populate.
 		 */
-		function generateLUTTextures(lutType, target) {
-			for (const key in lutType) {
-				const lutData = lutType[key].generateLUT(lutSize);
-				target[Number(key)] = Object.assign(
-					new THREE.DataTexture(
-						// Uint8Array.from(lutData.flatMap(value => [value, 0, 0, 255])), // RGBA
-						lutData,
-						lutSize,
-						1,
-						r8,
-						// THREE.RGBAFormat, // RGBA
-						THREE.UnsignedByteType
-					),
-					{
-						colorSpace: THREE.LinearSRGBColorSpace,
-						needsUpdate: true
-					}
-				);
+		function generateLUTTextures(curveMap, target) {
+			const newProps = { colorSpace: THREE.LinearSRGBColorSpace, needsUpdate: true };
+			for (let i = 0; i < LUTTextureType.COUNT; i++) {
+				const lutData = generateLUT(curveMap[i]);
+				target[i] = Object.assign(new THREE.DataTexture(
+					lutData, lutSize, 1, r8,
+					// THREE.RGBAFormat, // RGBA
+					THREE.UnsignedByteType
+				), newProps);
 			}
 		}
 
-		generateLUTTextures(LUTShaderMaterial._lutDefinitions.specular, textures.specular);
-		generateLUTTextures(LUTShaderMaterial._lutDefinitions.fresnel, textures.fresnel);
+		generateLUTTextures(lutCurveSpecular,
+			LUTShaderMaterial._lutTextures.specular);
+		generateLUTTextures(lutCurveFresnel,
+			LUTShaderMaterial._lutTextures.fresnel);
 
-		LUTShaderMaterial._lutTextures = textures;
-		return textures;
+		return LUTShaderMaterial._lutTextures;
 	}
-
-	/* eslint-enable jsdoc/no-undefined-types -- LUTSpecularTextureType, LUTFresnelTextureType, HermitanCurve  */
 
 	// Default light colors for the LUT shader.
 	/** @type {THREE.Color} */
@@ -1188,11 +1081,7 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 	 * @param {FFLModulateType} value - The new modulateType value.
 	 */
 	set modulateType(value) {
-		/**
-		 * @type {FFLModulateType}
-		 * @private
-		 */
-		this._modulateType = value;
+		/** @type {FFLModulateType} @private */ this._modulateType = value;
 
 		const needsColorDarken = (
 			value === 1 || // SHAPE_BEARD
@@ -1207,29 +1096,22 @@ class LUTShaderMaterial extends THREE.ShaderMaterial {
 
 		// Assign LUT textures using modulate type.
 		const lutTextures = LUTShaderMaterial.getLUTTextures();
-		const specular = LUTShaderMaterial.lutSpecularTypes[value];
-		const fresnel = LUTShaderMaterial.lutFresnelTypes[value];
-		if (specular === undefined || fresnel === undefined) {
-			return;
+		const lutType = LUTShaderMaterial.lutTypes[value];
+		if (lutType !== undefined) {
+			// Only apply the following if the shape has a LUT texture.
+			this.uniforms.uLUTSpecTexture = { value: lutTextures.specular[lutType] };
+			this.uniforms.uLUTFresTexture = { value: lutTextures.fresnel[lutType] };
+
+			// Only real purpose of uAlphaTest is to discard/
+			// skip writing depth for DrawXlu stage.
+			// Usually (not in Miitomo) all DrawXlu elements have depth writing disabled
+			// but in this case Miitomo has it enabled but discards depth writes here
+			this.uniforms.uAlphaTest = {
+				value: (value >= 6 && value <= 8)
+			};
 		}
 
-		const lutSpecTexture = lutTextures.specular[specular];
-		const lutFresTexture = lutTextures.fresnel[fresnel];
-
-		this.uniforms.uLUTSpecTexture = { value: lutSpecTexture };
-		this.uniforms.uLUTFresTexture = { value: lutFresTexture };
-		// Only real purpose of uAlphaTest is to discard/
-		// skip writing depth for DrawXlu stage.
-		// Usually (not in Miitomo) all DrawXlu elements have depth writing disabled
-		// but in this case Miitomo has it enabled but discards depth writes here
-		this.uniforms.uAlphaTest = {
-			value: (value >= 6 && value <= 8)
-		};
-
-		/**
-		 * @type {THREE.Side|undefined}
-		 * @package
-		 */
+		/** @type {THREE.Side|undefined} @package */
 		this._side = this.side; // Store original side.
 		// Force culling to none for mask.
 		this.side = (value === 6 ? THREE.DoubleSide : this.side);
