@@ -162,10 +162,14 @@ function applyScaleDescToBones(bones, scaleVector, desc) {
 	for (const bone of /** @type {Array<BoneWithScaling>} */ (bones)) {
 		const name = bone.name;
 
-		// Mark root to be used for translation adjustment.
-		if (name === desc.root) {
+		// Mark root's direct children to be used for translation adjustment.
+		// NOTE: This checks the bone's parent name rather than the bone's own name,
+		// since the root (e.g. skl_root) is sometimes not skinned and therefore
+		// not present in `bones` at all, so it can never be "bone" in this loop.
+		// This bone still needs its normal scale/`.scalling` applied below,
+		// so this does NOT skip to the next bone like it did previously.
+		if (bone.parent?.name === desc.root) {
 			bone.scaleForRootAdjust = scaleVector; // Set scale vector to be used.
-			continue;
 		}
 
 		// Skip if explicitly listed in `none`.

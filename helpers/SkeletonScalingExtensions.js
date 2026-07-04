@@ -80,24 +80,24 @@ function addSkeletonScalingExtensions(Skeleton) {
 		const tmpTrans = /* @__PURE__ */ new THREE.Vector3();
 
 		/**
-		 * Adjusts translation, if the parent is the root (skl_root).
-		 * @param {BoneWithScaling} bone - The bone to check/adjust for.
+		 * Adjusts translation, if this bone is a direct child of the root (skl_root).
+		 * @param {THREE.Object3D &
+		 * {scaleForRootAdjust: THREE.Vector3Like|undefined}} bone - The bone to check/adjust for.
 		 * @param {THREE.Matrix4} matrix - The local matrix.
 		 */
 		function adjustTranslationForRoot(bone, matrix) {
-			// Run if: this bone has a parent bone, and the parent is skl_root.
-			if (!bone.scalling || !(bone.parent instanceof THREE.Bone) ||
-				// scaleForRootAdjust being present indicates that parent is the root.
-				!(/** @type {BoneWithScaling} */ (bone.parent).scaleForRootAdjust)) {
+			// scaleForRootAdjust being present on the bone itself indicates its parent is root.
+			// NOTE: This checks the bone's own property rather than the parent's, since the
+			// root (e.g. skl_root) is sometimes not skinned, so it may not be a THREE.Bone
+			// instance at all (GLTFLoader only creates THREE.Bone for skinned joints).
+			if (!bone.scaleForRootAdjust) {
 				return;
 			}
-			// if (!bone.scalling || !bone.isScallingRoot) return;
 
 			// Get translation/W-axis from matrix.
 			const translation = tmpTrans.setFromMatrixPosition(matrix);
 			// Use the scale vector to adjust translation.
-			const scale = /** @type {THREE.Vector3Like} */
-				(/** @type {BoneWithScaling} */ (bone.parent).scaleForRootAdjust);
+			const scale = bone.scaleForRootAdjust;
 
 			// Multiply translation by YYX axes:
 			translation.x *= scale.y;
