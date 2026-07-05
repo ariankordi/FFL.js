@@ -155,36 +155,8 @@ function addSkeletonScalingExtensions(Skeleton) {
 			console.assert(this.boneMatrices instanceof Float32Array); // Enforce non-null.
 			const boneMatrices = /** @type {Float32Array} */ (this.boneMatrices);
 
-			// Bones must be processed parent-before-child: the child-following
-			// patch below propagates a scaled parent's transform down only one
-			// level per iteration, so a child processed before its parent would
-			// never receive the parent's scale. The glTF skin `joints` order is
-			// not guaranteed to be hierarchical (e.g. Assimp emits joints in
-			// mesh-encounter order, which can place a child like Leg_1 before its
-			// parent Waist), so derive an explicit parent-first order once here,
-			// sorted by hierarchy depth. Cached on the skeleton since `bones`
-			// (and hence the ordering) never changes after construction.
-			let order = /** @type {Array<number>|undefined} */ (this._scalingBoneOrder);
-			if (!order) {
-				/**
-				 * Number of ancestors of a bone, i.e. its depth in the scene graph.
-				 * @param {THREE.Object3D|null|undefined} bone - The bone to measure.
-				 * @returns {number} The bone's depth (0 for a bone with no parent).
-				 */
-				const depthOf = (bone) => {
-					let depth = 0;
-					for (let parent = bone?.parent; parent; parent = parent.parent) {
-						depth++;
-					}
-					return depth;
-				};
-				order = this.bones.map((/** @type {THREE.Bone} */ _bone, /** @type {number} */ i) => i)
-					.sort((a, b) => depthOf(this.bones[a]) - depthOf(this.bones[b]));
-				/** @type {*} */ (this)._scalingBoneOrder = order;
-			}
-
 			// For each bone, calculate the matrixWorld and then apply custom per-bone scaling.
-			for (const i of order) { // Flatten bone matrices to array.
+			for (let i = 0; i < this.bones.length; i++) { // Flatten bone matrices to array.
 				const bone = /** @type {BoneWithScaling|undefined} */ (this.bones[i]);
 				/** Current bone's matrixWorld. It will be re-assigned if there is scaling. */
 				let matrixWorld = bone ? bone.matrixWorld : _identityMatrix;
