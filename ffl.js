@@ -2873,6 +2873,7 @@ class DrawParam {
 		/** Do not include the parameters if forFFLMaterial is false. */
 		const modulateModeType = forFFLMaterial
 			? {
+				lightEnable,
 				modulateMode: modulateParam.mode,
 				modulateType: modulateParam.type // need this set before color.
 			}
@@ -2897,11 +2898,6 @@ class DrawParam {
 		modulateParam.pColorG && (param.colorG = _getFFLColor(f32, modulateParam.pColorG));
 		modulateParam.pColorB && (param.colorB = _getFFLColor(f32, modulateParam.pColorB));
 
-		// only for mask/faceline which should not be drawn in non-ffl materials:
-		if (!lightEnable) {
-			// Only set lightEnable if it is not default.
-			/** @type {Object<string, *>} */ (param).lightEnable = lightEnable;
-		}
 		return param;
 	}
 
