@@ -114,14 +114,20 @@ function addSkeletonScalingExtensions(Skeleton) {
 		 * @param {Array<SkeletonAttachment>} attachments - The attachment array.
 		 * @param {Parameters<typeof THREE.Matrix4.prototype.fromArray>[0]} boneMatrices -
 		 * The raw matrices array to update the attachment with.
+		 * @param {typeof THREE.Skeleton.prototype.boneInverses} boneInverses -
+		 * boneInverses array from the skeleton, to apply inverse bind matrix.
 		 */
-		function updateAttachments(attachments, boneMatrices) {
+		function updateAttachments(attachments, boneMatrices, boneInverses) {
 			for (const at of attachments) {
 				// _offsetMatrix - Temporary matrix for the bone's worldMatrix.
 				// scaleMatrix - Temporary matrix for the inverted parent.
 
 				// Get the world matrix of the bone we just fed to skinning:
 				_offsetMatrix.fromArray(boneMatrices, at.boneIdx * 16); // Already scaled.
+
+				// Apply the inverse bind matrix to the attachment.
+				_offsetMatrix.multiplyMatrices(_offsetMatrix,
+					scaleMatrix.copy(boneInverses[at.boneIdx]).invert());
 
 				// The caller wants to preserve the attachment's own local scale.
 				if (at.localScale) {
@@ -186,7 +192,7 @@ function addSkeletonScalingExtensions(Skeleton) {
 
 			// Update all registered attachments after bones are updated.
 			if (this._attachments) {
-				updateAttachments(this._attachments, boneMatrices);
+				updateAttachments(this._attachments, boneMatrices, this.boneInverses);
 			}
 
 			// Finally, update boneTexture (like the original update function)

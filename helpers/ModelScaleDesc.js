@@ -31,8 +31,6 @@ import * as THREE from 'three';
  * (usually something along the lines of "skl_root").
  * @property {string} head - The name of the bone for which to attach the model's head.
  * NOTE: The head bone is not necessarily used for scaling, but is provided here for convenience.
- * @property {string} shadow - The name of a bone that is planted at the bottom of
- * the skeleton, and receives scalar scale. This is used for attaching the shadow model.
  */
 
 /**
@@ -54,14 +52,11 @@ const editorBodyScaleDesc = {
 	yxz: ['arm_l1', 'arm_l2', 'arm_r1', 'arm_r2', 'elbow_l', 'elbow_r'],
 	// Wrist, Shoulder, Ankle, Knee
 	scalar: ['wrist_l', 'wrist_r', 'shoulder_l', 'shoulder_r',
-		'ankle_l', 'ankle_r', 'knee_l', 'knee_r',
-		'body'], // The shadow, which receives scalar scale, can be attached to body.
-	shadow: 'body',
-	none: ['all_root'] // Do not scale all_root.
+		'ankle_l', 'ankle_r', 'knee_l', 'knee_r'],
+	none: ['all_root', 'body']
 	// NOTE: Bone whitelist or blacklist? This is using blacklist, but perhaps
 	// for models with more bones/roots, a whitelist will cause less problems.
 };
-// How is the shadow scaled in the editor?
 
 /**
  * Scaling description for the body model used in Miitomo, which
@@ -78,7 +73,6 @@ const archBodyScaleDesc = {
 	yxz: null, // All bones receive YXZ scale by default.
 	// Wrist, Ankle (no shoulders, knees)
 	scalar: ['Ankle_R', 'Ankle_L', 'Wrist_R', 'Wrist_L'],
-	shadow: 'Waist', // TODO: Need to find a good shadow anchor. How did this work originally?
 	// Above are referenced in body scale func. (Other bones are not mentioned by strings)
 	// At the beginning of body scale func, jointRoot and Head are skipped.
 	none: ['jointRoot', 'Head', 'nw4f_root'/** < For Super Mario Maker 2 bfres */]
