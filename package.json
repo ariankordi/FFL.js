@@ -2,6 +2,7 @@
   "name": "ffl.js",
   "version": "2.2.0",
   "main": "ffl.js",
+  "types": "./dist/ffl.d.ts",
   "type": "module",
   "scripts": {
     "lint": "eslint",
@@ -19,11 +20,29 @@
     "url": "git://github.com/ariankordi/FFL.js.git"
   },
   "exports": {
-    ".": "./ffl.js",
+    ".": {
+      "types": "./dist/ffl.d.ts",
+      "default": "./ffl.js"
+    },
+    "./helpers/*.js": {
+      "types": "./dist/helpers/*.d.ts",
+      "default": "./helpers/*.js"
+    },
+    "./materials/*.js": {
+      "types": "./dist/materials/*.d.ts",
+      "default": "./materials/*.js"
+    },
+    "./materials/*.mjs": {
+      "types": "./dist/materials/*.d.mts",
+      "default": "./materials/*.mjs"
+    },
+    "./ffl-emscripten.cjs": {
+      "types": "./dist/ffl-emscripten.d.cts",
+      "default": "./ffl-emscripten.cjs"
+    },
     "./helpers/*": "./helpers/*",
     "./materials/*": "./materials/*",
-    "./examples/*": "./examples/*",
-    "./ffl-emscripten.cjs": "./ffl-emscripten.cjs"
+    "./examples/*": "./examples/*"
   },
   "author": "Arian Kordi",
   "license": "AGPL-3.0-only",

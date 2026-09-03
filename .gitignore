@@ -6,4 +6,4 @@ node_modules/
 # Unwanted .d.ts definitions: examples, rolldown, emscripten
 dist/examples/*
 dist/*.config*
-dist/*emscripten*.d.*
+
