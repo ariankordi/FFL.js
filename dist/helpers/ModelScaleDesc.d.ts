@@ -38,11 +38,6 @@ export type ModelScaleDesc = {
      * NOTE: The head bone is not necessarily used for scaling, but is provided here for convenience.
      */
     head: string;
-    /**
-     * - The name of a bone that is planted at the bottom of
-     * the skeleton, and receives scalar scale. This is used for attaching the shadow model.
-     */
-    shadow: string;
 };
 /** @typedef {import('./SkeletonScalingExtensions.js').BoneWithScaling} BoneWithScaling */
 /**
@@ -62,8 +57,6 @@ export type ModelScaleDesc = {
  * (usually something along the lines of "skl_root").
  * @property {string} head - The name of the bone for which to attach the model's head.
  * NOTE: The head bone is not necessarily used for scaling, but is provided here for convenience.
- * @property {string} shadow - The name of a bone that is planted at the bottom of
- * the skeleton, and receives scalar scale. This is used for attaching the shadow model.
  */
 /**
  * Scaling description for the body model used in the editor.

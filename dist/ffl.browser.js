@@ -94,6 +94,8 @@ three = __toESM(three);
 	* but to get "additional info" would be nice in general.
 	* @package
 	*/
+	/** @private */
+	const _viewFromPtr = (m, ptr) => new DataView(m.HEAPU8.buffer, ptr);
 	/**
 	* Result type for Face Library functions (not the real FFL enum).
 	* Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/FFLResult.h
@@ -363,27 +365,15 @@ three = __toESM(three);
 	const FFLStoreData_size = 96;
 	/**
 	* Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
-	* @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
+	* @param {number} ptr - Pointer to FFLiCharInfo.
 	* @param {FFL} ffl - FFL module/resource state.
 	* @param {boolean} verifyName - Whether the name and creator name should be verified.
 	* @returns {void} Returns nothing if verification passes.
 	* @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
-	* @public
+	* @package
 	*/
-	function verifyCharInfo(data, ffl, verifyName = false) {
-		const mod = ffl.module;
-		let charInfoPtr = 0;
-		let charInfoAllocated = false;
-		if (typeof data === "number") {
-			charInfoPtr = data;
-			charInfoAllocated = false;
-		} else {
-			charInfoAllocated = true;
-			charInfoPtr = mod._malloc(FFLiCharInfo_size);
-			mod.HEAPU8.set(data, charInfoPtr);
-		}
-		const result = mod._FFLiVerifyCharInfoWithReason(charInfoPtr, verifyName);
-		if (charInfoAllocated) mod._free(charInfoPtr);
+	function _verifyCharInfo(ptr, ffl, verifyName = false) {
+		const result = ffl.module._FFLiVerifyCharInfoWithReason(ptr, verifyName);
 		if (result !== 0) throw new FFLiVerifyReasonException(result);
 	}
 	/**
@@ -405,10 +395,19 @@ three = __toESM(three);
 	/** @package */
 	const commonColorEnableMask = 1 << 31;
 	/**
+	* Whether the (unofficial) mask FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK is applied,
+	* meaning that the index is a Switch Common Color instead of an FFL color.
+	* @param {number} color - The color index from FFLiCharInfo.
+	* @returns {boolean} Whether the index is flagged as a common color.
+	* @public
+	*/
+	const commonColorIsEnabled = (color) => (color & commonColorEnableMask) !== 0;
+	/**
 	* Applies (unofficial) mask: FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK
 	* to a common color index to indicate to FFL which color table it should use.
 	* @param {number} color - The color index to flag.
 	* @returns {number} The flagged color index to use in FFLiCharinfo.
+	* @public
 	*/
 	const commonColorMask = (color) => color | commonColorEnableMask;
 	/**
@@ -416,7 +415,9 @@ three = __toESM(three);
 	* to a common color index to reveal the original common color index.
 	* @param {number} color - The flagged color index.
 	* @returns {number} The original color index before flagging.
+	* @public
 	*/
+	const commonColorUnmask = (color) => color & ~commonColorEnableMask;
 	/**
 	* Manages THREE.Texture objects created via FFL.
 	* Must be instantiated after FFL is fully initialized.
@@ -482,13 +483,12 @@ three = __toESM(three);
 		* @private
 		*/
 		static _allocateTextureCallback(module, createCallback, deleteCallback) {
-			const FFLTextureCallback_size = 16;
-			const u8 = new Uint8Array(FFLTextureCallback_size);
-			const view = new DataView(u8.buffer);
+			const ptr = module._malloc(16);
+			const view = _viewFromPtr(module, ptr);
+			view.setUint32(0, 0, true);
+			view.setUint8(4, 0);
 			view.setUint32(8, createCallback, true);
 			view.setUint32(12, deleteCallback, true);
-			const ptr = module._malloc(FFLTextureCallback_size);
-			module.HEAPU8.set(u8, ptr);
 			return ptr;
 		}
 		/**
@@ -545,11 +545,12 @@ three = __toESM(three);
 			texture.magFilter = three.LinearFilter;
 			texture.minFilter = three.LinearFilter;
 			if (useMipmaps) {
-				texture.mipmaps = [{
+				texture.mipmaps = Array.from({ length: textureInfo.mipCount });
+				texture.mipmaps[0] = {
 					data: imageData,
 					width: textureInfo.width,
 					height: textureInfo.height
-				}];
+				};
 				texture.minFilter = three.LinearMipmapLinearFilter;
 				texture.generateMipmaps = false;
 				this._addMipmaps(texture, textureInfo);
@@ -573,11 +574,11 @@ three = __toESM(three);
 				const end = textureInfo.mipPtr + nextMipOffset;
 				const start = textureInfo.mipPtr + mipOffset;
 				const mipData = this._module.HEAPU8.slice(start, end);
-				texture.mipmaps.push({
+				texture.mipmaps[mipLevel] = {
 					data: mipData,
 					width: mipWidth,
 					height: mipHeight
-				});
+				};
 			}
 		}
 		/**
@@ -585,9 +586,7 @@ three = __toESM(three);
 		* @returns {THREE.Texture|null|undefined} Returns the texture if it is found.
 		* @public
 		*/
-		get(id) {
-			return this._textures.get(id);
-		}
+		get = (id) => this._textures.get(id);
 		/**
 		* @param {number} id - ID assigned to the texture.
 		* @param {THREE.Texture} texture - Texture to add.
@@ -806,9 +805,8 @@ three = __toESM(three);
 				};
 				desc.pData[FFL.singleResourceType] = heapPtr;
 				desc.size[FFL.singleResourceType] = heapSize;
-				const resourceDescData = FFL._packFFLResourceDesc(desc);
-				resourceDescPtr = module._malloc(this.FFLResourceDesc_size);
-				module.HEAPU8.set(resourceDescData, resourceDescPtr);
+				resourceDescPtr = module._malloc(16);
+				FFL._packFFLResourceDesc(_viewFromPtr(module, resourceDescPtr), desc);
 				const result = module._FFLInitRes(0, resourceDescPtr);
 				if (result === FFLResult.FILE_INVALID) throw new BrokenInitRes();
 				FFLResultException.handleResult(result, "FFLInitRes");
@@ -832,20 +830,11 @@ three = __toESM(three);
 		* @private
 		*/
 		/** @private */
-		static FFLResourceDesc_size = 16;
-		/**
-		* @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
-		* @returns {Uint8Array} Byte form of FFLResourceDesc.
-		* @private
-		*/
-		static _packFFLResourceDesc(obj) {
-			const u8 = new Uint8Array(this.FFLResourceDesc_size);
-			const view = new DataView(u8.buffer);
+		static _packFFLResourceDesc(view, obj) {
 			view.setUint32(0, obj.pData[0], true);
 			view.setUint32(4, obj.pData[1], true);
 			view.setUint32(8, obj.size[0], true);
 			view.setUint32(12, obj.size[1], true);
-			return u8;
 		}
 		/**
 		* Loads data from TypedArray or fetch response directly into Emscripten heap.
@@ -984,7 +973,7 @@ three = __toESM(three);
 			/** @private */
 			this._module = ffl.module;
 			/**
-			* The data used to construct the CharModel.
+			* The character data used to construct the CharModel.
 			* @type {ConstructorParameters<typeof CharModel>[1]}
 			* @private
 			*/
@@ -994,25 +983,24 @@ three = __toESM(three);
 			* @package
 			*/
 			this._materialClass = materialClass;
+			const FFLCharModelSource_size = 12;
+			const FFLCharModelDesc_size = 24;
 			const modelSourcePtr = this._module._malloc(FFLCharModelSource_size);
-			const modelDescPtr = this._module._malloc(CharModel.FFLCharModelDesc_size);
+			const modelDescPtr = this._module._malloc(FFLCharModelDesc_size);
 			/**
 			* Pointer to the FFLiCharModel in memory, set to null when deleted.
 			* @private
 			*/
 			this._ptr = this._module._malloc(CharModel.FFLiCharModel_size);
-			const modelSource = _allocateModelSource(this._data, this._module);
-			/** Get pBuffer to free it later. */
-			const charInfoPtr = modelSource.pBuffer;
-			const modelSourceBuffer = CharModel._packFFLCharModelSource(modelSource);
-			this._module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
+			const charInfoPtr = this._module._malloc(FFLiCharInfo_size);
+			CharModel._packFFLCharModelSource(_viewFromPtr(this._module, modelSourcePtr), charInfoPtr);
 			/** @private */
 			this._modelDesc = CharModel._descOrExpFlagToModelDesc(descOrExpFlag);
 			this._modelDesc.modelFlag |= FFLModelFlag.NEW_EXPRESSIONS;
-			const modelDescBuffer = CharModel._packFFLCharModelDesc(this._modelDesc);
-			this._module.HEAPU8.set(modelDescBuffer, modelDescPtr);
+			CharModel._packFFLCharModelDesc(_viewFromPtr(this._module, modelDescPtr), this._modelDesc);
 			try {
-				if (verify) verifyCharInfo(charInfoPtr, ffl, false);
+				_pickUpCharInfo(this._module, this._data, charInfoPtr);
+				if (verify) _verifyCharInfo(charInfoPtr, ffl, false);
 				/**
 				* Local per-model TextureManager instance.
 				* @private
@@ -1072,6 +1060,14 @@ three = __toESM(three);
 			* @public
 			*/
 			this.charInfo = this._model.getCharInfo();
+			/**
+			* Raw FFLiCharInfo bytes, captured at construction time.
+			* Use this to initialize a mutable edit buffer (e.g. in MiiEditController).
+			* @type {Uint8Array}
+			* @readonly
+			* @public
+			*/
+			this.charInfoBytes = this._module.HEAPU8.slice(this._ptr, this._ptr + FFLiCharInfo_size);
 			/**
 			* Group of THREE.Mesh objects representing the CharModel.
 			* @type {THREE.Group}
@@ -1261,9 +1257,7 @@ three = __toESM(three);
 		* @returns {THREE.Vector3Like} Scale vector for the body model.
 		* @public
 		*/
-		getBodyScale() {
-			const build = this.charInfo.build;
-			const height = this.charInfo.height;
+		getBodyScale(build = this.charInfo.build, height = this.charInfo.height) {
 			const m = 128;
 			const x = build * (height * (.47 / m) + .4) / m + height * (.23 / m) + .4;
 			return {
@@ -1314,8 +1308,6 @@ three = __toESM(three);
 		}
 		/** @private */
 		static FFLiCharModel_size = 2156;
-		/** @private */
-		static FFLCharModelDesc_size = 24;
 		/**
 		* Used to index DrawParam array in FFLiCharModel.
 		* @private
@@ -1335,14 +1327,8 @@ three = __toESM(three);
 			OPA_HAT_CAP: 11,
 			MAX: 12
 		};
-		/**
-		* @param {FFLCharModelDesc} obj - Object form of FFLCharModelDesc.
-		* @returns {Uint8Array} Byte form of FFLCharModelDesc.
-		* @private
-		*/
-		static _packFFLCharModelDesc(obj) {
-			const u8 = new Uint8Array(this.FFLCharModelDesc_size);
-			const view = new DataView(u8.buffer);
+		/** @private */
+		static _packFFLCharModelDesc(view, obj) {
 			view.setUint32(0, obj.resolution, true);
 			const flag = obj.allExpressionFlag;
 			view.setUint32(4, flag[0], true);
@@ -1350,19 +1336,12 @@ three = __toESM(three);
 			view.setUint32(12, flag[2], true);
 			view.setUint32(16, obj.modelFlag, true);
 			view.setUint32(20, FFL.singleResourceType, true);
-			return u8;
 		}
-		/**
-		* @param {FFLCharModelSource} obj - Object form of FFLCharModelSource.
-		* @returns {Uint8Array} Byte form of FFLCharModelSource.
-		* @private
-		*/
-		static _packFFLCharModelSource(obj) {
-			const u8 = new Uint8Array(FFLCharModelSource_size);
-			const view = new DataView(u8.buffer);
-			view.setUint32(0, obj.dataSource >>> 0, true);
-			view.setUint32(4, obj.pBuffer, true);
-			return u8;
+		/** @private */
+		static _packFFLCharModelSource(view, pBuffer) {
+			view.setUint32(0, 6, true);
+			view.setUint32(4, pBuffer, true);
+			view.setUint16(8, 0, true);
 		}
 		/**
 		* Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
@@ -1614,13 +1593,6 @@ three = __toESM(three);
 		}
 	};
 	/** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
-	const FFLCharModelSource_size = 10;
-	/**
-	* @typedef {Object} FFLCharModelSource
-	* @property {number} dataSource - Originally FFLDataSource enum.
-	* @property {number} pBuffer
-	* @property {number} index - Only for default, official, MiddleDB; unneeded for raw data
-	*/
 	/**
 	* NOTE: FFLResourceType has been removed from here.
 	* @typedef {Object} FFLCharModelDesc
@@ -1629,74 +1601,59 @@ three = __toESM(three);
 	* @property {FFLModelFlag} modelFlag
 	*/
 	/**
-	* Converts the input data and allocates it into FFLCharModelSource.
-	* Note that this allocates pBuffer so you must free it when you are done.
-	* @param {ConstructorParameters<typeof CharModel>[1]} data - Data input.
+	* Populates CharInfo with converted input data.
 	* @param {Module} module - Module to allocate and access the buffer through.
-	* @returns {FFLCharModelSource} The CharModelSource with the data specified.
-	* @throws {Error} data must be Uint8Array. Data must be a known type.
+	* @param {ConstructorParameters<typeof CharModel>[1]} data - Data input.
+	* @param {number} charInfoPtr - Pointer to FFLiCharInfo.
+	* @throws {Error} Throws if input is not a known type.
 	* @package
 	* @todo TODO: This used to support FFLiCharInfo as an object. Should it still do so?
 	*/
-	function _allocateModelSource(data, module) {
-		/** Allocate maximum size. */
-		const bufferPtr = module._malloc(FFLiCharInfo_size);
-		const modelSource = {
-			dataSource: 6,
-			pBuffer: bufferPtr,
-			index: 0
-		};
-		/** @param {Uint8Array} src - Source data in StudioCharInfo format. */
-		function setStudioData(src) {
-			const charInfoData = _studioToFFLiCharInfo(src);
-			module.HEAPU8.set(charInfoData, bufferPtr);
-		}
+	function _pickUpCharInfo(module, data, charInfoPtr) {
 		/**
 		* Gets CharInfo from calling a function.
 		* @param {Uint8Array} data - The input data.
-		* @param {number} size - The size to allocate.
 		* @param {string} funcName - The function on the module to call.
 		* @throws {Error} Throws if the function returned false.
 		* @private
 		*/
-		function callGetCharInfoFunc(data, size, funcName) {
-			const dataPtr = module._malloc(size);
+		function callGetCharInfoFunc(data, funcName) {
+			const dataPtr = module._malloc(data.length);
 			module.HEAPU8.set(data, dataPtr);
-			const result = module[funcName](bufferPtr, dataPtr);
+			const result = module[funcName](charInfoPtr, dataPtr);
 			module._free(dataPtr);
-			if (!result) {
-				module._free(bufferPtr);
-				throw new Error(`_allocateModelSource: call to ${funcName} returned false, CharInfo verification probably failed`);
-			}
+			if (!result) throw new Error(`_allocateModelSource: call to ${funcName} returned false, CharInfo verification probably failed`);
 		}
+		/** Destination FFLiCharInfo. */
+		const dst = module.HEAPU8.subarray(charInfoPtr, charInfoPtr + FFLiCharInfo_size);
+		dst.fill(0, 0, FFLiCharInfo_size);
 		switch (data.length) {
 			case FFLStoreData_size:
-				callGetCharInfoFunc(data, FFLStoreData_size, "_FFLpGetCharInfoFromStoreData");
+				callGetCharInfoFunc(data, "_FFLpGetCharInfoFromStoreData");
 				break;
 			case 74:
 			case 76:
-				callGetCharInfoFunc(data, 74, "_FFLpGetCharInfoFromMiiDataOfficialRFL");
+				callGetCharInfoFunc(data, "_FFLpGetCharInfoFromMiiDataOfficialRFL");
 				break;
 			case FFLiCharInfo_size:
-				module.HEAPU8.set(data, bufferPtr);
+				module.HEAPU8.set(data, charInfoPtr);
 				break;
 			case 47:
 				data = _studioURLObfuscationDecode(data);
-				setStudioData(data);
+				CharInfoConverter.fromStudio(dst, data);
 				break;
 			case 46:
-				setStudioData(data);
+				CharInfoConverter.fromStudio(dst, data);
 				break;
-			case 88: throw new Error("_allocateModelSource: NX CharInfo is not supported.");
+			case 88:
+				CharInfoConverter.fromNxCharInfo(dst, data);
+				break;
 			case 48:
 			case 68: throw new Error("_allocateModelSource: NX CoreData/StoreData is not supported.");
 			case 92:
 			case 72: throw new Error("_allocateModelSource: Input needs to be padded to 96 bytes with checksum (FFLStoreData).");
-			default:
-				module._free(bufferPtr);
-				throw new Error(`_allocateModelSource: Unknown length for character data: ${data.length}`);
+			default: throw new Error(`_allocateModelSource: Unknown length for character data: ${data.length}`);
 		}
-		return modelSource;
 	}
 	/**
 	* Static default for FFLCharModelDesc.
@@ -2021,6 +1978,7 @@ three = __toESM(three);
 			const lightEnable = !(modulateParam.type >= FFLModulateType.SHAPE_MAX && modulateParam.mode !== FFLModulateMode.CONSTANT);
 			/** Do not include the parameters if forFFLMaterial is false. */
 			const modulateModeType = forFFLMaterial ? {
+				lightEnable,
 				modulateMode: modulateParam.mode,
 				modulateType: modulateParam.type
 			} : {};
@@ -2033,8 +1991,6 @@ three = __toESM(three);
 			});
 			modulateParam.pColorG && (param.colorG = _getFFLColor(f32, modulateParam.pColorG));
 			modulateParam.pColorB && (param.colorB = _getFFLColor(f32, modulateParam.pColorB));
-			if (!lightEnable)
- /** @type {Object<string, *>} */ param.lightEnable = lightEnable;
 			return param;
 		}
 		/**
@@ -2099,7 +2055,7 @@ three = __toESM(three);
 			const maskTempObjectPtr = charModel.getMaskTempObjectPtr();
 			const expressionFlagPtr = charModel.getExpressionFlagPtr();
 			/** @type {Array<THREE.Scene>} */
-			const scenes = [];
+			const scenes = Array.from({ length: maskParams.length });
 			for (let i = 0; i < maskParams.length; i++) {
 				if (maskParams[i] === 0) continue;
 				const maskParamPtr = maskParams[i];
@@ -2108,9 +2064,9 @@ three = __toESM(three);
 				const res = charModel.getResolution();
 				const { target, scene } = CharModelTextures._drawMaskTexture(res, rawMaskDrawParam, renderer, module, texMgr, materialClass);
 				targets[i] = target;
-				scenes.push(scene);
+				scenes[i] = scene;
 			}
-			for (const scene of scenes) _disposeMany(scene);
+			for (const scene of scenes) scene && _disposeMany(scene);
 			module._FFLiDeleteTempObjectMaskTextures(maskTempObjectPtr, expressionFlagPtr, FFL.singleResourceType);
 			module._FFLiDeleteTextureTempObject(charModel.ptr);
 		},
@@ -2473,64 +2429,113 @@ three = __toESM(three);
 			return targetCanvas;
 		}
 	};
-	/**
-	* Converts StudioCharInfo to FFLiCharInfo type needed by FFL internally.
-	* @param {Uint8Array} src - The raw, un-obfuscated StudioCharInfo data.
-	* @returns {Uint8Array} Byte form of FFLiCharInfo.
-	* @package
-	*/
-	function _studioToFFLiCharInfo(src) {
-		const dst = new Uint8Array(FFLiCharInfo_size);
-		const view = new DataView(dst.buffer);
-		view.setUint32(128, commonColorMask(src[0]), true);
-		dst[124] = src[1];
-		dst[176] = src[2];
-		dst[44] = src[3];
-		view.setUint32(36, commonColorMask(src[4]), true);
-		dst[48] = src[5];
-		dst[40] = src[6];
-		dst[32] = src[7];
-		dst[52] = src[8];
-		dst[56] = src[9];
-		dst[72] = src[10];
-		view.setUint32(64, commonColorMask(src[11]), true);
-		dst[76] = src[12];
-		dst[68] = src[13];
-		dst[60] = src[14];
-		dst[80] = src[15];
-		dst[84] = src[16];
-		dst[8] = src[17];
-		dst[16] = src[18];
-		dst[4] = src[19];
-		dst[12] = src[20];
-		dst[236] = src[21];
-		dst[224] = src[22];
-		view.setUint32(144, commonColorMask(src[23]), true);
-		dst[148] = src[24];
-		dst[140] = src[25];
-		dst[152] = src[26];
-		view.setUint32(24, commonColorMask(src[27]), true);
-		dst[28] = src[28];
-		dst[20] = src[29];
-		dst[172] = src[30];
-		dst[160] = src[31];
-		dst[156] = src[32];
-		dst[164] = src[33];
-		dst[168] = src[34];
-		dst[112] = src[35];
-		view.setUint32(104, commonColorMask(src[36]), true);
-		dst[108] = src[37];
-		dst[100] = src[38];
-		dst[116] = src[39];
-		dst[132] = src[40];
-		dst[120] = src[41];
-		dst[136] = src[42];
-		dst[92] = src[43];
-		dst[88] = src[44];
-		dst[96] = src[45];
-		dst[260] = 3;
-		return dst;
-	}
+	const CharInfoConverter = {
+		_setCommonColor(dst, offset, value) {
+			dst[offset] = value;
+			dst[offset + 3] = commonColorEnableMask >>> 24;
+		},
+		fromStudio(dst, src) {
+			CharInfoConverter._setCommonColor(dst, 128, src[0]);
+			dst[124] = src[1];
+			dst[176] = src[2];
+			dst[44] = src[3];
+			CharInfoConverter._setCommonColor(dst, 36, src[4]);
+			dst[48] = src[5];
+			dst[40] = src[6];
+			dst[32] = src[7];
+			dst[52] = src[8];
+			dst[56] = src[9];
+			dst[72] = src[10];
+			CharInfoConverter._setCommonColor(dst, 64, src[11]);
+			dst[76] = src[12];
+			dst[68] = src[13];
+			dst[60] = src[14];
+			dst[80] = src[15];
+			dst[84] = src[16];
+			dst[8] = src[17];
+			dst[16] = src[18];
+			dst[4] = src[19];
+			dst[12] = src[20];
+			dst[236] = src[21];
+			dst[224] = src[22];
+			CharInfoConverter._setCommonColor(dst, 144, src[23]);
+			dst[148] = src[24];
+			dst[140] = src[25];
+			dst[152] = src[26];
+			CharInfoConverter._setCommonColor(dst, 24, src[27]);
+			dst[28] = src[28];
+			dst[20] = src[29];
+			dst[172] = src[30];
+			dst[160] = src[31];
+			dst[156] = src[32];
+			dst[164] = src[33];
+			dst[168] = src[34];
+			dst[112] = src[35];
+			CharInfoConverter._setCommonColor(dst, 104, src[36]);
+			dst[108] = src[37];
+			dst[100] = src[38];
+			dst[116] = src[39];
+			dst[132] = src[40];
+			dst[120] = src[41];
+			dst[136] = src[42];
+			dst[92] = src[43];
+			dst[88] = src[44];
+			dst[96] = src[45];
+			dst[260] = 3;
+		},
+		fromNxCharInfo(dst, src) {
+			dst[4] = src[45];
+			dst[8] = src[46];
+			dst[12] = src[47];
+			dst[16] = src[48];
+			dst[20] = src[49];
+			CharInfoConverter._setCommonColor(dst, 24, src[50]);
+			dst[28] = src[51];
+			dst[32] = src[52];
+			CharInfoConverter._setCommonColor(dst, 36, src[53]);
+			dst[40] = src[54];
+			dst[44] = src[55];
+			dst[48] = src[56];
+			dst[52] = src[57];
+			dst[56] = src[58];
+			dst[60] = src[59];
+			CharInfoConverter._setCommonColor(dst, 64, src[60]);
+			dst[68] = src[61];
+			dst[72] = src[62];
+			dst[76] = src[63];
+			dst[80] = src[64];
+			dst[84] = src[65];
+			dst[88] = src[66];
+			dst[92] = src[67];
+			dst[96] = src[68];
+			dst[100] = src[69];
+			CharInfoConverter._setCommonColor(dst, 104, src[70]);
+			dst[108] = src[71];
+			dst[112] = src[72];
+			dst[116] = src[73];
+			dst[120] = src[76];
+			dst[124] = src[75];
+			CharInfoConverter._setCommonColor(dst, 128, src[74]);
+			dst[132] = src[77];
+			dst[136] = src[78];
+			dst[140] = src[79];
+			CharInfoConverter._setCommonColor(dst, 144, src[80]);
+			dst[148] = src[81];
+			dst[152] = src[82];
+			dst[156] = src[83];
+			dst[160] = src[84];
+			dst[164] = src[85];
+			dst[168] = src[86];
+			dst[172] = src[41];
+			dst[176] = src[42];
+			dst.set(src.subarray(16, 36), 180);
+			dst[224] = src[40];
+			dst[236] = src[39];
+			dst[244] = src[44];
+			dst[260] = 3;
+			return dst;
+		}
+	};
 	/**
 	* @param {Uint8Array} data - Obfuscated Studio URL data.
 	* @returns {Uint8Array} Decoded Uint8Array representing CharInfoStudio.
@@ -2567,11 +2572,13 @@ exports.ModelTexturesConverter = ModelTexturesConverter;
 exports.PantsColor = PantsColor;
 exports.TextureShaderMaterial = TextureShaderMaterial;
 exports.checkExpressionChangesShapes = checkExpressionChangesShapes;
+exports.commonColorIsEnabled = commonColorIsEnabled;
+exports.commonColorMask = commonColorMask;
+exports.commonColorUnmask = commonColorUnmask;
 exports.createAndRenderToTarget = createAndRenderToTarget;
 exports.getRandomCharInfo = getRandomCharInfo;
 exports.makeExpressionFlag = makeExpressionFlag;
 exports.matSupportsFFL = matSupportsFFL;
 exports.pantsColors = pantsColors;
-exports.verifyCharInfo = verifyCharInfo;
 return exports;
 })({}, THREE);

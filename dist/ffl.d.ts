@@ -1,14 +1,4 @@
-export type FFLCharModelSource = {
-    /**
-     * - Originally FFLDataSource enum.
-     */
-    dataSource: number;
-    pBuffer: number;
-    /**
-     * - Only for default, official, MiddleDB; unneeded for raw data
-     */
-    index: number;
-};
+export type CharModelDescOrExpressionFlag = FFLCharModelDesc | Array<FFLExpression> | FFLExpression | Uint32Array | null;
 /**
  * NOTE: FFLResourceType has been removed from here.
  */
@@ -99,7 +89,6 @@ export type Module = {
 };
 export type FFLiCharInfo = ReturnType<typeof _unpackFFLiCharInfo>;
 export type MaterialConstructor = new (...args: any[]) => THREE.Material;
-export type CharModelDescOrExpressionFlag = FFLCharModelDesc | Array<FFLExpression> | FFLExpression | Uint32Array | null;
 /**
  * *
  */
@@ -313,12 +302,6 @@ export class FFL {
      * @private
      */
     /** @private */
-    private static FFLResourceDesc_size;
-    /**
-     * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
-     * @returns {Uint8Array} Byte form of FFLResourceDesc.
-     * @private
-     */
     private static _packFFLResourceDesc;
     /**
      * Loads data from TypedArray or fetch response directly into Emscripten heap.
@@ -365,16 +348,6 @@ export class FFL {
     public setRenderer(renderer: Renderer): void;
 }
 /**
- * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
- * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
- * @param {FFL} ffl - FFL module/resource state.
- * @param {boolean} verifyName - Whether the name and creator name should be verified.
- * @returns {void} Returns nothing if verification passes.
- * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
- * @public
- */
-export function verifyCharInfo(data: Uint8Array | number, ffl: FFL, verifyName?: boolean): void;
-/**
  * Generates a random FFLiCharInfo instance calling FFLiGetRandomCharInfo.
  * @param {FFL} ffl - FFL module/resource state.
  * @param {FFLGender} gender - Gender of the character.
@@ -401,6 +374,30 @@ export function makeExpressionFlag(expressions: Array<FFLExpression> | FFLExpres
  * @returns {boolean} Whether the expression changes shapes.
  */
 export function checkExpressionChangesShapes(i: FFLExpression, warn?: boolean): boolean;
+/**
+ * Whether the (unofficial) mask FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK is applied,
+ * meaning that the index is a Switch Common Color instead of an FFL color.
+ * @param {number} color - The color index from FFLiCharInfo.
+ * @returns {boolean} Whether the index is flagged as a common color.
+ * @public
+ */
+export function commonColorIsEnabled(color: number): boolean;
+/**
+ * Applies (unofficial) mask: FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK
+ * to a common color index to indicate to FFL which color table it should use.
+ * @param {number} color - The color index to flag.
+ * @returns {number} The flagged color index to use in FFLiCharinfo.
+ * @public
+ */
+export function commonColorMask(color: number): number;
+/**
+ * Removes (unofficial) mask: FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK
+ * to a common color index to reveal the original common color index.
+ * @param {number} color - The flagged color index.
+ * @returns {number} The original color index before flagging.
+ * @public
+ */
+export function commonColorUnmask(color: number): number;
 /**
  * Class for creating and maintaining a Mii head model,
  * also known as the "CharModel". Once constructed, a Three.js
@@ -432,24 +429,14 @@ export class CharModel {
     }): CharModel;
     /** @private */
     private static FFLiCharModel_size;
-    /** @private */
-    private static FFLCharModelDesc_size;
     /**
      * Used to index DrawParam array in FFLiCharModel.
      * @private
      */
     private static FFLiShapeType;
-    /**
-     * @param {FFLCharModelDesc} obj - Object form of FFLCharModelDesc.
-     * @returns {Uint8Array} Byte form of FFLCharModelDesc.
-     * @private
-     */
+    /** @private */
     private static _packFFLCharModelDesc;
-    /**
-     * @param {FFLCharModelSource} obj - Object form of FFLCharModelSource.
-     * @returns {Uint8Array} Byte form of FFLCharModelSource.
-     * @private
-     */
+    /** @private */
     private static _packFFLCharModelSource;
     /**
      * Converts an expression flag, expression, array of expressions, or object to {@link FFLCharModelDesc}.
@@ -483,7 +470,7 @@ export class CharModel {
     /** @private */
     private _module;
     /**
-     * The data used to construct the CharModel.
+     * The character data used to construct the CharModel.
      * @type {ConstructorParameters<typeof CharModel>[1]}
      * @private
      */
@@ -615,6 +602,7 @@ export class CharModel {
     /**
      * Raw FFLiCharInfo bytes, captured at construction time.
      * Use this to initialize a mutable edit buffer (e.g. in MiiEditController).
+     * @type {Uint8Array}
      * @readonly
      * @public
      */
@@ -713,7 +701,7 @@ export class CharModel {
      * @returns {THREE.Vector3Like} Scale vector for the body model.
      * @public
      */
-    public getBodyScale(): THREE.Vector3Like;
+    public getBodyScale(build?: number, height?: number): THREE.Vector3Like;
     /**
      * Gets the ColorInfo object needed for SampleShaderMaterial.
      * @param {boolean} isSpecial - Determines the pants color, gold if special or gray otherwise.

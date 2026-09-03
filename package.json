@@ -1,6 +1,6 @@
 {
   "name": "ffl.js",
-  "version": "2.2.0",
+  "version": "2.2.2",
   "main": "ffl.js",
   "types": "./dist/ffl.d.ts",
   "type": "module",

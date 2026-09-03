@@ -12,7 +12,7 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
   - Misc: Multiple expressions, texture mipmaps, bounding box, basic icon creation, headwear coordinates/hair variants
 * Data
   - 3DS/Wii U Mii Data (`FFLStoreData`)
-  - Mii Studio data (raw "codes" or obfuscated URL "data")
+  - Switch CharInfo + Mii Studio data (raw "codes" or obfuscated URL "data")
   - Wii Mii Data (`RFLCharData`, `RFLStoreData`)
   - All data is verified by FFL.
   - (Cannot currently edit/export data.)
@@ -43,7 +43,7 @@ For more help, you can either examine the `ffl.js` source, or, generate document
 
 ### Importing as module
 
-This package isn't on npmjs.com, so install it from the repo instead: `npm install https://github.com/ariankordi/FFL.js#v2.2.0` (replacing v2.2.0 with whatever is latest)
+This package isn't on npmjs.com, so install it from the repo instead: `npm install https://github.com/ariankordi/FFL.js#v2.2.2` (replacing v2.2.2 with whatever is latest)
 
 For the browser, you have to use `<script type="module">`, as well as adding import maps.
 
@@ -60,8 +60,8 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 			"imports": {
 				"three": "https://esm.sh/three@0.177.0",
 				"three/": "https://esm.sh/three@0.177.0/",
-				"FFL.js": "https://esm.sh/*gh/ariankordi/FFL.js@v2.2.0",
-				"FFL.js/": "https://esm.sh/*gh/ariankordi/FFL.js@v2.2.0/"
+				"FFL.js": "https://esm.sh/*gh/ariankordi/FFL.js@v2.2.2",
+				"FFL.js/": "https://esm.sh/*gh/ariankordi/FFL.js@v2.2.2/"
 			}
 		}
 	</script>
@@ -88,7 +88,7 @@ For the browser, you have to use `<script type="module">`, as well as adding imp
 			// NOTE: You need to get AFLResHigh_2_3.dat from somewhere.
 			const ffl = await FFL.initWithResource(fetch('../AFLResHigh_2_3.dat'),
 				// If not using a CDN like esm.sh, then pass just "ModuleFFL" to CharModel directly.
-				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js@v2.2.0/ffl-emscripten.wasm'}));
+				ModuleFFL({locateFile: () => 'https://esm.sh/gh/ariankordi/FFL.js@v2.2.2/ffl-emscripten.wasm'}));
 			/** Mii data from NNID: JasmineChlora */
 			const data = Uint8Array.fromHex('000d142a303f434b717a7b84939ba6b2bbbec5cbc9d0e2ea010d15252b3250535960736f726870757f8289a0a7aeb1');
 			const model = new CharModel(ffl, data, FFLCharModelDescDefault,

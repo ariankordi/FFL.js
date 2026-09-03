@@ -4,7 +4,7 @@ export default CTRShaderMaterial;
  * @augments {THREE.ShaderMaterial}
  */
 declare class CTRShaderMaterial extends THREE.ShaderMaterial {
-    static defaultLightDir: THREE.Vector3;
+    static defaultLightDirection: THREE.Vector3;
     set color(value: THREE.Color);
     /** @returns {THREE.Color|undefined} The color. */
     get color(): THREE.Color | undefined;

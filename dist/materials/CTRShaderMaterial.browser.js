@@ -141,7 +141,7 @@ void main() {
 	* @augments {THREE.ShaderMaterial}
 	*/
 	var CTRShaderMaterial = class CTRShaderMaterial extends three.ShaderMaterial {
-		static defaultLightDir = /* @__PURE__ */ new three.Vector3(-.53906, .53906, .64697);
+		static defaultLightDirection = /* @__PURE__ */ new three.Vector3(-.53906, .53906, .64697);
 		/**
 		* Constructs an  instance.
 		* @param {THREE.ShaderMaterialParameters} [options] -
@@ -151,7 +151,7 @@ void main() {
 			/** @type {Object<string, THREE.IUniform>} */
 			const uniforms = {
 				opacity: { value: 1 },
-				lightDirection: { value: CTRShaderMaterial.defaultLightDir.clone() }
+				lightDirection: { value: CTRShaderMaterial.defaultLightDirection.clone() }
 			};
 			const blankMatrix3 = { value: /* @__PURE__ */ new three.Matrix3() };
 			if (Number(three.REVISION) < 151) uniforms.uvTransform = blankMatrix3;

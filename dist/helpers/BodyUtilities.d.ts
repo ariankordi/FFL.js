@@ -61,6 +61,33 @@ export function getFaceCamera(): THREE.PerspectiveCamera;
  */
 export function getWholeBodyCamera(aspect: number, height: number): THREE.PerspectiveCamera;
 /**
+ * @typedef {import('../materials/SampleShaderMaterial.js').SampleShaderMaterialColorInfo} SampleShaderMaterialColorInfo
+ * @typedef {import('./SkeletonScalingExtensions.js').SkeletonWithAttachments} SkeletonWithAttachments
+ * @typedef {import('./ModelScaleDesc.js').ModelScaleDesc} ModelScaleDesc
+ * @typedef {import('../ffl.js').MaterialConstructor} MaterialConstructor
+ */
+/**
+ * A body model with its ModelScaleDesc and animations altogether.
+ * @typedef {Object} BodyModel
+ * @property {THREE.Object3D} model
+ * @property {Array<THREE.AnimationClip>} animations - AnimationClips from the glTF.
+ * @property {ModelScaleDesc} scaleDesc
+ * @property {THREE.AnimationMixer} mixer
+ */
+/**
+ * Async wrapper to load a GLTF model from URL.
+ * @param {string} url - The URL to load the glTF model from.
+ * @returns {Promise<import('three/examples/jsm/loaders/GLTFLoader.js').GLTF>}
+ * The GLTF object. `gltf.scene` contains the mesh group.
+ */
+/**
+ * Searches the Object3D for a SkinnedMesh that contains the given bone.
+ * @param {THREE.Object3D} root - Where to search for the SkinnedMesh.
+ * @param {string} boneName - Name of the bone in the parent SkinnedMesh to find.
+ * @returns {THREE.SkinnedMesh|null} The SkinnedMesh containing the bone, or null if it was not found.
+ */
+export function findSkinnedMeshWithBone(root: THREE.Object3D, boneName: string): THREE.SkinnedMesh | null;
+/**
  * Moves the position of the camera up so that the head is in center.
  * @param {THREE.Camera} camera - The camera whose position to move.
  * @param {BodyModel} body - The body model.
