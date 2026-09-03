@@ -73,6 +73,10 @@ import * as THREE from 'three';
  * @package
  */
 
+/** @private */
+const _viewFromPtr = (/** @type {Module} */ m,
+	/** @type {number} */ ptr) => new DataView(m.HEAPU8.buffer, ptr);
+
 // // ---------------------------------------------------------------------
 // //  Enum Definitions
 // // ---------------------------------------------------------------------
@@ -399,35 +403,15 @@ const FFLStoreData_size = 96;
 
 /**
  * Validates the input CharInfo by calling FFLiVerifyCharInfoWithReason.
- * @param {Uint8Array|number} data - FFLiCharInfo structure as bytes or pointer.
+ * @param {number} ptr - Pointer to FFLiCharInfo.
  * @param {FFL} ffl - FFL module/resource state.
  * @param {boolean} verifyName - Whether the name and creator name should be verified.
  * @returns {void} Returns nothing if verification passes.
  * @throws {FFLiVerifyReasonException} Throws if the result is not 0 (FFLI_VERIFY_REASON_OK).
- * @public
+ * @package
  */
-function verifyCharInfo(data, ffl, verifyName = false) {
-	const mod = ffl.module;
-	// Resolve charInfoPtr as pointer to CharInfo.
-	let charInfoPtr = 0;
-	let charInfoAllocated = false;
-	// Assume that number means pointer.
-	if (typeof data === 'number') {
-		charInfoPtr = data;
-		charInfoAllocated = false;
-	} else {
-		// Assume everything else means Uint8Array. TODO: untested
-		charInfoAllocated = true;
-		// Allocate and copy CharInfo.
-		charInfoPtr = mod._malloc(FFLiCharInfo_size);
-		mod.HEAPU8.set(data, charInfoPtr);
-	}
-	const result = mod._FFLiVerifyCharInfoWithReason(charInfoPtr, verifyName);
-	// Free CharInfo as soon as the function returns.
-	if (charInfoAllocated) {
-		mod._free(charInfoPtr);
-	}
-
+function _verifyCharInfo(ptr, ffl, verifyName = false) {
+	const result = ffl.module._FFLiVerifyCharInfoWithReason(ptr, verifyName);
 	if (result !== 0) {
 		// Reference: https://github.com/aboood40091/ffl/blob/master/include/nn/ffl/detail/FFLiCharInfo.h#L90
 		throw new FFLiVerifyReasonException(result);
@@ -457,10 +441,20 @@ function getRandomCharInfo(ffl, gender = FFLGender.ALL, age = FFLAge.ALL, race =
 const commonColorEnableMask = (1 << 31);
 
 /**
+ * Whether the (unofficial) mask FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK is applied,
+ * meaning that the index is a Switch Common Color instead of an FFL color.
+ * @param {number} color - The color index from FFLiCharInfo.
+ * @returns {boolean} Whether the index is flagged as a common color.
+ * @public
+ */
+const commonColorIsEnabled = color => (color & commonColorEnableMask) !== 0;
+
+/**
  * Applies (unofficial) mask: FFLI_NN_MII_COMMON_COLOR_ENABLE_MASK
  * to a common color index to indicate to FFL which color table it should use.
  * @param {number} color - The color index to flag.
  * @returns {number} The flagged color index to use in FFLiCharinfo.
+ * @public
  */
 const commonColorMask = color => color | commonColorEnableMask;
 
@@ -469,13 +463,12 @@ const commonColorMask = color => color | commonColorEnableMask;
  * to a common color index to reveal the original common color index.
  * @param {number} color - The flagged color index.
  * @returns {number} The original color index before flagging.
+ * @public
  */
-// const commonColorUnmask = color => (color & ~commonColorEnableMask) === 0
-// Only unmask color if the mask is enabled.
-// 	? color
-// 	: color & ~commonColorEnableMask;
+const commonColorUnmask = color => color & ~commonColorEnableMask;
 
-// EXPORTS: _unpackFFLiCharInfo, verifyCharInfo, getRandomCharInfo, commonColorMask
+// EXPORTS: _unpackFFLiCharInfo, getRandomCharInfo,
+// commonColorIsEnabled, commonColorMask, commonColorUnmask
 
 // // ---------------------------------------------------------------------
 // //  Texture Management
@@ -560,12 +553,12 @@ class TextureManager {
 	static _allocateTextureCallback(module, createCallback, deleteCallback) {
 		// this would usually be in a func called something like _packFFLTextureCallback
 		const FFLTextureCallback_size = 16;
-		const u8 = new Uint8Array(FFLTextureCallback_size);
-		const view = new DataView(u8.buffer);
+		const ptr = module._malloc(FFLTextureCallback_size);
+		const view = _viewFromPtr(module, ptr);
+		view.setUint32(0, 0, true); // pObj
+		view.setUint8(4, 0); // useOriginalTileMode
 		view.setUint32(8, createCallback, true); // pCreateFunc
 		view.setUint32(12, deleteCallback, true); // pDeleteFunc
-		const ptr = module._malloc(FFLTextureCallback_size);
-		module.HEAPU8.set(u8, ptr);
 		return ptr;
 	}
 
@@ -725,9 +718,7 @@ class TextureManager {
 	 * @returns {THREE.Texture|null|undefined} Returns the texture if it is found.
 	 * @public
 	 */
-	get(id) {
-		return this._textures.get(id);
-	}
+	get = id => this._textures.get(id);
 
 	/**
 	 * @param {number} id - ID assigned to the texture.
@@ -1029,9 +1020,10 @@ class FFL {
 			desc.pData[FFL.singleResourceType] = heapPtr;
 			desc.size[FFL.singleResourceType] = heapSize;
 
-			const resourceDescData = FFL._packFFLResourceDesc(desc);
-			resourceDescPtr = module._malloc(FFL.FFLResourceDesc_size);
-			module.HEAPU8.set(resourceDescData, resourceDescPtr);
+			const FFLResourceDesc_size = 16;
+			resourceDescPtr = module._malloc(FFLResourceDesc_size);
+			FFL._packFFLResourceDesc(
+				_viewFromPtr(module, resourceDescPtr), desc);
 
 			// Call FFL initialization using: FFL_FONT_REGION_JP_US_EU = 0
 			const result = module._FFLInitRes(0, resourceDescPtr);
@@ -1072,21 +1064,13 @@ class FFL {
 	 * @property {Array<number>} size
 	 * @private
 	 */
+
 	/** @private */
-	static FFLResourceDesc_size = 16;
-	/**
-	 * @param {FFLResourceDesc} obj - Object form of FFLResourceDesc.
-	 * @returns {Uint8Array} Byte form of FFLResourceDesc.
-	 * @private
-	 */
-	static _packFFLResourceDesc(obj) {
-		const u8 = new Uint8Array(FFL.FFLResourceDesc_size);
-		const view = new DataView(u8.buffer);
+	static _packFFLResourceDesc(/** @type {DataView} */ view, /** @type {FFLResourceDesc} */ obj) {
 		view.setUint32(0, obj.pData[0], true);
 		view.setUint32(4, obj.pData[1], true);
 		view.setUint32(8, obj.size[0], true);
 		view.setUint32(12, obj.size[1], true);
-		return u8;
 	}
 
 	/**
@@ -1304,7 +1288,7 @@ class CharModel {
 		/** @private */
 		this._module = ffl.module;
 		/**
-		 * The data used to construct the CharModel.
+		 * The character data used to construct the CharModel.
 		 * @type {ConstructorParameters<typeof CharModel>[1]}
 		 * @private
 		 */
@@ -1317,8 +1301,10 @@ class CharModel {
 
 		// Initialize FFLCharModel.
 
+		const FFLCharModelSource_size = 0x0c;
+		const FFLCharModelDesc_size = 0x18;
 		const modelSourcePtr = this._module._malloc(FFLCharModelSource_size);
-		const modelDescPtr = this._module._malloc(CharModel.FFLCharModelDesc_size);
+		const modelDescPtr = this._module._malloc(FFLCharModelDesc_size);
 		/**
 		 * Pointer to the FFLiCharModel in memory, set to null when deleted.
 		 * @private
@@ -1327,26 +1313,26 @@ class CharModel {
 
 		// this._data = getRandomCharInfo(ffl, FFLGender.ALL, FFLAge.ALL, FFLRace.ALL);
 		// console.debug('getRandomCharInfo result:', FFLiCharInfo.unpack(data));
-		// Get FFLCharModelSource. This function converts and allocates FFLiCharInfo.
-		const modelSource = _allocateModelSource(this._data, this._module);
-		/** Get pBuffer to free it later. */
-		const charInfoPtr = modelSource.pBuffer;
-		const modelSourceBuffer = CharModel._packFFLCharModelSource(modelSource);
-		this._module.HEAPU8.set(modelSourceBuffer, modelSourcePtr);
+
+		// Allocate CharInfo and reference it in the FFLCharModelSource.
+		const charInfoPtr = this._module._malloc(FFLiCharInfo_size);
+		CharModel._packFFLCharModelSource(
+			_viewFromPtr(this._module, modelSourcePtr), charInfoPtr);
 
 		/** @private */
 		this._modelDesc = CharModel._descOrExpFlagToModelDesc(descOrExpFlag);
 		// This is needed to enable expressions past 19.
 		this._modelDesc.modelFlag |= FFLModelFlag.NEW_EXPRESSIONS;
 
-		const modelDescBuffer = CharModel._packFFLCharModelDesc(this._modelDesc);
-		this._module.HEAPU8.set(modelDescBuffer, modelDescPtr);
+		CharModel._packFFLCharModelDesc(
+			_viewFromPtr(this._module, modelDescPtr), this._modelDesc);
 
 		// At this point, CharModelSource/CharModelDesc are allocated. Create FFLCharModel.
 		try {
+			_pickUpCharInfo(this._module, this._data, charInfoPtr);
 			// Verify CharInfo before creating.
 			if (verify) {
-				verifyCharInfo(charInfoPtr, ffl, false); // Don't verify name.
+				_verifyCharInfo(charInfoPtr, ffl, false); // Don't verify name.
 			}
 
 			/**
@@ -1831,9 +1817,6 @@ class CharModel {
 	/** @private */
 	static FFLiCharModel_size = 2156;
 
-	/** @private */
-	static FFLCharModelDesc_size = 24;
-
 	/**
 	 * Used to index DrawParam array in FFLiCharModel.
 	 * @private
@@ -1854,14 +1837,9 @@ class CharModel {
 		MAX: 12
 	};
 
-	/**
-	 * @param {FFLCharModelDesc} obj - Object form of FFLCharModelDesc.
-	 * @returns {Uint8Array} Byte form of FFLCharModelDesc.
-	 * @private
-	 */
-	static _packFFLCharModelDesc(obj) {
-		const u8 = new Uint8Array(CharModel.FFLCharModelDesc_size);
-		const view = new DataView(u8.buffer);
+	/** @private */
+	static _packFFLCharModelDesc(/** @type {DataView} */ view,
+		/** @type {FFLCharModelDesc} */ obj) {
 		view.setUint32(0, obj.resolution, true);
 		const flag = obj.allExpressionFlag;
 		view.setUint32(4, flag[0], true);
@@ -1869,21 +1847,14 @@ class CharModel {
 		view.setUint32(12, flag[2], true);
 		view.setUint32(16, obj.modelFlag, true);
 		view.setUint32(20, FFL.singleResourceType, /* obj.resourceType */ true);
-		return u8;
 	}
 
-	/**
-	 * @param {FFLCharModelSource} obj - Object form of FFLCharModelSource.
-	 * @returns {Uint8Array} Byte form of FFLCharModelSource.
-	 * @private
-	 */
-	static _packFFLCharModelSource(obj) {
-		const u8 = new Uint8Array(FFLCharModelSource_size);
-		const view = new DataView(u8.buffer);
-		view.setUint32(0, obj.dataSource >>> 0, true);
-		view.setUint32(4, obj.pBuffer, true);
-		// view.setUint16(8, obj.index, true);
-		return u8;
+	/** @private */
+	static _packFFLCharModelSource(/** @type {DataView} */ view, /** @type {number} */ pBuffer) {
+		// Set modelSource to take FFLiCharInfo w/o validation.
+		view.setUint32(0, 6 /* Custom DIRECT_POINTER value */, true);
+		view.setUint32(4, pBuffer, true);
+		view.setUint16(8, 0, true); // unused index
 	}
 
 	// Private methods:
@@ -2254,14 +2225,6 @@ class CharModelAccessor {
 
 /** @typedef {FFLCharModelDesc|Array<FFLExpression>|FFLExpression|Uint32Array|null} CharModelDescOrExpressionFlag */
 
-const FFLCharModelSource_size = 10;
-/**
- * @typedef {Object} FFLCharModelSource
- * @property {number} dataSource - Originally FFLDataSource enum.
- * @property {number} pBuffer
- * @property {number} index - Only for default, official, MiddleDB; unneeded for raw data
- */
-
 /**
  * NOTE: FFLResourceType has been removed from here.
  * @typedef {Object} FFLCharModelDesc
@@ -2271,108 +2234,69 @@ const FFLCharModelSource_size = 10;
  */
 
 /**
- * Converts the input data and allocates it into FFLCharModelSource.
- * Note that this allocates pBuffer so you must free it when you are done.
- * @param {ConstructorParameters<typeof CharModel>[1]} data - Data input.
+ * Populates CharInfo with converted input data.
  * @param {Module} module - Module to allocate and access the buffer through.
- * @returns {FFLCharModelSource} The CharModelSource with the data specified.
- * @throws {Error} data must be Uint8Array. Data must be a known type.
+ * @param {ConstructorParameters<typeof CharModel>[1]} data - Data input.
+ * @param {number} charInfoPtr - Pointer to FFLiCharInfo.
+ * @throws {Error} Throws if input is not a known type.
  * @package
  * @todo TODO: This used to support FFLiCharInfo as an object. Should it still do so?
  */
-function _allocateModelSource(data, module) {
-	/** Allocate maximum size. */
-	const bufferPtr = module._malloc(FFLiCharInfo_size);
-
-	// Create modelSource.
-	const modelSource = {
-		// FFLDataSource.BUFFER (5) = copies and verifies
-		// FFLDataSource.DIRECT_POINTER (6) = use without verification.
-		dataSource: 6, // DIRECT_POINTER - Takes FFLiCharInfo.
-		pBuffer: bufferPtr,
-		index: 0 // unneeded for raw data
-	};
-
+function _pickUpCharInfo(module, data, charInfoPtr) {
 	// module._FFLiGetRandomCharInfo(bufferPtr, FFLGender.FEMALE, FFLAge.ALL, FFLRace.WHITE); return modelSource;
-
-	// Check type of data.
-	/*
-	if (!(data instanceof Uint8Array)) {
-		try {
-			if (typeof data !== 'object') {
-				throw new Error('_allocateModelSource: data passed in is not FFLiCharInfo object or Uint8Array');
-			}
-			// Assume that this is FFLiCharInfo as an object.
-			// Deserialize to Uint8Array.
-			data = FFLiCharInfo.pack(data);
-		} catch (e) {
-			module._free(bufferPtr);
-			throw e;
-		}
-	}
-	*/
-
-	/** @param {Uint8Array} src - Source data in StudioCharInfo format. */
-	function setStudioData(src) {
-		// studio raw, decode it to charinfo
-		const charInfoData = _studioToFFLiCharInfo(src);
-		module.HEAPU8.set(charInfoData, bufferPtr);
-	}
 
 	/**
 	 * Gets CharInfo from calling a function.
 	 * @param {Uint8Array} data - The input data.
-	 * @param {number} size - The size to allocate.
 	 * @param {string} funcName - The function on the module to call.
 	 * @throws {Error} Throws if the function returned false.
 	 * @private
 	 */
-	function callGetCharInfoFunc(data, size, funcName) {
-		const dataPtr = module._malloc(size);
+	function callGetCharInfoFunc(data, funcName) {
+		const dataPtr = module._malloc(data.length);
 		module.HEAPU8.set(data, dataPtr);
 		// @ts-ignore - Module cannot be indexed by string. NOTE: The function MUST exist.
-		const result = module[funcName](bufferPtr, dataPtr);
+		const result = module[funcName](charInfoPtr, dataPtr);
 		module._free(dataPtr);
 		if (!result) {
-			module._free(bufferPtr);
 			throw new Error(`_allocateModelSource: call to ${funcName} returned false, CharInfo verification probably failed`);
 		}
 	}
 
-	// data should be Uint8Array at this point.
+	/** Destination FFLiCharInfo. */
+	const dst = module.HEAPU8.subarray(charInfoPtr, charInfoPtr + FFLiCharInfo_size);
+	dst.fill(0, 0, FFLiCharInfo_size); // Zero it out.
 
 	// Enumerate through supported data types.
 	switch (data.length) {
 		case FFLStoreData_size: { // sizeof(FFLStoreData)
 			// modelSource.dataSource = FFLDataSource.STORE_DATA;
 			// Convert FFLStoreData to FFLiCharInfo instead.
-			callGetCharInfoFunc(data, FFLStoreData_size, '_FFLpGetCharInfoFromStoreData');
+			callGetCharInfoFunc(data, '_FFLpGetCharInfoFromStoreData');
 			break;
 		}
 		case 74: // sizeof(RFLCharData)
 		case 76: { // sizeof(RFLStoreData)
-			callGetCharInfoFunc(data, 74, '_FFLpGetCharInfoFromMiiDataOfficialRFL');
+			callGetCharInfoFunc(data, '_FFLpGetCharInfoFromMiiDataOfficialRFL');
 			break;
 		}
 		case FFLiCharInfo_size:
-			// modelSource.dataSource = FFLDataSource.BUFFER; // Default option.
-			module.HEAPU8.set(data, bufferPtr); // Copy data into heap.
+			module.HEAPU8.set(data, charInfoPtr); // Copy data into heap.
 			break;
 		case 46 + 1: {
 			// studio data obfuscated
 			data = _studioURLObfuscationDecode(data);
-			setStudioData(data);
+			CharInfoConverter.fromStudio(dst, data);
 			break;
 		}
 		case 46: {
 			// studio data raw
-			setStudioData(data);
+			CharInfoConverter.fromStudio(dst, data);
 			break;
 		}
 		// Unsupported types.
 		case 88:
 			throw new Error('_allocateModelSource: NX CharInfo is not supported.');
-			// module.HEAPU8.set(_nxCharInfoToFFLiCharInfo(data), bufferPtr);
 			// break;
 		case 48:
 		case 68:
@@ -2381,12 +2305,9 @@ function _allocateModelSource(data, module) {
 		case 72:
 			throw new Error('_allocateModelSource: Input needs to be padded to 96 bytes with checksum (FFLStoreData).');
 		default: {
-			module._free(bufferPtr);
 			throw new Error(`_allocateModelSource: Unknown length for character data: ${data.length}`);
 		}
 	}
-
-	return modelSource; // NOTE: pBuffer must be freed.
 }
 
 /**
@@ -3786,76 +3707,79 @@ const ModelIcon = {
 };
 
 // // ---------------------------------------------------------------------
-// //  StudioCharInfo Definition, Conversion
+// //  Mii Data Conversion
 // // ---------------------------------------------------------------------
-// TODO PATH: src/StudioCharInfo.js
+// TODO PATH: src/CharInfoConverter.js
 
-/**
- * Converts StudioCharInfo to FFLiCharInfo type needed by FFL internally.
- * @param {Uint8Array} src - The raw, un-obfuscated StudioCharInfo data.
- * @returns {Uint8Array} Byte form of FFLiCharInfo.
- * @package
- */
-function _studioToFFLiCharInfo(src) {
-	// This function was created by originally writing it in C
-	// reading/writing raw structs, then decompiling and porting to JS.
+const CharInfoConverter = {
+	/** Set a Switch Common Color value. @private */
+	_setCommonColor(/** @type {Uint8Array} */ dst,
+		/** @type {number} */ offset, /** @type {number} */ value) {
+		dst[offset] = value; // Set value on LSB.
+		dst[offset + 3] = commonColorEnableMask >>> 24;
+	},
 
-	// Also, most of the destination fields are 32-bit but this
-	// is choosing to set the (little-endian) least significant byte.
-	// This should be fine, since the source fields are 8 bits each.
-	// Those result in an otherwise smaller function, at the cost
-	// of being severely unreadable.
-	const dst = new Uint8Array(FFLiCharInfo_size);
-	const view = new DataView(dst.buffer);
-	view.setUint32(0x80, commonColorMask(src[0]), true); // beardColor
-	dst[0x7c] = src[1];
-	dst[0xb0] = src[2];
-	dst[0x2c] = src[3];
-	view.setUint32(0x24, commonColorMask(src[4]), true); // eyeColor
-	dst[0x30] = src[5];
-	dst[0x28] = src[6];
-	dst[0x20] = src[7];
-	dst[0x34] = src[8];
-	dst[0x38] = src[9];
-	dst[0x48] = src[10];
-	view.setUint32(0x40, commonColorMask(src[0xb]), true); // eyebrowColor
-	dst[0x4c] = src[0xc];
-	dst[0x44] = src[0xd];
-	dst[0x3c] = src[0xe];
-	dst[0x50] = src[0xf];
-	dst[0x54] = src[0x10];
-	dst[8] = src[0x11];
-	dst[0x10] = src[0x12];
-	dst[4] = src[0x13];
-	dst[0xc] = src[0x14];
-	dst[0xec] = src[0x15];
-	dst[0xe0] = src[0x16];
-	view.setUint32(0x90, commonColorMask(src[0x17]), true); // glassColor
-	dst[0x94] = src[0x18];
-	dst[0x8c] = src[0x19];
-	dst[0x98] = src[0x1a];
-	view.setUint32(0x18, commonColorMask(src[0x1b]), true); // hairColor
-	dst[0x1c] = src[0x1c];
-	dst[0x14] = src[0x1d];
-	dst[0xac] = src[0x1e];
-	dst[0xa0] = src[0x1f];
-	dst[0x9c] = src[0x20];
-	dst[0xa4] = src[0x21];
-	dst[0xa8] = src[0x22];
-	dst[0x70] = src[0x23];
-	view.setUint32(0x68, commonColorMask(src[0x24]), true); // mouthColor
-	dst[0x6c] = src[0x25];
-	dst[100] = src[0x26];
-	dst[0x74] = src[0x27];
-	dst[0x84] = src[0x28];
-	dst[0x78] = src[0x29];
-	dst[0x88] = src[0x2a];
-	dst[0x5c] = src[0x2b];
-	dst[0x58] = src[0x2c];
-	dst[0x60] = src[0x2d];
-	dst[0x104] = 3;
-	return dst;
-}
+	/** Decode Mii data format used on studio.mii.nintendo.com. @public */
+	fromStudio(/** @type {Uint8Array} */ dst,
+		/** @type {Uint8Array} */ src) {
+		// This function was created by originally writing it in C
+		// reading/writing raw structs, then decompiling and porting to JS.
+
+		// Also, most of the destination fields are 32-bit but this
+		// is choosing to set the (little-endian) least significant byte.
+		// This should be fine, since the source fields are 8 bits each.
+		// Those result in an otherwise smaller function, at the cost
+		// of being severely unreadable.
+
+		CharInfoConverter._setCommonColor(dst, 0x80, src[0]); // beardColor
+		dst[0x7c] = src[1];
+		dst[0xb0] = src[2];
+		dst[0x2c] = src[3];
+		CharInfoConverter._setCommonColor(dst, 0x24, src[4]); // eyeColor
+		dst[0x30] = src[5];
+		dst[0x28] = src[6];
+		dst[0x20] = src[7];
+		dst[0x34] = src[8];
+		dst[0x38] = src[9];
+		dst[0x48] = src[10];
+		CharInfoConverter._setCommonColor(dst, 0x40, src[0xb]); // eyebrowColor
+		dst[0x4c] = src[0xc];
+		dst[0x44] = src[0xd];
+		dst[0x3c] = src[0xe];
+		dst[0x50] = src[0xf];
+		dst[0x54] = src[0x10];
+		dst[8] = src[0x11];
+		dst[0x10] = src[0x12];
+		dst[4] = src[0x13];
+		dst[0xc] = src[0x14];
+		dst[0xec] = src[0x15];
+		dst[0xe0] = src[0x16];
+		CharInfoConverter._setCommonColor(dst, 0x90, src[0x17]); // glassColor
+		dst[0x94] = src[0x18];
+		dst[0x8c] = src[0x19];
+		dst[0x98] = src[0x1a];
+		CharInfoConverter._setCommonColor(dst, 0x18, src[0x1b]); // hairColor
+		dst[0x1c] = src[0x1c];
+		dst[0x14] = src[0x1d];
+		dst[0xac] = src[0x1e];
+		dst[0xa0] = src[0x1f];
+		dst[0x9c] = src[0x20];
+		dst[0xa4] = src[0x21];
+		dst[0xa8] = src[0x22];
+		dst[0x70] = src[0x23];
+		CharInfoConverter._setCommonColor(dst, 0x68, src[0x24]); // mouthColor
+		dst[0x6c] = src[0x25];
+		dst[100] = src[0x26];
+		dst[0x74] = src[0x27];
+		dst[0x84] = src[0x28];
+		dst[0x78] = src[0x29];
+		dst[0x88] = src[0x2a];
+		dst[0x5c] = src[0x2b];
+		dst[0x58] = src[0x2c];
+		dst[0x60] = src[0x2d];
+		dst[0x104] = 3;
+	},
+};
 
 /**
  * @param {Uint8Array} data - Obfuscated Studio URL data.
@@ -3895,10 +3819,12 @@ export {
 
 	// Begin public methods
 	FFL,
-	verifyCharInfo,
 	getRandomCharInfo,
 	makeExpressionFlag,
 	checkExpressionChangesShapes,
+	commonColorIsEnabled,
+	commonColorMask,
+	commonColorUnmask,
 
 	// CharModel creation
 	CharModel,
