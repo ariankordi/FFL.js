@@ -2294,10 +2294,9 @@ function _pickUpCharInfo(module, data, charInfoPtr) {
 			CharInfoConverter.fromStudio(dst, data);
 			break;
 		}
-		// Unsupported types.
 		case 88:
-			throw new Error('_allocateModelSource: NX CharInfo is not supported.');
-			// break;
+			CharInfoConverter.fromNxCharInfo(dst, data);
+			break;
 		case 48:
 		case 68:
 			throw new Error('_allocateModelSource: NX CoreData/StoreData is not supported.');
@@ -3779,6 +3778,61 @@ const CharInfoConverter = {
 		dst[0x60] = src[0x2d];
 		dst[0x104] = 3;
 	},
+
+	/** Converts nn::mii::CharInfo (NX) to FFLiCharInfo type needed by FFL internally. @public */
+	fromNxCharInfo(/** @type {Uint8Array} */ dst,
+		/** @type {Uint8Array} */ src) {
+		dst[4] = src[0x2d];
+		dst[8] = src[0x2e];
+		dst[0xc] = src[0x2f];
+		dst[0x10] = src[0x30];
+		dst[0x14] = src[0x31];
+		CharInfoConverter._setCommonColor(dst, 0x18, src[0x32]);
+		dst[0x1c] = src[0x33];
+		dst[0x20] = src[0x34];
+		CharInfoConverter._setCommonColor(dst, 0x24, src[0x35]);
+		dst[0x28] = src[0x36];
+		dst[0x2c] = src[0x37];
+		dst[0x30] = src[0x38];
+		dst[0x34] = src[0x39];
+		dst[0x38] = src[0x3a];
+		dst[0x3c] = src[0x3b];
+		CharInfoConverter._setCommonColor(dst, 0x40, src[0x3c]);
+		dst[0x44] = src[0x3d];
+		dst[0x48] = src[0x3e];
+		dst[0x4c] = src[0x3f];
+		dst[0x50] = src[0x40];
+		dst[0x54] = src[0x41];
+		dst[0x58] = src[0x42];
+		dst[0x5c] = src[0x43];
+		dst[0x60] = src[0x44];
+		dst[100] = src[0x45];
+		CharInfoConverter._setCommonColor(dst, 0x68, src[0x46]);
+		dst[0x6c] = src[0x47];
+		dst[0x70] = src[0x48];
+		dst[0x74] = src[0x49];
+		dst[0x78] = src[0x4c];
+		dst[0x7c] = src[0x4b];
+		CharInfoConverter._setCommonColor(dst, 0x80, src[0x4a]);
+		dst[0x84] = src[0x4d];
+		dst[0x88] = src[0x4e];
+		dst[0x8c] = src[0x4f];
+		CharInfoConverter._setCommonColor(dst, 0x90, src[0x50]);
+		dst[0x94] = src[0x51];
+		dst[0x98] = src[0x52];
+		dst[0x9c] = src[0x53];
+		dst[0xa0] = src[0x54];
+		dst[0xa4] = src[0x55];
+		dst[0xa8] = src[0x56];
+		dst[0xac] = src[0x29];
+		dst[0xb0] = src[0x2a];
+		dst.set(src.subarray(16, 36), 180); // nickname
+		dst[0xe0] = src[0x28]; // gender
+		dst[0xec] = src[0x27];
+		dst[0xf4] = src[0x2c];
+		dst[0x104] = 3;
+		return dst;
+	}
 };
 
 /**
