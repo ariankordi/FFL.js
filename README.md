@@ -10,12 +10,11 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
     * The shaders work exclusively in sRGB. If you don't know what this means and want to opt out, [see this post from Don McCurdy](https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791#post_1).
   - Linear color support from FFL, enabled with `ffl.module._FFLSetLinearGammaMode(1)`. Useful for built-in Three.js materials.
   - Misc: Multiple expressions, texture mipmaps, bounding box, basic icon creation, headwear coordinates/hair variants
-* Data
+* Data (reading)
   - 3DS/Wii U Mii Data (`FFLStoreData`)
   - Switch CharInfo + Mii Studio data (raw "codes" or obfuscated URL "data")
   - Wii Mii Data (`RFLCharData`, `RFLStoreData`)
-  - All data is verified by FFL.
-  - (Cannot currently edit/export data.)
+  - Data validation done in FFL.
 * Compatibility
   - Implemented in JSDoc annotated and fully typed JavaScript calling into FFL in WASM.
     * Just ESM import `ffl.js` and materials. In dist/ there are `.d.ts` definitions and browser non-module versions.
@@ -25,13 +24,13 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
   - Tested from Three.js r144 up to r183 (latest as of writing), WebGL 1/2 and WebGPU.
     * For WebGPU, use [`FFLShaderNodeMaterial`](materials/FFLShaderNodeMaterial.js). For r152 and later, opt out of sRGB by following the link above.
 
-There are currently two demos within `examples`: `demo-basic.html` and `demo-minimal.html`, both of which just show spinning Mii heads.
+There are two demos within `examples`: `demo-basic.html` and `demo-minimal.html`, both of which just show spinning Mii heads.
 
-<img width="350" src="https://github.com/user-attachments/assets/853b4159-4cb0-47ac-b929-220299a3017a">
+<img width="350" src="./examples/images/basic.jpg">
 
-<img width="400" src="https://github.com/user-attachments/assets/7059cc73-463e-4091-baec-642b67ae4993">
+<img width="350" src="./examples/images/basic-shader-selection.jpg">
 
-<img width="200" src="https://github.com/user-attachments/assets/2376e69b-ef53-49a9-a98f-29d4df0eb1c6">
+<img width="350" src="./examples/images/minimal.jpg">
 
 ## Usage
 
