@@ -26,11 +26,7 @@ JavaScript bindings to use FFL, the Wii U Mii renderer decompilation, in Three.j
 
 There are two demos within `examples`: `demo-basic.html` and `demo-minimal.html`, both of which just show spinning Mii heads.
 
-<img width="350" src="./examples/images/basic.jpg">
-
-<img width="350" src="./examples/images/basic-shader-selection.jpg">
-
-<img width="350" src="./examples/images/minimal.jpg">
+<img width="350" src="./examples/images/basic.jpg"> <img width="300" src="./examples/images/basic-shader-selection.jpg"> <img width="200" src="./examples/images/minimal.jpg">
 
 ## Usage
 
