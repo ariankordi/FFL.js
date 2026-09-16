@@ -33,15 +33,22 @@ const getCanvas = (width, height, getContext) =>
 function addWebGPUExtensions(obj = globalThis) {
 	// @ts-ignore -- Incomplete dummy type.
 	obj.VideoFrame ??= (class VideoFrame { });
-	if (obj.navigator) {
+	if (obj.navigator && obj.navigator.gpu !== undefined) {
 		return; // Skip the following below if in a browser.
+		// NOTE: Modern versions of Node.js tested after this
+		// actually do set navigator...
 	}
+
 	Object.assign(obj, globals); // Merge WebGPU globals.
+	const navigatorObject = { userAgent: '' /* Accessed by THREE.GLTFLoader. */, gpu: null };
 	// @ts-ignore -- Incomplete navigator type.
-	obj.navigator = {
-		gpu: create([]),
-		userAgent: '' // THREE.GLTFLoader accesses this.
-	};
+	navigatorObject['gpu'] = create([]);
+	Object.defineProperty(obj, 'navigator', {
+		value: navigatorObject,
+		writable: false,
+		configurable: true,
+		enumerable: true
+	});
 }
 
 /**

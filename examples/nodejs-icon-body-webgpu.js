@@ -2,6 +2,7 @@
  * @file Sample CLI tool for rendering a Mii icon with body
  * headlessly using Node.js and THREE.WebGPURenderer.
  * Before running, install: npm install webgpu three
+ * Last tested with: Node.js 25, three@0.184.0, webgpu@0.6.1
  *
  * Currently, this requires acquiring body models yourself.
  * Search "BodyPath" to see where to get them and replace their paths.
@@ -178,8 +179,8 @@ async function renderRequestToImage(renderer, ffl, matClass, request) {
 		charModel = new CharModel(ffl, request.data,
 			request.expression, matClass, renderer);
 
-		// TODO: In certain instances (charline), nose and forehead
-		// may disappear due to frustum culling. This is probably
+		// TODO: In certain instances (e.g., with Guest A), nose and
+		// forehead disappear due to frustum culling. This is probably
 		// from mask/glass not being properly marked transparent?
 		// For now, disable frustumCulled on every head mesh.
 		charModel.meshes.traverse((m) => {
